@@ -30,7 +30,7 @@ import DriverDetailModal from '../../components/drivers/DriverDetailModal';
 import toast from 'react-hot-toast';
 
 export default function DriversList() {
-  const { hasPermission } = useAuth();
+  useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -41,7 +41,7 @@ export default function DriversList() {
   const [driversData, setDriversData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [documentPreviews, setDocumentPreviews] = useState({});
+  // const [documentPreviews, setDocumentPreviews] = useState({});
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedViewDriver, setSelectedViewDriver] = useState(null);
 
@@ -52,8 +52,8 @@ export default function DriversList() {
       setError(null);
       try {
         // Use Vite env var VITE_API_BASE to point to backend in dev/production.
-        // Fallback to https://udrive-backend.vercel.app for local development.
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+        // Fallback to https://udrive-backend-myt1.vercel.app for local development.
+        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
         const res = await fetch(`${API_BASE}/api/drivers`);
         if (!res.ok) throw new Error(`Failed to load drivers: ${res.status}`);
         const data = await res.json();
@@ -121,7 +121,7 @@ export default function DriversList() {
   const handleEditDriver = async (driver) => {
     try {
       // Fetch complete driver data from the backend
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -133,15 +133,8 @@ export default function DriversList() {
 
       const fullDriverData = await res.json();
 
-      // Update document previews if images exist
-      const previewUpdates = {};
-      ['profilePhoto', 'licenseDocument', 'aadharDocument', 'panDocument', 'bankDocument'].forEach(key => {
-        if (fullDriverData[key]) {
-          previewUpdates[key] = fullDriverData[key];
-        }
-      });
+      // Document preview collection skipped in this build
 
-      setDocumentPreviews(previewUpdates);
       setSelectedDriver(fullDriverData);
       setShowDriverModal(true);
     } catch (err) {
@@ -152,7 +145,7 @@ export default function DriversList() {
 
   const handleSaveDriver = async (driverData) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const token = localStorage.getItem('udriver_token');
       
       if (selectedDriver) {
@@ -167,6 +160,7 @@ export default function DriversList() {
         });
 
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) { localStorage.removeItem('udriver_token'); navigate('/login'); return; }
           throw new Error(`Failed to update driver: ${res.status}`);
         }
 
@@ -187,6 +181,7 @@ export default function DriversList() {
         });
 
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) { localStorage.removeItem('udriver_token'); navigate('/login'); return; }
           throw new Error(`Failed to create driver: ${res.status}`);
         }
 
@@ -206,7 +201,7 @@ export default function DriversList() {
     if (window.confirm('Are you sure you want to delete this driver?')) {
       (async () => {
         try {
-          const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+          const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
           const token = localStorage.getItem('udriver_token');
           if (!token) {
             toast.error('You must be logged in to delete drivers. Redirecting to login...');
@@ -220,13 +215,12 @@ export default function DriversList() {
           });
 
           if (!res.ok) {
+            if (res.status === 401 || res.status === 403) { localStorage.removeItem('udriver_token'); navigate('/login'); return; }
             let msg = `Failed to delete driver: ${res.status}`;
             try {
               const body = await res.json();
               if (body && body.message) msg = body.message;
-            } catch (e) {
-              // ignore JSON parse
-            }
+          } catch { /* ignore parse error */ }
             toast.error(msg);
             return;
           }
@@ -242,81 +236,14 @@ export default function DriversList() {
     }
   };
 
-  const handleKycAction = (driverId, action) => {
-    const statusMap = {
-      approve: 'verified',
-      reject: 'rejected',
-      review: 'pending'
-    };
+  // Legacy quick-action handler (replaced by dropdown). Keep a no-op to avoid usage.
+  // const handleKycAction = undefined;
 
-    const newStatus = statusMap[action];
-
-    (async () => {
-      try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
-        const token = localStorage.getItem('udriver_token');
-        const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ kycStatus: newStatus })
-        });
-
-        if (!res.ok) {
-          let msg = `Failed to update KYC: ${res.status}`;
-          try {
-            const body = await res.json();
-            if (body && body.message) msg = body.message;
-          } catch (e) {}
-          toast.error(msg);
-          return;
-        }
-
-        const updated = await res.json();
-        setDriversData(prev => prev.map(d => d.id === driverId ? updated : d));
-        toast.success(`Driver KYC ${action}d successfully`);
-      } catch (err) {
-        console.error(err);
-        toast.error('Failed to update KYC');
-      }
-    })();
-  };
-
-  const handleStatusToggle = (driverId, currentStatus) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-
-    (async () => {
-      try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
-        const token = localStorage.getItem('udriver_token');
-        const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ status: newStatus })
-        });
-
-        if (!res.ok) {
-          let msg = `Failed to update status: ${res.status}`;
-          try {
-            const body = await res.json();
-            if (body && body.message) msg = body.message;
-          } catch (e) {}
-          toast.error(msg);
-          return;
-        }
-
-        const updated = await res.json();
-        setDriversData(prev => prev.map(d => d.id === driverId ? updated : d));
-        toast.success(`Driver ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
-      } catch (err) {
-        console.error(err);
-        toast.error('Failed to update driver status');
-      }
-    })();
-  };
+  // const handleStatusToggle = undefined;
 
   const handleChangeDriverStatus = async (driverId, newStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -325,7 +252,7 @@ export default function DriversList() {
       });
       if (!res.ok) {
         let msg = `Failed to update status: ${res.status}`;
-        try { const b = await res.json(); if (b && b.message) msg = b.message; } catch(_){}
+        try { const b = await res.json(); if (b && b.message) msg = b.message; } catch { /* ignore */ }
         throw new Error(msg);
       }
       const updated = await res.json();
@@ -339,7 +266,7 @@ export default function DriversList() {
 
   const handleChangeDriverKyc = async (driverId, newKyc) => {
     try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -348,7 +275,7 @@ export default function DriversList() {
       });
       if (!res.ok) {
         let msg = `Failed to update KYC: ${res.status}`;
-        try { const b = await res.json(); if (b && b.message) msg = b.message; } catch(_){}
+        try { const b = await res.json(); if (b && b.message) msg = b.message; } catch { /* ignore */ }
         throw new Error(msg);
       }
       const updated = await res.json();
@@ -360,10 +287,7 @@ export default function DriversList() {
     }
   };
 
-  const canCreateDrivers = hasPermission(PERMISSIONS.DRIVERS_CREATE);
-  const canEditDrivers = hasPermission(PERMISSIONS.DRIVERS_EDIT);
-  const canDeleteDrivers = hasPermission(PERMISSIONS.DRIVERS_DELETE);
-  const canManageKyc = hasPermission(PERMISSIONS.DRIVERS_KYC);
+  // Permissions can be referenced directly via <PermissionGuard>, so local vars are not needed
 
   return (
     <div className="space-y-6">
@@ -610,7 +534,7 @@ export default function DriversList() {
                         <button
                           onClick={async () => {
                             try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
                               const token = localStorage.getItem('udriver_token');
                               const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
                                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}

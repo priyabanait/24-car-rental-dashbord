@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
@@ -28,6 +29,7 @@ import toast from 'react-hot-toast';
 
 export default function VehiclesList() {
   useAuth();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [kycFilter, setKycFilter] = useState('all');
@@ -37,6 +39,22 @@ export default function VehiclesList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Auth helpers for deployed backend
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('udriver_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const handleAuthRedirectIfNeeded = (res) => {
+    if (res && (res.status === 401 || res.status === 403)) {
+      localStorage.removeItem('udriver_token');
+      toast.error('Session expired. Please log in again');
+      navigate('/login');
+      return true;
+    }
+    return false;
+  };
 
   // Ensure we consistently have a usable id across mixed backends
   // ID used by backend API: strictly the numeric vehicleId sequence
@@ -58,7 +76,7 @@ export default function VehiclesList() {
     (async function fetchVehicles(){
       setLoading(true);
       try{
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+        const API_BASE =  'https://udrive-backend-myt1.vercel.app';
         const res = await fetch(`${API_BASE}/api/vehicles`);
         if(!res.ok) { throw new Error('Failed to load vehicles'); }
         const data = await res.json();
@@ -96,14 +114,14 @@ export default function VehiclesList() {
     // fetch fresh vehicle data from backend before opening modal so all fields are populated
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const apiId = resolveApiVehicleId(vehicle);
       if (apiId == null || Number.isNaN(apiId)) {
         // If we can't resolve an API id, skip fetching and use available data
         setSelectedVehicle(normalizeVehicle(vehicle));
       } else {
         const res = await fetch(`${API_BASE}/api/vehicles/${apiId}`);
-        if(!res.ok) { throw new Error('Failed to load vehicle'); }
+        if(!res.ok) { if (handleAuthRedirectIfNeeded(res)) return; throw new Error('Failed to load vehicle'); }
         const data = await res.json();
         setSelectedVehicle(normalizeVehicle(data));
       }
@@ -121,13 +139,13 @@ export default function VehiclesList() {
   const handleViewVehicle = async (vehicle) => {
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const id = resolveApiVehicleId(vehicle);
       if (id == null || Number.isNaN(id)) {
         setSelectedVehicle(normalizeVehicle(vehicle));
       } else {
-        const res = await fetch(`${API_BASE}/api/vehicles/${id}`);
-        if(!res.ok) { throw new Error('Failed to load vehicle'); }
+      const res = await fetch(`${API_BASE}/api/vehicles/${id}`);
+      if(!res.ok) { if (handleAuthRedirectIfNeeded(res)) return; throw new Error('Failed to load vehicle'); }
         const data = await res.json();
         setSelectedVehicle(normalizeVehicle(data));
       }
@@ -143,11 +161,10 @@ export default function VehiclesList() {
 
   const handleSaveVehicle = async (vehicleData) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const headers = {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        ...getAuthHeaders()
       };
 
       let response;
@@ -167,9 +184,7 @@ export default function VehiclesList() {
         });
       }
 
-      if (!response.ok) {
-        throw new Error(`Failed to ${selectedVehicle ? 'update' : 'create'} vehicle: ${response.status}`);
-      }
+      if (!response.ok) { if (handleAuthRedirectIfNeeded(response)) return; throw new Error(`Failed to ${selectedVehicle ? 'update' : 'create'} vehicle: ${response.status}`); }
 
       const saved = normalizeVehicle(await response.json());
       
@@ -191,14 +206,14 @@ export default function VehiclesList() {
   const handleDeleteVehicle = async (vehicleOrId) => {
     if (!window.confirm('Delete this vehicle?')) return;
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const resolvedId = typeof vehicleOrId === 'object' ? resolveApiVehicleId(vehicleOrId) : (Number.isFinite(Number(vehicleOrId)) ? Number(vehicleOrId) : undefined);
       if (!resolvedId && resolvedId !== 0) {
         throw new Error('Vehicle not found');
       }
-      const res = await fetch(`${API_BASE}/api/vehicles/${resolvedId}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const res = await fetch(`${API_BASE}/api/vehicles/${resolvedId}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (!res.ok) {
+        if (handleAuthRedirectIfNeeded(res)) return;
         const b = await res.json().catch(()=>null);
         throw new Error(b && b.message ? b.message : `Failed to delete vehicle: ${res.status}`);
       }
@@ -213,14 +228,13 @@ export default function VehiclesList() {
 
   const handleChangeStatus = async (vehicleId, newStatus) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}: {}) },
+        headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ status: newStatus })
       });
-      if(!res.ok){
+      if(!res.ok){ if (handleAuthRedirectIfNeeded(res)) return;
         const b = await res.json().catch(()=>null);
         throw new Error(b && b.message ? b.message : `Failed to update status: ${res.status}`);
       }
@@ -232,14 +246,13 @@ export default function VehiclesList() {
 
   const handleChangeKyc = async (vehicleId, newKyc) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-myt1.vercel.app';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}: {}) },
+        headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ kycStatus: newKyc })
       });
-      if(!res.ok){
+      if(!res.ok){ if (handleAuthRedirectIfNeeded(res)) return;
         const b = await res.json().catch(()=>null);
         throw new Error(b && b.message ? b.message : `Failed to update KYC status: ${res.status}`);
       }
