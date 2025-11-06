@@ -1,0 +1,936 @@
+import { useState, useEffect } from 'react';
+import { X, User, Mail, Phone, MapPin, FileText, Upload, Camera, Car, CreditCard } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+export default function DriverModal({ isOpen, onClose, driver = null, onSave }) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState({
+    // Personal Information
+    name: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    
+    // License & Documents
+    licenseNumber: '',
+    licenseExpiryDate: '',
+    licenseClass: '',
+    aadharNumber: '',
+    panNumber: '',
+    
+    // Professional Information
+    experience: '',
+    previousEmployment: '',
+    
+    // Plan & Vehicle
+    planType: '',
+    vehiclePreference: '',
+    
+    // Bank Details
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    accountHolderName: '',
+    
+    // Documents
+    profilePhoto: null,
+    licenseDocument: null,
+    aadharDocument: null,
+    panDocument: null,
+    bankDocument: null,
+    
+    // Status
+    status: 'pending',
+    kycStatus: 'pending'
+  });
+
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [documentPreviews, setDocumentPreviews] = useState({});
+
+  const steps = [
+    { id: 1, title: 'Personal Info', icon: User },
+    { id: 2, title: 'Documents', icon: FileText },
+    { id: 3, title: 'Professional', icon: Car },
+    { id: 4, title: 'Banking', icon: CreditCard },
+    { id: 5, title: 'Review', icon: FileText }
+  ];
+
+  useEffect(() => {
+    if (driver) {
+      setFormData({ ...driver });
+      // Set document previews for existing documents
+      const previews = {};
+      ['profilePhoto', 'licenseDocument', 'aadharDocument', 'panDocument', 'bankDocument'].forEach(key => {
+        if (driver[key]) {
+          previews[key] = driver[key];
+        }
+      });
+      setDocumentPreviews(previews);
+      setCurrentStep(1); // Start from the first step but with filled data
+    } else {
+      // Reset form for new driver
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        dateOfBirth: '',
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        emergencyContact: '',
+        emergencyPhone: '',
+        licenseNumber: '',
+        licenseExpiryDate: '',
+        licenseClass: 'LMV',
+        aadharNumber: '',
+        panNumber: '',
+        experience: '',
+        previousEmployment: '',
+        planType: '',
+        vehiclePreference: '',
+        bankName: '',
+        accountNumber: '',
+        ifscCode: '',
+        accountHolderName: '',
+        profilePhoto: null,
+        licenseDocument: null,
+        aadharDocument: null,
+        panDocument: null,
+        bankDocument: null,
+        status: 'pending',
+        kycStatus: 'pending'
+      });
+      setCurrentStep(1);
+      setDocumentPreviews({});
+    }
+    setErrors({});
+  }, [driver, isOpen]);
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Real-time per-field validation
+    const fieldError = validateField(field, value);
+    if (fieldError) {
+      setErrors(prev => ({ ...prev, [field]: fieldError }));
+    } else if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const calculateAge = (dateString) => {
+    if (!dateString) return null;
+    const dob = new Date(dateString);
+    if (isNaN(dob.getTime())) return null;
+    const diffMs = Date.now() - dob.getTime();
+    const ageDt = new Date(diffMs);
+    return Math.abs(ageDt.getUTCFullYear() - 1970);
+  };
+
+  const validateField = (field, value) => {
+    // return error message string or empty/null if valid
+    if (field === 'name') {
+      if (!value || !value.trim()) return 'Name is required';
+      if (!/^[a-zA-Z\s]{2,50}$/.test(value.trim())) return 'Name should only contain letters and spaces (2-50 characters)';
+      return '';
+    }
+    if (field === 'email') {
+      if (!value || !value.trim()) return 'Email is required';
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) return 'Please enter a valid email address';
+      return '';
+    }
+    if (field === 'phone' || field === 'emergencyPhone') {
+      if (!value || !value.trim()) return field === 'phone' ? 'Phone is required' : '';
+      const digits = String(value).replace(/\D/g, '');
+      if (digits.length !== 10) return 'Phone number must be exactly 10 digits';
+      if (!/^[6789]\d{9}$/.test(digits)) return 'Please enter a valid Indian mobile number';
+      return '';
+    }
+    if (field === 'dateOfBirth') {
+      if (!value) return 'Date of birth is required';
+      const age = calculateAge(value);
+      if (age === null) return 'Invalid date';
+      if (age < 18) return 'Driver must be at least 18 years old';
+      if (age > 65) return 'Driver age cannot exceed 65 years';
+      return '';
+    }
+    if (field === 'address') {
+      if (!value || !value.trim()) return 'Address is required';
+      if (value.trim().length < 10) return 'Please enter complete address (min 10 characters)';
+      return '';
+    }
+    if (field === 'licenseNumber') {
+      if (!value || !value.trim()) return 'License number is required';
+      // Format: XX[0-9]{13} (2 characters followed by 13 numbers)
+      if (!/^[A-Z]{2}[0-9]{13}$/.test(value.toUpperCase())) return 'Enter valid license number (e.g., DL0120160000000)';
+      return '';
+    }
+    if (field === 'licenseExpiryDate') {
+      if (!value) return 'License expiry date is required';
+      const expiryDate = new Date(value);
+      const today = new Date();
+      if (expiryDate <= today) return 'License must not be expired';
+      return '';
+    }
+    if (field === 'aadharNumber') {
+      if (!value || !value.trim()) return 'Aadhar number is required';
+      const digits = value.replace(/\D/g, '');
+      if (digits.length !== 12) return 'Aadhar must be exactly 12 digits';
+      // Verhoeff algorithm validation could be added here
+      if (!/^\d{4}\s?\d{4}\s?\d{4}$/.test(value.trim())) return 'Enter valid Aadhar number (e.g., 1234 5678 9012)';
+      return '';
+    }
+    if (field === 'panNumber') {
+      if (!value || !value.trim()) return 'PAN number is required';
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(value.toUpperCase())) return 'Enter valid PAN (e.g., ABCDE1234F)';
+      return '';
+    }
+    if (field === 'experience') {
+      if (!value) return 'Experience is required';
+      return '';
+    }
+    if (field === 'planType') {
+      if (!value) return 'Plan type is required';
+      return '';
+    }
+    if (field === 'bankName') {
+      if (!value || !value.trim()) return 'Bank name is required';
+      if (!/^[a-zA-Z\s]{2,50}$/.test(value.trim())) return 'Enter valid bank name';
+      return '';
+    }
+    if (field === 'accountNumber') {
+      if (!value || !value.trim()) return 'Account number is required';
+      const digits = value.replace(/\D/g, '');
+      if (digits.length < 9 || digits.length > 18) return 'Account number should be 9-18 digits';
+      if (!/^\d+$/.test(value.trim())) return 'Account number should only contain digits';
+      return '';
+    }
+    if (field === 'ifscCode') {
+      if (!value || !value.trim()) return 'IFSC code is required';
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.toUpperCase())) return 'Enter valid IFSC code (e.g., SBIN0123456)';
+      return '';
+    }
+    if (field === 'accountHolderName') {
+      if (!value || !value.trim()) return 'Account holder name is required';
+      if (!/^[a-zA-Z\s]{2,50}$/.test(value.trim())) return 'Enter valid account holder name';
+      return '';
+    }
+    return '';
+  };
+
+  const handleFileUpload = (field, file) => {
+    if (file) {
+      // Convert file to base64 for both storage and preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64String = e.target.result;
+        setFormData(prev => ({ ...prev, [field]: base64String }));
+        setDocumentPreviews(prev => ({ ...prev, [field]: base64String }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const validateStep = (step) => {
+    const newErrors = {};
+
+    switch (step) {
+      case 1: // Personal Information
+        // Use per-field validation to centralize rules (includes age check)
+        ['name', 'email', 'phone', 'dateOfBirth', 'address'].forEach(f => {
+          const err = validateField(f, formData[f]);
+          if (err) newErrors[f] = err;
+        });
+        break;
+
+      case 2: // Documents
+        ['licenseNumber', 'licenseExpiryDate', 'aadharNumber', 'panNumber'].forEach(f => {
+          const err = validateField(f, formData[f]);
+          if (err) newErrors[f] = err;
+        });
+        break;
+
+      case 3: // Professional
+        ['experience', 'planType'].forEach(f => {
+          const err = validateField(f, formData[f]);
+          if (err) newErrors[f] = err;
+        });
+        break;
+
+      case 4: // Banking
+        ['bankName', 'accountNumber', 'ifscCode', 'accountHolderName'].forEach(f => {
+          const err = validateField(f, formData[f]);
+          if (err) newErrors[f] = err;
+        });
+        break;
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, 5));
+    }
+  };
+
+  const handlePrev = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleSubmit = async () => {
+    // Validate all steps before final submit
+    for (let step = 1; step <= 4; step++) {
+      const ok = validateStep(step);
+      if (!ok) {
+        setCurrentStep(step);
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      const driverData = {
+        ...formData,
+        id: driver?.id || Date.now(),
+        joinDate: driver?.joinDate || new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        totalTrips: driver?.totalTrips || 0,
+        totalEarnings: driver?.totalEarnings || 0,
+        rating: driver?.rating || 0,
+        vehicleAssigned: formData.vehiclePreference,
+        // Include existing document URLs if they haven't been changed
+        profilePhoto: formData.profilePhoto || driver?.profilePhoto,
+        licenseDocument: formData.licenseDocument || driver?.licenseDocument,
+        aadharDocument: formData.aadharDocument || driver?.aadharDocument,
+        panDocument: formData.panDocument || driver?.panDocument,
+        bankDocument: formData.bankDocument || driver?.bankDocument
+      };
+
+      // Filter out undefined or null values to prevent overwriting existing data
+      Object.keys(driverData).forEach(key => {
+        if (driverData[key] === undefined || driverData[key] === null) {
+          delete driverData[key];
+        }
+      });
+
+      await onSave(driverData);
+      onClose();
+    } catch (error) {
+      console.error('Submit error:', error);
+      toast.error('Failed to save driver');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Personal Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  className={`input ${errors.name ? 'border-red-300' : ''}`}
+                  placeholder="Enter full name"
+                />
+                {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className={`input ${errors.email ? 'border-red-300' : ''}`}
+                  placeholder="Enter email address"
+                />
+                {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className={`input ${errors.phone ? 'border-red-300' : ''}`}
+                  placeholder="+91 98765 43210"
+                />
+                {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth *
+                </label>
+                <input
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                  className={`input ${errors.dateOfBirth ? 'border-red-300' : ''}`}
+                />
+                {errors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Address *
+                </label>
+                <textarea
+                  value={formData.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  className={`input ${errors.address ? 'border-red-300' : ''}`}
+                  rows={3}
+                  placeholder="Enter complete address"
+                />
+                {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  className="input"
+                  placeholder="Enter city"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  State
+                </label>
+                <select
+                  value={formData.state}
+                  onChange={(e) => handleInputChange('state', e.target.value)}
+                  className="input"
+                >
+                  <option value="">Select State</option>
+                  <option value="Karnataka">Karnataka</option>
+                  <option value="Tamil Nadu">Tamil Nadu</option>
+                  <option value="Kerala">Kerala</option>
+                  <option value="Andhra Pradesh">Andhra Pradesh</option>
+                  <option value="Telangana">Telangana</option>
+                  <option value="Maharashtra">Maharashtra</option>
+                  <option value="Delhi">Delhi</option>
+                  {/* Add more states */}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Emergency Contact Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.emergencyContact}
+                  onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
+                  className="input"
+                  placeholder="Emergency contact name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Emergency Contact Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.emergencyPhone}
+                  onChange={(e) => handleInputChange('emergencyPhone', e.target.value)}
+                  className="input"
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Documents & License</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  License Number *
+                </label>
+                <input
+                  type="text"
+                  value={formData.licenseNumber}
+                  onChange={(e) => handleInputChange('licenseNumber', e.target.value)}
+                  className={`input ${errors.licenseNumber ? 'border-red-300' : ''}`}
+                  placeholder="DL1234567890"
+                />
+                {errors.licenseNumber && <p className="mt-1 text-sm text-red-600">{errors.licenseNumber}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  License Expiry Date *
+                </label>
+                <input
+                  type="date"
+                  value={formData.licenseExpiryDate}
+                  onChange={(e) => handleInputChange('licenseExpiryDate', e.target.value)}
+                  className={`input ${errors.licenseExpiryDate ? 'border-red-300' : ''}`}
+                />
+                {errors.licenseExpiryDate && <p className="mt-1 text-sm text-red-600">{errors.licenseExpiryDate}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  License Class
+                </label>
+                <select
+                  value={formData.licenseClass}
+                  onChange={(e) => handleInputChange('licenseClass', e.target.value)}
+                  className="input"
+                >
+                  <option value="LMV">LMV (Light Motor Vehicle)</option>
+                  <option value="HMV">HMV (Heavy Motor Vehicle)</option>
+                  <option value="MCWG">MCWG (Motorcycle With Gear)</option>
+                  <option value="MCWOG">MCWOG (Motorcycle Without Gear)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Aadhar Number *
+                </label>
+                <input
+                  type="text"
+                  value={formData.aadharNumber}
+                  onChange={(e) => handleInputChange('aadharNumber', e.target.value)}
+                  className={`input ${errors.aadharNumber ? 'border-red-300' : ''}`}
+                  placeholder="1234 5678 9012"
+                />
+                {errors.aadharNumber && <p className="mt-1 text-sm text-red-600">{errors.aadharNumber}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  PAN Number *
+                </label>
+                <input
+                  type="text"
+                  value={formData.panNumber}
+                  onChange={(e) => handleInputChange('panNumber', e.target.value)}
+                  className={`input ${errors.panNumber ? 'border-red-300' : ''}`}
+                  placeholder="ABCDE1234F"
+                />
+                {errors.panNumber && <p className="mt-1 text-sm text-red-600">{errors.panNumber}</p>}
+              </div>
+            </div>
+
+            {/* Document Upload Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium text-gray-900">Upload Documents</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { key: 'profilePhoto', label: 'Profile Photo', accept: 'image/*' },
+                  { key: 'licenseDocument', label: 'License Document', accept: '.pdf,.jpg,.jpeg,.png' },
+                  { key: 'aadharDocument', label: 'Aadhar Document', accept: '.pdf,.jpg,.jpeg,.png' },
+                  { key: 'panDocument', label: 'PAN Document', accept: '.pdf,.jpg,.jpeg,.png' }
+                ].map(({ key, label, accept }) => (
+                  <div key={key} className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                    <div className="text-center">
+                      {documentPreviews[key] ? (
+                        <img 
+                          src={documentPreviews[key].startsWith('data:') ? documentPreviews[key] : documentPreviews[key] + '?t=' + new Date().getTime()} 
+                          alt={label} 
+                          className="mx-auto h-20 w-20 object-cover rounded" 
+                        />
+                      ) : (
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      )}
+                      <div className="mt-2">
+                        <label className="cursor-pointer">
+                          <span className="text-sm font-medium text-primary-600 hover:text-primary-500">
+                            Upload {label}
+                          </span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept={accept}
+                            onChange={(e) => handleFileUpload(key, e.target.files[0])}
+                          />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 5MB</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Professional Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Driving Experience *
+                </label>
+                <select
+                  value={formData.experience}
+                  onChange={(e) => handleInputChange('experience', e.target.value)}
+                  className={`input ${errors.experience ? 'border-red-300' : ''}`}
+                >
+                  <option value="">Select Experience</option>
+                  <option value="0-1">0-1 years</option>
+                  <option value="1-3">1-3 years</option>
+                  <option value="3-5">3-5 years</option>
+                  <option value="5-10">5-10 years</option>
+                  <option value="10+">10+ years</option>
+                </select>
+                {errors.experience && <p className="mt-1 text-sm text-red-600">{errors.experience}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Plan Type *
+                </label>
+                <select
+                  value={formData.planType}
+                  onChange={(e) => handleInputChange('planType', e.target.value)}
+                  className={`input ${errors.planType ? 'border-red-300' : ''}`}
+                >
+                  <option value="">Select Plan</option>
+                  <option value="Uber Plan">Uber Plan</option>
+                  <option value="Daily Collection">Daily Collection</option>
+                  <option value="Weekend Plan">Weekend Plan</option>
+                  <option value="Custom Plan">Custom Plan</option>
+                </select>
+                {errors.planType && <p className="mt-1 text-sm text-red-600">{errors.planType}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Vehicle Preference
+                </label>
+                <select
+                  value={formData.vehiclePreference}
+                  onChange={(e) => handleInputChange('vehiclePreference', e.target.value)}
+                  className="input"
+                >
+                  <option value="">Select Vehicle Type</option>
+                  <option value="Sedan">Sedan</option>
+                  <option value="Hatchback">Hatchback</option>
+                  <option value="SUV">SUV</option>
+                  <option value="Taxi">Taxi</option>
+                  <option value="Auto">Auto Rickshaw</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Previous Employment
+                </label>
+                <textarea
+                  value={formData.previousEmployment}
+                  onChange={(e) => handleInputChange('previousEmployment', e.target.value)}
+                  className="input"
+                  rows={3}
+                  placeholder="Previous job details, experience with ride-sharing platforms, etc."
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Banking Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Bank Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankName}
+                  onChange={(e) => handleInputChange('bankName', e.target.value)}
+                  className={`input ${errors.bankName ? 'border-red-300' : ''}`}
+                  placeholder="State Bank of India"
+                />
+                {errors.bankName && <p className="mt-1 text-sm text-red-600">{errors.bankName}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Number *
+                </label>
+                <input
+                  type="text"
+                  value={formData.accountNumber}
+                  onChange={(e) => handleInputChange('accountNumber', e.target.value)}
+                  className={`input ${errors.accountNumber ? 'border-red-300' : ''}`}
+                  placeholder="1234567890123456"
+                />
+                {errors.accountNumber && <p className="mt-1 text-sm text-red-600">{errors.accountNumber}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  IFSC Code *
+                </label>
+                <input
+                  type="text"
+                  value={formData.ifscCode}
+                  onChange={(e) => handleInputChange('ifscCode', e.target.value)}
+                  className={`input ${errors.ifscCode ? 'border-red-300' : ''}`}
+                  placeholder="SBIN0001234"
+                />
+                {errors.ifscCode && <p className="mt-1 text-sm text-red-600">{errors.ifscCode}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Holder Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.accountHolderName}
+                  onChange={(e) => handleInputChange('accountHolderName', e.target.value)}
+                  className={`input ${errors.accountHolderName ? 'border-red-300' : ''}`}
+                  placeholder="Account holder name"
+                />
+                {errors.accountHolderName && <p className="mt-1 text-sm text-red-600">{errors.accountHolderName}</p>}
+              </div>
+            </div>
+
+            {/* Bank Document Upload */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium text-gray-900">Bank Document</h4>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <div className="text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-2">
+                    <label className="cursor-pointer">
+                      <span className="text-sm font-medium text-primary-600 hover:text-primary-500">
+                        Upload Bank Statement/Passbook
+                      </span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => handleFileUpload('bankDocument', e.target.files[0])}
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 5MB</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Review & Submit</h3>
+            
+            <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">Name:</span>
+                  <span className="ml-2 text-gray-900">{formData.name}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Email:</span>
+                  <span className="ml-2 text-gray-900">{formData.email}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Phone:</span>
+                  <span className="ml-2 text-gray-900">{formData.phone}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">License:</span>
+                  <span className="ml-2 text-gray-900">{formData.licenseNumber}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Plan:</span>
+                  <span className="ml-2 text-gray-900">{formData.planType}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Experience:</span>
+                  <span className="ml-2 text-gray-900">{formData.experience}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-yellow-800 mb-2">Important Notes:</h4>
+              <ul className="text-sm text-yellow-700 space-y-1">
+                <li>• Driver will be created with "Pending" status</li>
+                <li>• KYC verification will be initiated automatically</li>
+                <li>• Driver will receive login credentials via email</li>
+                <li>• All uploaded documents will be verified by the admin team</li>
+              </ul>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
+        
+        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {driver ? 'Edit Driver' : 'Add New Driver'}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Step {currentStep} of {steps.length}: {steps.find(s => s.id === currentStep)?.title}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          {/* Progress Steps */}
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              {steps.map((step, index) => {
+                const Icon = step.icon;
+                const isActive = step.id === currentStep;
+                const isCompleted = step.id < currentStep;
+                
+                return (
+                  <div key={step.id} className="flex items-center">
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+                      isActive 
+                        ? 'border-primary-600 bg-primary-600 text-white' 
+                        : isCompleted 
+                        ? 'border-green-600 bg-green-600 text-white'
+                        : 'border-gray-300 bg-white text-gray-400'
+                    }`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span className={`ml-2 text-sm font-medium ${
+                      isActive ? 'text-primary-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {step.title}
+                    </span>
+                    {index < steps.length - 1 && (
+                      <div className={`ml-4 w-8 h-0.5 ${
+                        isCompleted ? 'bg-green-600' : 'bg-gray-300'
+                      }`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Form Content */}
+          <div className="p-6">
+            {renderStepContent()}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between p-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            
+            <div className="flex space-x-3">
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  className="btn btn-secondary"
+                  disabled={loading}
+                >
+                  Previous
+                </button>
+              )}
+              
+              {currentStep < 5 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="btn btn-primary"
+                  disabled={loading}
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="btn btn-primary"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {driver ? 'Updating...' : 'Creating...'}
+                    </div>
+                  ) : (
+                    driver ? 'Update Driver' : 'Create Driver'
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

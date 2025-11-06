@@ -1,0 +1,113 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Layout from './components/layout/Layout';
+import Login from './pages/auth/Login';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import Dashboard from './pages/dashboard/Dashboard';
+import DriversList from './pages/drivers/DriversList';
+import DriverStatus from './pages/drivers/DriverStatus';
+import DriverPerformance from './pages/drivers/DriverPerformance';
+import DriverPayments from './pages/drivers/DriverPayments';
+import VehicleDocuments from './pages/vehicles/VehicleDocuments';
+import InvestmentManagement from './pages/investments/InvestmentManagement';
+import PaymentManagement from './pages/payments/DriverPayments';
+import ExpenseManagement from './pages/expenses/ExpenseManagement';
+import CarPlans from './pages/plans/CarPlans';
+import AdminUsers from './pages/admin/AdminUsers';
+import RoleManagement from './pages/admin/RoleManagement';
+import AllVehicles from './pages/vehicles/AllVehicles';
+
+// Protected Route Component
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+  
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
+// Public Route Component (redirects to dashboard if already logged in)
+function PublicRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+  
+  return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={
+        <PublicRoute>
+          <Login />
+        </PublicRoute>
+      } />
+      <Route path="/forgot-password" element={
+        <PublicRoute>
+          <ForgotPassword />
+        </PublicRoute>
+      } />
+      
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="drivers" element={<DriversList />} />
+        <Route path="drivers/status" element={<DriverStatus />} />
+        <Route path="drivers/performance" element={<DriverPerformance />} />
+        <Route path="drivers/payments" element={<DriverPayments />} />
+        <Route path="vehicles/documents" element={<VehicleDocuments />} />
+        <Route path="investments" element={<InvestmentManagement />} />
+        <Route path="payments/drivers" element={<PaymentManagement />} />
+        <Route path="expenses" element={<ExpenseManagement />} />
+        <Route path="plans" element={<CarPlans />} />
+        <Route path="admin/users" element={<AdminUsers />} />
+        <Route path="admin/roles" element={<RoleManagement />} />
+        <Route path="vehicles/allvehicles" element={<AllVehicles />} />
+        {/* Add more routes as we create them */}
+      </Route>
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AppRoutes />
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+            },
+          }}
+        />
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
