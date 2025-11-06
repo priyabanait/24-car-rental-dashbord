@@ -177,7 +177,7 @@ export default function CarPlans() {
 
   const metrics = calculateMetrics();
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend.vercel.app';
 
   const mapApiPlanToUI = (p) => ({
     id: p.id || p._id || p._doc?._id,
