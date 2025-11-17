@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 export default function InvestorPlanSelection() {
   const navigate = useNavigate();
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
 
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);

@@ -46,7 +46,7 @@ const DriverAuth = () => {
             return;
           }
           // Investor Signup
-          res = await fetch(`http://localhost:4000/api/investors/signup`, {
+          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ investorName: username, phone: mobile, email: "", password }),
@@ -58,7 +58,7 @@ const DriverAuth = () => {
             setLoading(false);
             return;
           }
-          res = await fetch(`http://localhost:4000/api/investors/login`, {
+          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone: mobile, password }),
@@ -73,7 +73,7 @@ const DriverAuth = () => {
             return;
           }
           // Investor Signup with mobile and OTP (password)
-          res = await fetch(`http://localhost:4000/api/investors/signup`, {
+          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ investorName: username, phone: mobile, email: "", password: otp }),
@@ -85,7 +85,7 @@ const DriverAuth = () => {
             setLoading(false);
             return;
           }
-          res = await fetch(`http://localhost:4000/api/investors/login`, {
+          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone: mobile, password: otp }),

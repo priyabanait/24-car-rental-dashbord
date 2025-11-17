@@ -46,7 +46,7 @@ export default function DriverPayments() {
     (async () => {
       setLoading(true);
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
         const [paymentsRes, earningsRes] = await Promise.all([
           fetch(`${API_BASE}/api/payments/drivers`),
           fetch(`${API_BASE}/api/drivers/earnings/summary`)
@@ -138,7 +138,7 @@ export default function DriverPayments() {
 
   const handlePaymentAction = async (paymentId, action) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
       const payment = payments.find(p => p.id === paymentId);
       if (!payment) throw new Error('Payment not found');
       

@@ -46,7 +46,7 @@ const DriverAuth = () => {
             return;
           }
           // Signup: send all fields
-    res = await fetch(`http://localhost:4000/api/drivers/signup`, {
+    res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/drivers/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, mobile, password }),
@@ -58,7 +58,7 @@ const DriverAuth = () => {
             setLoading(false);
             return;
           }
-    res = await fetch(`http://localhost:4000/api/drivers/login`, {
+    res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/drivers/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password }),
@@ -73,7 +73,7 @@ const DriverAuth = () => {
             return;
           }
           // Signup with mobile and OTP (password)
-          res = await fetch(`http://localhost:4000/api/drivers/signup-otp`, {
+          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/drivers/signup-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, mobile, otp }),
@@ -85,7 +85,7 @@ const DriverAuth = () => {
             setLoading(false);
             return;
           }
-          res = await fetch(`http://localhost:4000/api/drivers/login-otp`, {
+          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/drivers/login-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ mobile, otp }),
