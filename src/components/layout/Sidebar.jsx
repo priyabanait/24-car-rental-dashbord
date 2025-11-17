@@ -241,6 +241,11 @@ const navigation = [
         name: 'Roles & Permissions', 
         href: '/admin/roles',
         permission: PERMISSIONS.ADMIN_ROLES
+      },
+      {
+        name: 'Signup Credentials',
+        href: '/admin/signup-credentials',
+        permission: PERMISSIONS.ADMIN_VIEW
       }
     ]
   },

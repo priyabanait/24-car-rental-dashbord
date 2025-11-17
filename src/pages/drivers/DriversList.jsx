@@ -442,36 +442,7 @@ export default function DriversList() {
         </CardContent>
       </Card>
 
-      {/* Signup Credentials Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Signup Credentials</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {signupCredentials.length === 0 ? (
-            <div className="p-4 text-center text-sm text-gray-600">No signup credentials found.</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Mobile</TableHead>
-                  <TableHead>Password</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {signupCredentials.map((driver, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{driver.username || '-'}</TableCell>
-                    <TableCell>{driver.mobile || driver.phone || '-'}</TableCell>
-                    <TableCell>{driver.password}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+     
 
       {/* Drivers Table */}
       <Card>

@@ -28,6 +28,7 @@ import DriverEnrollments from './pages/plans/DriverEnrollments';
 import DriverPlanSelections from './pages/plans/DriverPlanSelections';
 import AdminUsers from './pages/admin/AdminUsers';
 import RoleManagement from './pages/admin/RoleManagement';
+import SignupCredentials from './pages/admin/SignupCredentials';
 import AllVehicles from './pages/vehicles/AllVehicles';
 
 // Protected Route Component
@@ -107,6 +108,7 @@ function AppRoutes() {
         <Route path="plans/selections" element={<DriverPlanSelections />} />
         <Route path="admin/users" element={<AdminUsers />} />
         <Route path="admin/roles" element={<RoleManagement />} />
+        <Route path="admin/signup-credentials" element={<SignupCredentials />} />
         <Route path="vehicles/allvehicles" element={<AllVehicles />} />
           <Route path="investments/InvesterLogin" element={<InvesterLogin />} />
         {/* Add more routes as we create them */}
