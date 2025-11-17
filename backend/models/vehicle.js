@@ -30,15 +30,22 @@ const VehicleSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  // Core details
   model: String,
+  brand: String,
+  category: String,
+  carName: String,
   ownerName: String,
   ownerPhone: String,
   year: Number,
   registrationDate: String,
+  rcExpiryDate: String,
   roadTaxDate: String,
+  roadTaxNumber: String,
   insuranceDate: String,
   permitDate: String,
   emissionDate: String,
+  pucNumber: String,
   trafficFine: Number,
   trafficFineDate: String,
   fuelType: String,
@@ -61,6 +68,17 @@ const VehicleSchema = new mongoose.Schema({
   permitDoc: String,
   pollutionDoc: String,
   fitnessDoc: String,
+
+  // New photo URL fields (uploaded to Cloudinary)
+  registrationCardPhoto: String,
+  roadTaxPhoto: String,
+  pucPhoto: String,
+  permitPhoto: String,
+  carFrontPhoto: String,
+  carLeftPhoto: String,
+  carRightPhoto: String,
+  carBackPhoto: String,
+  carFullPhoto: String,
   
   // Additional fields
   make: String,
@@ -70,7 +88,27 @@ const VehicleSchema = new mongoose.Schema({
   currentValue: Number,
   mileage: Number,
   lastService: String,
-  nextService: String
+  nextService: String,
+
+  // Dynamic rent slabs
+  weeklyRentSlabs: [
+    {
+      trips: Number,
+      rentDay: Number,
+      weeklyRent: Number,
+      accidentalCover: Number,
+      acceptanceRate: Number
+    }
+  ],
+  dailyRentSlabs: [
+    {
+      trips: Number,
+      rentDay: Number,
+      weeklyRent: Number,
+      accidentalCover: Number,
+      acceptanceRate: Number
+    }
+  ]
 }, { 
   timestamps: true,
   strict: false // Allow additional fields

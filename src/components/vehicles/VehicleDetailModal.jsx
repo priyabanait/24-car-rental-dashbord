@@ -18,13 +18,38 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null }) 
 
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Start with: Category, Brand, Model Name, Car Name, Color, Fuel Type */}
+              <div>
+                <p className="text-sm text-gray-500">Car Category</p>
+                <p className="font-medium">{v.category || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Brand</p>
+                <p className="font-medium">{v.brand || v.make || '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Model Name</p>
+                <p className="font-medium">{v.model || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Car Name</p>
+                <p className="font-medium">{v.carName || v.name || '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Color</p>
+                <p className="font-medium">{v.color || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Fuel Type</p>
+                <p className="font-medium">{v.fuelType || '-'}</p>
+              </div>
+
+              {/* then rest of key info */}
               <div>
                 <p className="text-sm text-gray-500">Registration Number</p>
                 <p className="font-medium">{v.registrationNumber || v.regNo || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Make / Model</p>
-                <p className="font-medium">{(v.make || '-') + (v.model ? ` / ${v.model}` : '')}</p>
               </div>
 
               <div>
@@ -54,13 +79,31 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null }) 
                 <p className="font-medium">{formatDate(v.rcExpiryDate || v.rcExpiry)}</p>
               </div>
 
-              <div>
+              {/* <div>
                 <p className="text-sm text-gray-500">Fitness Expiry</p>
                 <p className="font-medium">{formatDate(v.fitnessExpiryDate || v.fitnessExpiry)}</p>
-              </div>
+              </div> */}
               <div>
                 <p className="text-sm text-gray-500">Road Tax Date</p>
                 <p className="font-medium">{formatDate(v.roadTaxDate)}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Road Tax No.</p>
+                <p className="font-medium">{v.roadTaxNumber || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">PUC No.</p>
+                <p className="font-medium">{v.pucNumber || '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Permit Date</p>
+                <p className="font-medium">{formatDate(v.permitDate)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Emission Date</p>
+                <p className="font-medium">{formatDate(v.emissionDate)}</p>
               </div>
 
               <div>
@@ -72,9 +115,71 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null }) 
                 <p className="font-medium">{v.assignedDriver || '-'}</p>
               </div>
 
+              <div>
+                <p className="text-sm text-gray-500">KYC Status</p>
+                <p className="font-medium">{(v.kycStatus || v.kyc || 'pending')}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Status</p>
+                <p className="font-medium">{v.status || 'inactive'}</p>
+              </div>
+
               <div className="md:col-span-2">
                 <p className="text-sm text-gray-500">Remarks</p>
                 <p className="font-medium">{v.remarks || '-'}</p>
+              </div>
+            </div>
+
+            {/* Documents section */}
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Documents</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { label: 'Registration Card', url: v.registrationCardPhoto || v.rcDoc },
+                  { label: 'Permit', url: v.permitPhoto || v.permitDoc },
+                  { label: 'PUC', url: v.pucPhoto || v.pollutionDoc },
+                  { label: 'Road Tax', url: v.roadTaxPhoto },
+                  { label: 'Insurance', url: v.insuranceDoc },
+                  { label: 'Fitness', url: v.fitnessDoc }
+                ].map((d, i) => (
+                  <div key={i} className="border rounded p-2">
+                    <p className="text-xs text-gray-500 mb-1">{d.label}</p>
+                    {d.url ? (
+                      <a href={d.url} target="_blank" rel="noreferrer">
+                        <img src={d.url} alt={d.label} className="h-28 w-full object-cover rounded" onError={(e)=>{ e.currentTarget.style.display='none'; }} />
+                        <span className="text-xs text-blue-600 underline mt-1 inline-block">Open</span>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400">Not provided</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Vehicle Photos */}
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Vehicle Photos</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { label: 'Front', url: v.carFrontPhoto },
+                  { label: 'Left', url: v.carLeftPhoto },
+                  { label: 'Right', url: v.carRightPhoto },
+                  { label: 'Back', url: v.carBackPhoto },
+                  { label: 'Full', url: v.carFullPhoto }
+                ].map((d, i) => (
+                  <div key={i} className="border rounded p-2">
+                    <p className="text-xs text-gray-500 mb-1">{d.label}</p>
+                    {d.url ? (
+                      <a href={d.url} target="_blank" rel="noreferrer">
+                        <img src={d.url} alt={d.label} className="h-28 w-full object-cover rounded" onError={(e)=>{ e.currentTarget.style.display='none'; }} />
+                        <span className="text-xs text-blue-600 underline mt-1 inline-block">Open</span>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400">Not provided</span>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

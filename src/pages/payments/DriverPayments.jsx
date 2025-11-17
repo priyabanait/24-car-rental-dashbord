@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { 
   CreditCard, 
-  DollarSign, 
+  IndianRupee, 
   TrendingUp, 
   Users, 
   Calendar,
@@ -36,136 +36,39 @@ export default function DriverPayments() {
   const [dateRange, setDateRange] = useState('thisMonth');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  const [payments, setPayments] = useState([
-    {
-      id: 1,
-      driverId: 'DR001',
-      driverName: 'Rajesh Kumar',
-      phone: '+91-9876543210',
-      paymentType: 'weekly_earnings',
-      amount: 15000,
-      period: '2024-10-14 to 2024-10-20',
-      totalTrips: 45,
-      totalDistance: 850,
-      commissionRate: 15,
-      commissionAmount: 2250,
-      netPayment: 12750,
-      paymentDate: '2024-10-21',
-      status: 'paid',
-      paymentMethod: 'bank_transfer',
-      transactionId: 'TXN12345',
-      remarks: 'Regular weekly payment'
-    },
-    {
-      id: 2,
-      driverId: 'DR002',
-      driverName: 'Priya Sharma',
-      phone: '+91-9876543211',
-      paymentType: 'bonus',
-      amount: 5000,
-      period: 'October 2024',
-      totalTrips: 120,
-      totalDistance: 2200,
-      commissionRate: 0,
-      commissionAmount: 0,
-      netPayment: 5000,
-      paymentDate: '2024-10-25',
-      status: 'pending',
-      paymentMethod: 'upi',
-      transactionId: null,
-      remarks: 'Performance bonus for excellent ratings'
-    },
-    {
-      id: 3,
-      driverId: 'DR003',
-      driverName: 'Amit Singh',
-      phone: '+91-9876543212',
-      paymentType: 'weekly_earnings',
-      amount: 22000,
-      period: '2024-10-07 to 2024-10-13',
-      totalTrips: 62,
-      totalDistance: 1150,
-      commissionRate: 15,
-      commissionAmount: 3300,
-      netPayment: 18700,
-      paymentDate: '2024-10-14',
-      status: 'paid',
-      paymentMethod: 'bank_transfer',
-      transactionId: 'TXN12346',
-      remarks: 'Regular weekly payment'
-    },
-    {
-      id: 4,
-      driverId: 'DR004',
-      driverName: 'Sunita Patel',
-      phone: '+91-9876543213',
-      paymentType: 'incentive',
-      amount: 3000,
-      period: 'October 2024',
-      totalTrips: 80,
-      totalDistance: 1500,
-      commissionRate: 0,
-      commissionAmount: 0,
-      netPayment: 3000,
-      paymentDate: '2024-10-28',
-      status: 'processing',
-      paymentMethod: 'bank_transfer',
-      transactionId: 'TXN12347',
-      remarks: 'Night shift incentive'
-    },
-    {
-      id: 5,
-      driverId: 'DR005',
-      driverName: 'Rohit Verma',
-      phone: '+91-9876543214',
-      paymentType: 'weekly_earnings',
-      amount: 18500,
-      period: '2024-10-21 to 2024-10-27',
-      totalTrips: 55,
-      totalDistance: 950,
-      commissionRate: 15,
-      commissionAmount: 2775,
-      netPayment: 15725,
-      paymentDate: '2024-10-28',
-      status: 'failed',
-      paymentMethod: 'bank_transfer',
-      transactionId: null,
-      remarks: 'Bank account verification failed'
-    }
-  ]);
+  const [payments, setPayments] = useState([]);
+  const [driverEarnings, setDriverEarnings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [driverEarnings, setDriverEarnings] = useState([
-    {
-      driverId: 'DR001',
-      driverName: 'Rajesh Kumar',
-      monthlyEarnings: 52000,
-      totalTrips: 180,
-      averageRating: 4.8,
-      totalDistance: 3200,
-      pendingAmount: 0,
-      lastPayment: '2024-10-21'
-    },
-    {
-      driverId: 'DR002',
-      driverName: 'Priya Sharma',
-      monthlyEarnings: 48000,
-      totalTrips: 165,
-      averageRating: 4.9,
-      totalDistance: 2950,
-      pendingAmount: 5000,
-      lastPayment: '2024-10-20'
-    },
-    {
-      driverId: 'DR003',
-      driverName: 'Amit Singh',
-      monthlyEarnings: 65000,
-      totalTrips: 220,
-      averageRating: 4.7,
-      totalDistance: 4100,
-      pendingAmount: 0,
-      lastPayment: '2024-10-21'
-    }
-  ]);
+  // Fetch payments and driver earnings from backend
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+        const [paymentsRes, earningsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/payments/drivers`),
+          fetch(`${API_BASE}/api/drivers/earnings/summary`)
+        ]);
+        if (!mounted) return;
+        if (paymentsRes.ok) {
+          const paymentsData = await paymentsRes.json();
+          setPayments(paymentsData);
+        }
+        if (earningsRes.ok) {
+          const earningsData = await earningsRes.json();
+          setDriverEarnings(earningsData);
+        }
+      } catch (err) {
+        console.error('Failed to load payments data:', err);
+        toast.error('Failed to load payments data');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -233,32 +136,51 @@ export default function DriverPayments() {
 
   const metrics = calculateMetrics();
 
-  const handlePaymentAction = (paymentId, action) => {
-    setPayments(prev => prev.map(payment => {
-      if (payment.id === paymentId) {
-        let newStatus = payment.status;
-        let transactionId = payment.transactionId;
-        
-        switch (action) {
-          case 'approve':
-            newStatus = 'processing';
-            transactionId = `TXN${Math.random().toString(36).substr(2, 9)}`;
-            break;
-          case 'reject':
-            newStatus = 'failed';
-            break;
-          case 'retry':
-            newStatus = 'processing';
-            transactionId = `TXN${Math.random().toString(36).substr(2, 9)}`;
-            break;
-        }
-        
-        return { ...payment, status: newStatus, transactionId };
+  const handlePaymentAction = async (paymentId, action) => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const payment = payments.find(p => p.id === paymentId);
+      if (!payment) throw new Error('Payment not found');
+      
+      let newStatus = payment.status;
+      let transactionId = payment.transactionId;
+      
+      switch (action) {
+        case 'approve':
+          newStatus = 'processing';
+          transactionId = `TXN${Math.random().toString(36).substr(2, 9)}`;
+          break;
+        case 'reject':
+          newStatus = 'failed';
+          break;
+        case 'retry':
+          newStatus = 'processing';
+          transactionId = `TXN${Math.random().toString(36).substr(2, 9)}`;
+          break;
       }
-      return payment;
-    }));
-    
-    toast.success(`Payment ${action}ed successfully`);
+      
+      const token = localStorage.getItem('udriver_token') || 'mock';
+      const response = await fetch(`${API_BASE}/api/payments/drivers/${paymentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ ...payment, status: newStatus, transactionId })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update payment');
+      }
+      
+      const updatedPayment = await response.json();
+      
+      setPayments(prev => prev.map(p => p.id === paymentId ? updatedPayment : p));
+      toast.success(`Payment ${action}ed successfully`);
+    } catch (error) {
+      console.error('Payment action error:', error);
+      toast.error(error.message || 'Failed to update payment');
+    }
   };
 
   return (
@@ -288,13 +210,22 @@ export default function DriverPayments() {
         </div>
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <p className="mt-4 text-gray-600">Loading payment data...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Metrics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-blue-600" />
+                <IndianRupee className="h-6 w-6 text-blue-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Payments</p>
@@ -415,16 +346,17 @@ export default function DriverPayments() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search drivers..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="input pl-10"
-                />
-              </div>
+              <div className="relative w-full max-w-sm">
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+  <input
+    type="text"
+    placeholder="Search drivers..."
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-700"
+  />
+</div>
+
             </div>
 
             <div>
@@ -624,6 +556,8 @@ export default function DriverPayments() {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }

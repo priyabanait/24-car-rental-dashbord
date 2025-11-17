@@ -37,7 +37,7 @@ export default function VehicleDocuments() {
     let mounted = true;
     (async function fetchVehicles() {
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const res = await fetch(`${API_BASE}/api/vehicles`);
         if (!res.ok) throw new Error(`Failed to load vehicles: ${res.status}`);
         const vehicles = await res.json();
@@ -69,11 +69,11 @@ export default function VehicleDocuments() {
               uploadDate: v.permitDate || null,
               status: v.permitDate ? 'verified' : 'pending'
             },
-            fitness: {
-              expiryDate: v.fitnessExpiry || v.fitnessDate || null,
-              uploadDate: v.fitnessExpiry || null,
-              status: v.fitnessExpiry || v.fitnessDate ? 'verified' : 'pending'
-            }
+            // fitness: {
+            //   expiryDate: v.fitnessExpiry || v.fitnessDate || null,
+            //   uploadDate: v.fitnessExpiry || null,
+            //   status: v.fitnessExpiry || v.fitnessDate ? 'verified' : 'pending'
+            // }
           }
         }));
 
@@ -92,7 +92,7 @@ export default function VehicleDocuments() {
     { key: 'insurance', label: 'Insurance Policy', required: true },
     { key: 'puc', label: 'Pollution Under Control (PUC)', required: true },
     { key: 'permit', label: 'Commercial Permit', required: true },
-    { key: 'fitness', label: 'Fitness Certificate', required: true }
+    // { key: 'fitness', label: 'Fitness Certificate', required: true }
   ];
 
   const getStatusBadge = (status) => {
@@ -301,7 +301,7 @@ export default function VehicleDocuments() {
               </select>
             </div>
 
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
               <select
                 value={documentTypeFilter}
@@ -313,14 +313,14 @@ export default function VehicleDocuments() {
                   <option key={docType.key} value={docType.key}>{docType.label}</option>
                 ))}
               </select>
-            </div>
+            </div> */}
 
-            <div className="flex items-end">
+            {/* <div className="flex items-end">
               <button className="btn btn-outline w-full">
                 <Filter className="h-4 w-4 mr-2" />
                 Apply Filters
               </button>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>
@@ -350,12 +350,12 @@ export default function VehicleDocuments() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Permit
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fitness
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </th> */}
+                  {/* <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
-                  </th>
+                  </th> */}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -402,7 +402,7 @@ export default function VehicleDocuments() {
                       </td>
                     ))}
 
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           className="text-indigo-600 hover:text-indigo-900"
@@ -425,7 +425,7 @@ export default function VehicleDocuments() {
                           <Download className="h-4 w-4" />
                         </button>
                       </div>
-                    </td>
+                    </td> */}
                   </tr>
                 ))}
               </tbody>

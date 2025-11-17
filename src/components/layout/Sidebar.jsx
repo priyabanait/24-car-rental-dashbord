@@ -42,21 +42,22 @@ const navigation = [
         href: '/drivers',
         permission: PERMISSIONS.DRIVERS_VIEW
       },
-      { 
-        name: 'Driver Status', 
-        href: '/drivers/status',
-        permission: PERMISSIONS.DRIVERS_VIEW
-      },
-      { 
-        name: 'Performance', 
-        href: '/drivers/performance',
-        permission: PERMISSIONS.DRIVERS_PERFORMANCE
-      },
-      { 
-        name: 'Payments', 
-        href: '/drivers/payments',
-        permission: PERMISSIONS.PAYMENTS_VIEW
-      }
+      // { 
+      //   name: 'Driver login', 
+      //   href: '/drivers/login',
+      //   permission: PERMISSIONS.DRIVERS_VIEW
+      // },
+      // { 
+      //   name: 'Driver Status', 
+      //   href: '/drivers/status',
+      //   permission: PERMISSIONS.DRIVERS_VIEW
+      // },
+      // { 
+      //   name: 'Performance', 
+      //   href: '/drivers/performance',
+      //   permission: PERMISSIONS.DRIVERS_PERFORMANCE
+      // },
+     
     ]
   },
   {
@@ -101,9 +102,14 @@ const navigation = [
       //   href: '/plans/create',
       //   permission: PERMISSIONS.PLANS_CREATE
       // },
+      // { 
+      //   name: 'Driver Enrollments', 
+      //   href: '/plans/enrollments',
+      //   permission: PERMISSIONS.PLANS_VIEW
+      // },
       { 
-        name: 'Driver Enrollments', 
-        href: '/plans/enrollments',
+        name: 'Driver Plan Selections', 
+        href: '/plans/selections',
         permission: PERMISSIONS.PLANS_VIEW
       }
     ]
@@ -113,26 +119,31 @@ const navigation = [
     icon: TrendingUp,
     permission: PERMISSIONS.INVESTMENTS_VIEW,
     children: [
+      // { 
+      //   name: 'Invester Login', 
+      //   href: '/investments/InvesterLogin',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
       { 
         name: 'All Investments', 
         href: '/investments',
         permission: PERMISSIONS.INVESTMENTS_VIEW
       },
       { 
-        name: 'Investors', 
+        name: 'Investment FD', 
         href: '/investments/investors',
         permission: PERMISSIONS.INVESTMENTS_VIEW
       },
-      { 
-        name: 'Investment Plans', 
-        href: '/investments/plans',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-      { 
-        name: 'Analytics', 
-        href: '/investments/analytics',
-        permission: PERMISSIONS.INVESTMENTS_ANALYTICS
-      }
+      // { 
+      //   name: 'Investment Plans', 
+      //   href: '/investments/plans',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
+      // { 
+      //   name: 'Analytics', 
+      //   href: '/investments/analytics',
+      //   permission: PERMISSIONS.INVESTMENTS_ANALYTICS
+      // }
     ]
   },
   {
@@ -140,26 +151,31 @@ const navigation = [
     icon: CreditCard,
     permission: PERMISSIONS.PAYMENTS_VIEW,
     children: [
-      { 
-        name: 'Payment Dashboard', 
-        href: '/payments',
-        permission: PERMISSIONS.PAYMENTS_VIEW
-      },
-      { 
-        name: 'Driver Payments', 
-        href: '/payments/drivers',
-        permission: PERMISSIONS.PAYMENTS_VIEW
-      },
-      { 
-        name: 'Process Payments', 
-        href: '/payments/process',
-        permission: PERMISSIONS.PAYMENTS_PROCESS
-      },
-      { 
-        name: 'Analytics', 
-        href: '/payments/analytics',
-        permission: PERMISSIONS.PAYMENTS_ANALYTICS
-      }
+      // { 
+      //   name: 'Payment Dashboard', 
+      //   href: '/payments',
+      //   permission: PERMISSIONS.PAYMENTS_VIEW
+      // },
+      // { 
+      //   name: 'Driver Payments', 
+      //   href: '/payments/drivers',
+      //   permission: PERMISSIONS.PAYMENTS_VIEW
+      // },
+      //  { 
+      //   name: 'Driver Payments', 
+      //   href: '/drivers/payments',
+      //   permission: PERMISSIONS.PAYMENTS_VIEW
+      // }
+      // { 
+      //   name: 'Process Payments', 
+      //   href: '/payments/process',
+      //   permission: PERMISSIONS.PAYMENTS_PROCESS
+      // },
+      // { 
+      //   name: 'Analytics', 
+      //   href: '/payments/analytics',
+      //   permission: PERMISSIONS.PAYMENTS_ANALYTICS
+      // }
     ]
   },
   {
@@ -172,11 +188,11 @@ const navigation = [
         href: '/expenses',
         permission: PERMISSIONS.EXPENSES_VIEW
       },
-      { 
-        name: 'Add Expense', 
-        href: '/expenses/add',
-        permission: PERMISSIONS.EXPENSES_CREATE
-      },
+      // { 
+      //   name: 'Add Expense', 
+      //   href: '/expenses/add',
+      //   permission: PERMISSIONS.EXPENSES_CREATE
+      // },
       { 
         name: 'Expense Reports', 
         href: '/expenses/reports',
@@ -204,11 +220,11 @@ const navigation = [
         href: '/reports/performance',
         permission: PERMISSIONS.REPORTS_PERFORMANCE
       },
-      { 
-        name: 'Export Data', 
-        href: '/reports/export',
-        permission: PERMISSIONS.REPORTS_EXPORT
-      }
+      // { 
+      //   name: 'Export Data', 
+      //   href: '/reports/export',
+      //   permission: PERMISSIONS.REPORTS_EXPORT
+      // }
     ]
   },
   {
@@ -228,62 +244,62 @@ const navigation = [
       }
     ]
   },
-  {
-    name: 'Ticket System',
-    icon: MessageSquare,
-    permission: PERMISSIONS.TICKETS_VIEW,
-    children: [
-      { 
-        name: 'All Tickets', 
-        href: '/tickets',
-        permission: PERMISSIONS.TICKETS_VIEW
-      },
-      { 
-        name: 'Create Ticket', 
-        href: '/tickets/create',
-        permission: PERMISSIONS.TICKETS_CREATE
-      }
-    ]
-  },
-  {
-    name: 'HR Management',
-    icon: UserCheck,
-    permission: PERMISSIONS.HR_VIEW,
-    children: [
-      { 
-        name: 'Employees', 
-        href: '/hr/employees',
-        permission: PERMISSIONS.HR_VIEW
-      },
-      { 
-        name: 'Attendance', 
-        href: '/hr/attendance',
-        permission: PERMISSIONS.HR_VIEW
-      },
-      { 
-        name: 'Payroll', 
-        href: '/hr/payroll',
-        permission: PERMISSIONS.HR_PAYROLL
-      }
-    ]
-  },
-  {
-    name: 'Settings',
-    icon: Settings,
-    permission: PERMISSIONS.SETTINGS_VIEW,
-    children: [
-      { 
-        name: 'General Settings', 
-        href: '/settings/general',
-        permission: PERMISSIONS.SETTINGS_VIEW
-      },
-      { 
-        name: 'System Settings', 
-        href: '/settings/system',
-        permission: PERMISSIONS.SETTINGS_SYSTEM
-      }
-    ]
-  }
+  // {
+  //   name: 'Ticket System',
+  //   icon: MessageSquare,
+  //   permission: PERMISSIONS.TICKETS_VIEW,
+  //   children: [
+  //     { 
+  //       name: 'All Tickets', 
+  //       href: '/tickets',
+  //       permission: PERMISSIONS.TICKETS_VIEW
+  //     },
+  //     { 
+  //       name: 'Create Ticket', 
+  //       href: '/tickets/create',
+  //       permission: PERMISSIONS.TICKETS_CREATE
+  //     }
+  //   ]
+  // },
+  // {
+  //   name: 'HR Management',
+  //   icon: UserCheck,
+  //   permission: PERMISSIONS.HR_VIEW,
+  //   children: [
+  //     { 
+  //       name: 'Employees', 
+  //       href: '/hr/employees',
+  //       permission: PERMISSIONS.HR_VIEW
+  //     },
+  //     { 
+  //       name: 'Attendance', 
+  //       href: '/hr/attendance',
+  //       permission: PERMISSIONS.HR_VIEW
+  //     },
+  //     { 
+  //       name: 'Payroll', 
+  //       href: '/hr/payroll',
+  //       permission: PERMISSIONS.HR_PAYROLL
+  //     }
+  //   ]
+  // },
+  // {
+  //   name: 'Settings',
+  //   icon: Settings,
+  //   permission: PERMISSIONS.SETTINGS_VIEW,
+  //   children: [
+  //     { 
+  //       name: 'General Settings', 
+  //       href: '/settings/general',
+  //       permission: PERMISSIONS.SETTINGS_VIEW
+  //     },
+  //     { 
+  //       name: 'System Settings', 
+  //       href: '/settings/system',
+  //       permission: PERMISSIONS.SETTINGS_SYSTEM
+  //     }
+  //   ]
+  // }
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {

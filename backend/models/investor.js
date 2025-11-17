@@ -1,21 +1,40 @@
 import mongoose from 'mongoose';
 
 const InvestorSchema = new mongoose.Schema({
-  id: Number,
-  name: String,
-  email: String,
-  phone: String,
+  // Personal Information
+  investorName: { type: String, required: true },
+  email: { type: String, required: false },
+  phone: { type: String, required: true },
+  address: String,
+  city: String,
+  state: String,
+  pincode: String,
+  
+  // Identity Documents
+  aadharNumber: String,
   panNumber: String,
-  status: String,
-  joinDate: String,
-  totalInvestment: Number,
-  currentReturns: Number,
-  expectedReturns: Number,
-  investmentPlan: String,
-  maturityDate: String,
-  kycStatus: String,
-  bankAccount: String,
-  address: String
+  
+  // Bank Details
+  bankName: String,
+  accountNumber: String,
+  ifscCode: String,
+  accountHolderName: String,
+  accountBranchName: String,
+  
+  // Document URLs
+  profilePhoto: String,
+  aadharDocument: String,
+  aadharDocumentBack: String,
+  panDocument: String,
+  bankDocument: String,
+  
+  // Admin management fields
+  kycStatus: { type: String, default: 'pending', enum: ['pending', 'verified', 'rejected'] },
+  isManualEntry: { type: Boolean, default: false },
+  password: String, // For investor self-service login
+  
+  // Legacy fields
+  documents: [String]
 }, { timestamps: true });
 
 export default mongoose.models.Investor || mongoose.model('Investor', InvestorSchema);

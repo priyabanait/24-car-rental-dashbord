@@ -44,6 +44,7 @@ export default function DriversList() {
   // const [documentPreviews, setDocumentPreviews] = useState({});
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedViewDriver, setSelectedViewDriver] = useState(null);
+  const [signupCredentials, setSignupCredentials] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -52,12 +53,21 @@ export default function DriversList() {
       setError(null);
       try {
         // Use Vite env var VITE_API_BASE to point to backend in dev/production.
-        // Fallback to https://udrive-backend-mcrx.vercel.app for local development.
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+        // Fallback to http://localhost:4000 for local development.
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+        
+        // Fetch manual drivers
         const res = await fetch(`${API_BASE}/api/drivers`);
         if (!res.ok) throw new Error(`Failed to load drivers: ${res.status}`);
         const data = await res.json();
         if (mounted) setDriversData(data);
+        
+        // Fetch signup credentials
+        const credRes = await fetch(`${API_BASE}/api/drivers/signup/credentials`);
+        if (credRes.ok) {
+          const credData = await credRes.json();
+          if (mounted) setSignupCredentials(credData);
+        }
       } catch (err) {
         console.error(err);
         setError(err.message || 'Failed to load drivers');
@@ -72,9 +82,11 @@ export default function DriversList() {
   }, []);
 
   const filteredDrivers = driversData.filter(driver => {
-    const matchesSearch = driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         driver.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         driver.phone.includes(searchTerm);
+    const matchesSearch = (driver.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (driver.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (driver.phone || '').includes(searchTerm) ||
+                         (driver.mobile || '').includes(searchTerm) ||
+                         (driver.username || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || driver.status === statusFilter;
     const matchesPlan = planFilter === 'all' || driver.currentPlan === planFilter;
@@ -121,7 +133,7 @@ export default function DriversList() {
   const handleEditDriver = async (driver) => {
     try {
       // Fetch complete driver data from the backend
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -145,7 +157,7 @@ export default function DriversList() {
 
   const handleSaveDriver = async (driverData) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('udriver_token');
       
       if (selectedDriver) {
@@ -201,21 +213,12 @@ export default function DriversList() {
     if (window.confirm('Are you sure you want to delete this driver?')) {
       (async () => {
         try {
-          const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
-          const token = localStorage.getItem('udriver_token');
-          if (!token) {
-            toast.error('You must be logged in to delete drivers. Redirecting to login...');
-            // redirect to login page
-            navigate('/login');
-            return;
-          }
+          const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
           const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
-            method: 'DELETE',
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            method: 'DELETE'
           });
 
           if (!res.ok) {
-            if (res.status === 401 || res.status === 403) { localStorage.removeItem('udriver_token'); navigate('/login'); return; }
             let msg = `Failed to delete driver: ${res.status}`;
             try {
               const body = await res.json();
@@ -243,7 +246,7 @@ export default function DriversList() {
 
   const handleChangeDriverStatus = async (driverId, newStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'||'http://192.168.1.57:4000';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -266,7 +269,7 @@ export default function DriversList() {
 
   const handleChangeDriverKyc = async (driverId, newKyc) => {
     try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -360,7 +363,7 @@ export default function DriversList() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-purple-100 rounded-lg">
@@ -374,7 +377,7 @@ export default function DriversList() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Filters */}
@@ -407,16 +410,16 @@ export default function DriversList() {
                 <option value="pending">Pending</option>
               </select>
 
-              <select
+              {/* <select
                 value={planFilter}
                 onChange={(e) => setPlanFilter(e.target.value)}
                 className="input"
               >
                 <option value="all">All Plans</option>
-                <option value="Uber Plan">Uber Plan</option>
-                <option value="Daily Collection">Daily Collection</option>
-                <option value="Weekend Plan">Weekend Plan</option>
-              </select>
+                <option value="Uber Rent Plan">Uber Plan</option>
+                <option value="Daily Rent Plan">Daily Collection</option>
+     
+              </select> */}
 
               <select
                 value={kycFilter}
@@ -430,12 +433,43 @@ export default function DriversList() {
                 <option value="incomplete">Incomplete</option>
               </select>
 
-              <button className="btn btn-secondary flex items-center">
+              {/* <button className="btn btn-secondary flex items-center">
                 <Filter className="h-4 w-4 mr-2" />
                 More Filters
-              </button>
+              </button> */}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Signup Credentials Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Signup Credentials</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {signupCredentials.length === 0 ? (
+            <div className="p-4 text-center text-sm text-gray-600">No signup credentials found.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Mobile</TableHead>
+                  <TableHead>Password</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {signupCredentials.map((driver, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{driver.username || '-'}</TableCell>
+                    <TableCell>{driver.mobile || driver.phone || '-'}</TableCell>
+                    <TableCell>{driver.password}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -460,18 +494,18 @@ export default function DriversList() {
                 <TableRow>
                   <TableHead>Driver</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead>Vehicle</TableHead>
-                  <TableHead>Plan</TableHead>
+                  {/* <TableHead>Vehicle</TableHead> */}
+                  {/* <TableHead>Plan</TableHead> */}
                   <TableHead>KYC Status</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Earnings</TableHead>
-                  <TableHead>Rating</TableHead>
+                  {/* <TableHead>Earnings</TableHead> */}
+                  {/* <TableHead>Rating</TableHead> */}
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDrivers.map((driver) => (
-                  <TableRow key={driver.id}>
+                {filteredDrivers.map((driver,index) => (
+                  <TableRow key={index}>
                     <TableCell>
                       <div>
                         <div className="font-medium text-gray-900">{driver.name}</div>
@@ -491,7 +525,7 @@ export default function DriversList() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       {driver.vehicleAssigned ? (
                         <div>
                           <div className="font-medium text-gray-900">{driver.vehicleAssigned}</div>
@@ -500,8 +534,8 @@ export default function DriversList() {
                       ) : (
                         <Badge variant="warning">Not Assigned</Badge>
                       )}
-                    </TableCell>
-                    <TableCell>
+                    </TableCell> */}
+                    {/* <TableCell>
                       {driver.currentPlan ? (
                         <div>
                           <div className="font-medium text-gray-900">{driver.currentPlan}</div>
@@ -510,14 +544,14 @@ export default function DriversList() {
                       ) : (
                         <Badge variant="warning">No Plan</Badge>
                       )}
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell>
                       {getKycBadge(driver.kycStatus)}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(driver.status)}
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <div>
                         <div className="font-medium text-gray-900">{formatCurrency(driver.totalEarnings)}</div>
                         <div className="text-sm text-gray-500">{driver.totalTrips} trips</div>
@@ -528,13 +562,13 @@ export default function DriversList() {
                         <span className="text-yellow-400">★</span>
                         <span className="ml-1 text-sm font-medium">{driver.rating}</span>
                       </div>
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={async () => {
                             try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
                               const token = localStorage.getItem('udriver_token');
                               const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
                                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -568,7 +602,7 @@ export default function DriversList() {
                           <select
                             value={driver.kycStatus || 'incomplete'}
                             onChange={(e)=>handleChangeDriverKyc(driver.id, e.target.value)}
-                            className="input text-sm h-8 leading-6 text-center"
+                            className="input text-sm h-10 leading-6 text-center"
                           >
                             <option value="verified">Verified</option>
                             <option value="pending">Pending</option>
@@ -581,7 +615,7 @@ export default function DriversList() {
                           <select
                             value={driver.status || 'inactive'}
                             onChange={(e)=>handleChangeDriverStatus(driver.id, e.target.value)}
-                            className="input text-sm h-8 leading-6 text-center"
+                            className="input text-sm h-10 leading-6 text-center"
                           >
                             <option value="active">Active</option>
                             <option value="pending">Pending</option>

@@ -5,7 +5,7 @@ import {
   TrendingDown,
   Users,
   Star,
-  DollarSign,
+  IndianRupee,
   Clock,
   Car,
   MapPin,
@@ -61,7 +61,7 @@ export default function DriverPerformance() {
       setLoading(true);
       setError(null);
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const res = await fetch(`${API_BASE}/api/drivers`);
         if (!res.ok) throw new Error(`Failed to load drivers: ${res.status}`);
         const list = await res.json();
@@ -77,24 +77,70 @@ export default function DriverPerformance() {
     return () => { mounted = false; };
   }, []);
 
-  const performanceData = drivers.map(d => ({
-    id: d.id,
-    name: d.name,
-    totalTrips: d.totalTrips || 0,
-    totalEarnings: d.totalEarnings || 0,
-    avgRating: d.rating != null ? d.rating : 0,
-    completionRate: 80 + ((d.totalTrips || 0) % 20),
-    onTimeRate: 75 + ((d.totalTrips || 0) % 25),
-    avgTripTime: 20 + ((d.totalTrips || 0) % 10),
-    fuelEfficiency: 15 + ((d.totalTrips || 0) % 6),
-    customerSatisfaction: 4 + (((d.rating || 0) % 10) / 10),
-    weeklyGrowth: ((d.totalTrips || 0) % 15) - 5,
-    monthlyGrowth: ((d.totalTrips || 0) % 25) - 5,
-    topPerformer: (d.totalEarnings || 0) > 50000 || (d.rating || 0) >= 4.8,
-    ratingDistribution: { 5: 70, 4: 20, 3: 7, 2: 2, 1: 1 },
-    recentActivity: d.lastActive ? 'Recently active' : 'Inactive',
-    vehicle: d.vehicleAssigned || d.vehiclePreference || '—'
-  }));
+  const performanceData = drivers.map(d => {
+    const totalTrips = d.totalTrips || 0;
+    const totalEarnings = d.totalEarnings || 0;
+    const rating = d.rating != null ? d.rating : 0;
+    
+    // Calculate completion rate based on total trips and status
+    // Higher trips = better completion rate (85-98%)
+    const completionRate = totalTrips > 0 
+      ? Math.min(98, Math.max(85, 85 + Math.floor(totalTrips / 10)))
+      : 85;
+    
+    // Calculate on-time rate based on completion rate and rating
+    // Better rating = better on-time performance (75-95%)
+    const onTimeRate = Math.min(95, Math.max(75, Math.round(75 + (rating * 4))));
+    
+    // Calculate fuel efficiency based on vehicle type and trips
+    // More trips = better fuel efficiency (learned routes)
+    const baseFuelEfficiency = d.vehicleAssigned?.includes('Dzire') ? 18 
+      : d.vehicleAssigned?.includes('WagonR') ? 20
+      : d.vehicleAssigned?.includes('Aura') ? 17
+      : d.vehicleAssigned?.includes('Ertiga') ? 15
+      : d.vehicleAssigned?.includes('Spresso') ? 21
+      : d.vehicleAssigned?.includes('Triber') ? 16
+      : 17; // default
+    const fuelEfficiency = totalTrips > 0 
+      ? baseFuelEfficiency + Math.min(3, Math.floor(totalTrips / 50))
+      : baseFuelEfficiency;
+    
+    // Calculate weekly growth based on recent earnings trend
+    // If earnings > average per trip * recent trips, positive growth
+    const avgEarningsPerTrip = totalTrips > 0 ? totalEarnings / totalTrips : 500;
+    const expectedWeeklyEarnings = avgEarningsPerTrip * 30; // ~30 trips per week
+    const actualWeeklyEarnings = totalEarnings * 0.25; // rough estimate
+    const weeklyGrowth = totalTrips > 0 
+      ? Math.round(((actualWeeklyEarnings - expectedWeeklyEarnings) / expectedWeeklyEarnings) * 100)
+      : 0;
+    
+    // Calculate monthly growth based on status and activity
+    // Active drivers with good ratings show positive growth
+    const monthlyGrowth = d.status === 'active' && rating >= 4.0
+      ? Math.round(5 + (rating - 4.0) * 10 + (totalTrips > 100 ? 5 : 0))
+      : d.status === 'active'
+      ? Math.round(-2 + (rating * 2))
+      : -5;
+    
+    return {
+      id: d.id,
+      name: d.name,
+      totalTrips,
+      totalEarnings,
+      avgRating: rating,
+      completionRate,
+      onTimeRate,
+      avgTripTime: 20 + ((totalTrips || 0) % 10),
+      fuelEfficiency,
+      customerSatisfaction: rating,
+      weeklyGrowth: Math.max(-20, Math.min(20, weeklyGrowth)),
+      monthlyGrowth: Math.max(-15, Math.min(25, monthlyGrowth)),
+      topPerformer: totalEarnings > 50000 || rating >= 4.8,
+      ratingDistribution: { 5: 70, 4: 20, 3: 7, 2: 2, 1: 1 },
+      recentActivity: d.lastActive ? 'Recently active' : 'Inactive',
+      vehicle: d.vehicleAssigned || d.vehiclePreference || '—'
+    };
+  });
 
   // Calculate overall metrics
   const overallMetrics = {
@@ -242,7 +288,7 @@ export default function DriverPerformance() {
           <CardContent className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <IndianRupee className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Earnings</p>
@@ -408,9 +454,7 @@ export default function DriverPerformance() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Growth
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                 
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -420,12 +464,12 @@ export default function DriverPerformance() {
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-gray-600">
-                            {driver.name.charAt(0)}
+                            {driver.name?.charAt(0) || 'D'}
                           </span>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{driver.name}</div>
-                          <div className="text-sm text-gray-500">{driver.vehicle}</div>
+                          <div className="text-sm font-medium text-gray-900">{driver.name || '—'}</div>
+                          <div className="text-sm text-gray-500">{driver.vehicle || '—'}</div>
                         </div>
                       </div>
                     </td>
@@ -461,7 +505,7 @@ export default function DriverPerformance() {
                         Monthly: {driver.monthlyGrowth > 0 ? '+' : ''}{driver.monthlyGrowth}%
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button className="text-indigo-600 hover:text-indigo-900">
                           <Eye className="h-4 w-4" />
@@ -470,7 +514,7 @@ export default function DriverPerformance() {
                           <BarChart3 className="h-4 w-4" />
                         </button>
                       </div>
-                    </td>
+                    </td> */}
                   </tr>
                 ))}
               </tbody>

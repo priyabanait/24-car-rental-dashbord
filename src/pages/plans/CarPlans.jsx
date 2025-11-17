@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Car, 
-  DollarSign, 
+  IndianRupee, 
   Star, 
   Users, 
   Plus,
@@ -30,6 +30,7 @@ import { PermissionGuard } from '../../components/guards/PermissionGuards';
 import { PERMISSIONS } from '../../utils/permissions';
 import toast from 'react-hot-toast';
 import PlanModal from '../../components/plans/PlanModal';
+import VehicleRentSlabModal from '../../components/plans/VehicleRentSlabModal';
 
 export default function CarPlans() {
   const { hasPermission } = useAuth();
@@ -37,62 +38,22 @@ export default function CarPlans() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showVehicleSlabModal, setShowVehicleSlabModal] = useState(false);
+  const [showDailySlabModal, setShowDailySlabModal] = useState(false);
   const [activeTab, setActiveTab] = useState('plans');
   const [selectedVehicle, setSelectedVehicle] = useState('Wagon R');
+  const [selectedDailyVehicle, setSelectedDailyVehicle] = useState('');
 
   const [carPlans, setCarPlans] = useState([]);
+  // Keep separate lists to avoid cross-over between weekly and daily
+  const [weeklyPlans, setWeeklyPlans] = useState([]);
+  const [dailyPlans, setDailyPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
-
-  const [driverEnrollments, setDriverEnrollments] = useState([
-    {
-      id: 1,
-      driverId: 'DR001',
-      driverName: 'Rajesh Kumar',
-      phone: '+91-9876543210',
-      planId: 2,
-      planName: 'Standard Plan',
-      enrolledDate: '2024-08-15',
-      status: 'active',
-      monthlyFee: 8000,
-      commissionRate: 18,
-      vehicleAssigned: 'KA-05-AB-1234',
-      performanceRating: 4.7,
-      totalEarnings: 45000,
-      lastPayment: '2024-10-15'
-    },
-    {
-      id: 2,
-      driverId: 'DR002',
-      driverName: 'Priya Sharma',
-      phone: '+91-9876543211',
-      planId: 3,
-      planName: 'Premium Plan',
-      enrolledDate: '2024-09-01',
-      status: 'active',
-      monthlyFee: 12000,
-      commissionRate: 15,
-      vehicleAssigned: 'KA-05-CD-5678',
-      performanceRating: 4.9,
-      totalEarnings: 65000,
-      lastPayment: '2024-10-20'
-    },
-    {
-      id: 3,
-      driverId: 'DR003',
-      driverName: 'Amit Singh',
-      phone: '+91-9876543212',
-      planId: 1,
-      planName: 'Economy Plan',
-      enrolledDate: '2024-07-20',
-      status: 'active',
-      monthlyFee: 5000,
-      commissionRate: 20,
-      vehicleAssigned: 'KA-05-EF-9012',
-      performanceRating: 4.5,
-      totalEarnings: 32000,
-      lastPayment: '2024-10-18'
-    }
-  ]);
+  const [slabType, setSlabType] = useState(null);
+  // Data now fetched from backend static endpoints
+  const [driverEnrollments, setDriverEnrollments] = useState([]);
+  const [vehicleWeeklySlabs, setVehicleWeeklySlabs] = useState([]);
+  const [vehicleDailySlabs, setVehicleDailySlabs] = useState([]);
 
   const getPlanIcon = (category) => {
     switch (category) {
@@ -164,7 +125,9 @@ export default function CarPlans() {
     const activePlans = carPlans.filter(p => p.status === 'active').length;
     const totalDrivers = carPlans.reduce((sum, plan) => sum + plan.enrolledDrivers, 0);
     const totalRevenue = driverEnrollments.reduce((sum, enrollment) => sum + enrollment.monthlyFee, 0);
-    const averageCommission = carPlans.reduce((sum, plan) => sum + plan.commissionRate, 0) / carPlans.length;
+    const averageCommission = carPlans.length > 0
+      ? carPlans.reduce((sum, plan) => sum + plan.commissionRate, 0) / carPlans.length
+      : 0;
 
     return {
       totalPlans,
@@ -177,10 +140,14 @@ export default function CarPlans() {
 
   const metrics = calculateMetrics();
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   const mapApiPlanToUI = (p) => ({
-    id: p.id || p._id || p._doc?._id,
+    // Preserve Mongo _id separately and prefer it as plan identifier for API ops
+    _id: p._id || p._doc?._id,
+    // Use Mongo _id as id to avoid confusion with any legacy numeric id field
+    id: (p._id || p._doc?._id || p.id),
+    legacyId: p.id, // keep any legacy numeric id if present (not used for API calls)
     name: p.name || p.title || 'Untitled Plan',
     category: p.category || p.type || p.vehicleType || 'standard',
     vehicleTypes: p.vehicleTypes && p.vehicleTypes.length ? p.vehicleTypes : (p.vehicleType ? [p.vehicleType] : []),
@@ -190,84 +157,129 @@ export default function CarPlans() {
     restrictions: p.restrictions || [],
     benefits: p.benefits || [],
     status: p.status || 'active',
-    enrolledDrivers: p.enrolledDrivers ?? p.driversCount ?? 0,
-    createdDate: p.createdDate || p.createdAt || ''
+    // Dynamically count enrolled drivers for this plan
+    enrolledDrivers: driverEnrollments.filter(e => String(e.planId) === String(p._id || p._doc?._id || p.id)).length,
+    createdDate: p.createdDate || p.createdAt || '',
+    // Rent slab fields
+    securityDeposit: p.securityDeposit || 0,
+    weeklyRentSlabs: p.weeklyRentSlabs || [],
+    dailyRentSlabs: p.dailyRentSlabs || []
   });
 
   const fetchCarPlans = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/driver-plans`);
-      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
-      const data = await res.json();
-      setCarPlans((data || []).map(mapApiPlanToUI));
+      // Fetch both weekly and daily plans separately
+      const [weeklyRes, dailyRes] = await Promise.all([
+        fetch(`${API_BASE}/api/weekly-rent-plans`),
+        fetch(`${API_BASE}/api/daily-rent-plans`)
+      ]);
+      
+      const weeklyData = weeklyRes.ok ? await weeklyRes.json() : [];
+      const dailyData = dailyRes.ok ? await dailyRes.json() : [];
+      
+      // Map separately and store to avoid mixing types
+      const mappedWeekly = (weeklyData || []).map(mapApiPlanToUI);
+      const mappedDaily = (dailyData || []).map(mapApiPlanToUI);
+
+      setWeeklyPlans(mappedWeekly);
+      setDailyPlans(mappedDaily);
+
+      // Also maintain a combined list for metrics and any generic views
+      const combined = [...mappedWeekly, ...mappedDaily];
+      setCarPlans(combined);
     } catch (err) {
       console.error('fetchCarPlans error', err);
       toast.error('Failed to load plans from server');
     }
   };
 
-  useEffect(() => {
-    fetchCarPlans();
-  }, []);
-
-  // Vehicle-specific rent slabs (from screenshots)
-  const vehiclePlanSlabs = {
-    'Wagon R': {
-      securityDeposit: 12000,
-      rows: [
-        { trips: '0 - 59', rentDay: 890, weeklyRent: 6230 },
-        { trips: '60', rentDay: 750, weeklyRent: 5250 },
-        { trips: '75', rentDay: 650, weeklyRent: 4550 },
-        { trips: '100', rentDay: 500, weeklyRent: 3500 },
-        { trips: '115', rentDay: 370, weeklyRent: 2590 },
-        { trips: '130', rentDay: 300, weeklyRent: 2100 }
-      ]
-    },
-    'Spresso': {
-      securityDeposit: 12000,
-      rows: [
-        { trips: '0 - 59', rentDay: 850, weeklyRent: 5950 },
-        { trips: '60', rentDay: 700, weeklyRent: 4900 },
-        { trips: '75', rentDay: 600, weeklyRent: 4200 },
-        { trips: '100', rentDay: 450, weeklyRent: 3150 },
-        { trips: '115', rentDay: 250, weeklyRent: 1750 },
-        { trips: '130', rentDay: 100, weeklyRent: 700 }
-      ]
-    },
-    'Sedan': {
-      securityDeposit: 15000,
-      rows: [
-        { trips: '0 - 59', rentDay: 990, weeklyRent: 6930 },
-        { trips: '60', rentDay: 890, weeklyRent: 6230 },
-        { trips: '75', rentDay: 770, weeklyRent: 5390 },
-        { trips: '100', rentDay: 650, weeklyRent: 4550 },
-        { trips: '115', rentDay: 550, weeklyRent: 3850 },
-        { trips: '130', rentDay: 400, weeklyRent: 2800 }
-      ]
-    },
-    'EIP': {
-      securityDeposit: 10000,
-      rows: [
-        { trips: '0 - 59', rentDay: 900, weeklyRent: 6300 },
-        { trips: '60', rentDay: 750, weeklyRent: 5250 },
-        { trips: '75', rentDay: 650, weeklyRent: 4550 },
-        { trips: '100', rentDay: 500, weeklyRent: 3500 },
-        { trips: '115', rentDay: 400, weeklyRent: 2800 },
-        { trips: '130', rentDay: 300, weeklyRent: 2100 }
-      ]
-    },
-    '2:1 Driver Rent': {
-      securityDeposit: 15000,
-      rows: [
-        { trips: '0 - 59', rentDay: 1200, weeklyRent: 8400 },
-        { trips: '60', rentDay: 1050, weeklyRent: 7350 },
-        { trips: '75', rentDay: 975, weeklyRent: 6825 },
-        { trips: '100', rentDay: 750, weeklyRent: 5250 },
-        { trips: '115', rentDay: 550, weeklyRent: 3850 },
-        { trips: '130', rentDay: 450, weeklyRent: 3150 }
-      ]
+  const fetchDriverEnrollments = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/static/driver-enrollments`);
+      if (!res.ok) throw new Error(`Enrollments fetch failed: ${res.status}`);
+      const data = await res.json();
+      setDriverEnrollments(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('fetchDriverEnrollments error', err);
+      toast.error('Failed to load driver enrollments');
     }
   };
+
+  // Fetch weekly/daily slabs for selected vehicle
+  const fetchVehicleWeeklySlabs = async (vehicleId) => {
+    try {
+      if (!vehicleId) return setVehicleWeeklySlabs([]);
+      const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}/weekly-rent-slabs`);
+      if (!res.ok) throw new Error(`Weekly slabs fetch failed: ${res.status}`);
+      const data = await res.json();
+      setVehicleWeeklySlabs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('fetchVehicleWeeklySlabs error', err);
+      toast.error('Failed to load weekly rent slabs');
+    }
+  };
+
+  const fetchVehicleDailySlabs = async (vehicleId) => {
+    try {
+      if (!vehicleId) return setVehicleDailySlabs([]);
+      const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}/daily-rent-slabs`);
+      if (!res.ok) throw new Error(`Daily slabs fetch failed: ${res.status}`);
+      const data = await res.json();
+      setVehicleDailySlabs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('fetchVehicleDailySlabs error', err);
+      toast.error('Failed to load daily rent slabs');
+    }
+  };
+
+  useEffect(() => {
+    fetchCarPlans();
+    fetchDriverEnrollments();
+  }, []);
+
+  // Set first vehicles per type as default selections
+  useEffect(() => {
+    if (!selectedVehicle && weeklyPlans.length > 0) {
+      setSelectedVehicle(weeklyPlans[0].name);
+    }
+  }, [weeklyPlans]);
+
+  useEffect(() => {
+    if (dailyPlans.length === 0) {
+      setSelectedDailyVehicle('');
+      setVehicleDailySlabs([]);
+      return;
+    }
+    if (!selectedDailyVehicle) {
+      setSelectedDailyVehicle(dailyPlans[0].name);
+    }
+  }, [dailyPlans]);
+
+  // Fetch slabs when selected vehicle changes
+  useEffect(() => {
+    if (selectedVehicle) {
+      const plan = weeklyPlans.find(p => p.name === selectedVehicle);
+      if (plan && Array.isArray(plan.weeklyRentSlabs)) {
+        setVehicleWeeklySlabs(plan.weeklyRentSlabs);
+      } else {
+        setVehicleWeeklySlabs([]);
+      }
+    }
+  }, [selectedVehicle, weeklyPlans]);
+
+  // Fetch daily slabs when selected daily vehicle changes
+  useEffect(() => {
+    if (selectedDailyVehicle) {
+      const plan = dailyPlans.find(p => p.name === selectedDailyVehicle);
+      if (plan && Array.isArray(plan.dailyRentSlabs)) {
+        setVehicleDailySlabs(plan.dailyRentSlabs);
+      } else {
+        setVehicleDailySlabs([]);
+      }
+    }
+  }, [selectedDailyVehicle, dailyPlans]);
+
+  // vehiclePlanSlabs now loaded from backend (/api/static/vehicle-rent-slabs)
 
   const handlePlanToggle = (planId) => {
     // call backend to toggle status
@@ -277,10 +289,11 @@ export default function CarPlans() {
         if (!plan) throw new Error('Plan not found');
         const newStatus = plan.status === 'active' ? 'inactive' : 'active';
         const token = localStorage.getItem('udriver_token') || 'mock';
-        const res = await fetch(`${API_BASE}/api/driver-plans/${plan.id}`, {
+        // Always use Mongo _id for API routes
+        const res = await fetch(`${API_BASE}/api/car-plans/${plan._id || plan.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ ...plan, status: newStatus })
+          body: JSON.stringify({ status: newStatus })
         });
         if (!res.ok) {
           const body = await res.json().catch(() => null);
@@ -295,6 +308,98 @@ export default function CarPlans() {
     })();
   };
 
+  const handleVehicleSlabSave = async (formData) => {
+    try {
+      const token = localStorage.getItem('udriver_token') || 'mock';
+      const plan = weeklyPlans.find(p => p.name === selectedVehicle);
+      if (!plan) throw new Error('Plan not found');
+      
+      const res = await fetch(`${API_BASE}/api/weekly-rent-plans/${plan._id || plan.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          weeklyRentSlabs: formData.rows,
+          securityDeposit: formData.securityDeposit
+        })
+      });
+      
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || `Failed to update: ${res.status}`);
+      }
+      
+      await fetchCarPlans();
+      setShowVehicleSlabModal(false);
+      toast.success('Weekly rent plan updated successfully');
+    } catch (err) {
+      console.error('Vehicle slab update error', err);
+      toast.error(err.message || 'Failed to update weekly rent plan');
+    }
+  };
+
+  const handleDailySlabSave = async (formData) => {
+    try {
+      const token = localStorage.getItem('udriver_token') || 'mock';
+      const plan = dailyPlans.find(p => p.name === selectedDailyVehicle);
+      if (!plan) throw new Error('Plan not found');
+      
+      const res = await fetch(`${API_BASE}/api/daily-rent-plans/${plan._id || plan.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          dailyRentSlabs: formData.rows,
+          securityDeposit: formData.securityDeposit
+        })
+      });
+      
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || `Failed to update: ${res.status}`);
+      }
+      
+      await fetchCarPlans();
+      setShowDailySlabModal(false);
+      toast.success('Daily rent plan updated successfully');
+    } catch (err) {
+      console.error('Daily slab update error', err);
+      toast.error(err.message || 'Failed to update daily rent plan');
+    }
+  };
+
+  const handleDeletePlan = async (planName, type) => {
+    if (!window.confirm(`Are you sure you want to delete ${planName} ${type} plan?`)) return;
+    
+    try {
+      const token = localStorage.getItem('udriver_token') || 'mock';
+      const plan = (type === 'weekly' ? weeklyPlans : dailyPlans).find(p => p.name === planName);
+      if (!plan) throw new Error('Plan not found');
+      
+      const endpoint = type === 'weekly' ? '/api/weekly-rent-plans' : '/api/daily-rent-plans';
+      const res = await fetch(`${API_BASE}${endpoint}/${plan._id || plan.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      });
+      
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || `Failed to delete: ${res.status}`);
+      }
+      
+      await fetchCarPlans();
+      // Reset selected vehicle if deleted
+      if (type === 'weekly' && selectedVehicle === planName) {
+        setSelectedVehicle('');
+      }
+      if (type === 'daily' && selectedDailyVehicle === planName) {
+        setSelectedDailyVehicle('');
+      }
+      toast.success('Plan deleted successfully');
+    } catch (err) {
+      console.error('Delete plan error', err);
+      toast.error(err.message || 'Failed to delete plan');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -306,11 +411,18 @@ export default function CarPlans() {
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <PermissionGuard permission={PERMISSIONS.PLANS_CREATE}>
             <button 
-              onClick={() => { setSelectedPlan(null); setShowPlanModal(true); }}
+              onClick={() => { setSelectedPlan(null); setShowPlanModal(true); setSlabType('weekly'); }}
               className="btn btn-primary flex items-center"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Create Plan
+              Add Uber Rent Plan
+            </button>
+            <button 
+              onClick={() => { setSelectedPlan(null); setShowPlanModal(true); setSlabType('daily'); }}
+              className="btn btn-primary flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Daily Rent Plan
             </button>
           </PermissionGuard>
         </div>
@@ -319,11 +431,11 @@ export default function CarPlans() {
       {/* Plan create / edit modal */}
       <PlanModal
         isOpen={showPlanModal}
-        onClose={() => { setShowPlanModal(false); setSelectedPlan(null); }}
-      apiPath="/api/driver-plans"
-      initial={selectedPlan}
-      onSave={async (saved) => {
-          // after backend returns saved plan, refresh the list to reflect persisted data
+        onClose={() => { setShowPlanModal(false); setSelectedPlan(null); setSlabType(null); }}
+        apiPath={slabType === 'weekly' ? '/api/weekly-rent-plans' : '/api/daily-rent-plans'}
+        initial={selectedPlan}
+        slabType={slabType}
+        onSave={async (saved) => {
           try {
             await fetchCarPlans();
             toast.success('Plan saved');
@@ -333,25 +445,53 @@ export default function CarPlans() {
         }}
       />
 
+      {/* Vehicle Rent Slab Edit Modal */}
+      <VehicleRentSlabModal
+        isOpen={showVehicleSlabModal}
+        onClose={() => setShowVehicleSlabModal(false)}
+        vehicleName={selectedVehicle}
+        vehicleData={{
+          securityDeposit: carPlans.find(p => p.name === selectedVehicle)?.securityDeposit || 0,
+          rows: vehicleWeeklySlabs
+        }}
+        onSave={handleVehicleSlabSave}
+      />
+
+      {/* Daily Rent Slab Edit Modal */}
+      <VehicleRentSlabModal
+        isOpen={showDailySlabModal}
+        onClose={() => setShowDailySlabModal(false)}
+        vehicleName={selectedDailyVehicle}
+        vehicleData={{
+          securityDeposit: carPlans.find(p => p.name === selectedDailyVehicle)?.securityDeposit || 0,
+          rows: vehicleDailySlabs
+        }}
+        onSave={handleDailySlabSave}
+      />
+
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
+          <CardContent className="p-2">
+            <div className="flex items-start">
+              {/* <div className="p-2 bg-blue-100 rounded-lg">
                 <Car className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Plans</p>
-                <p className="text-2xl font-bold text-gray-900">{metrics.totalPlans}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
+              </div> */}
+              {/* {dailyPlans.length > 0 ? (
+                <div className="w-48">
+                  <select
+                    value={selectedDailyVehicle}
+                    onChange={(e) => setSelectedDailyVehicle(e.target.value)}
+                    className="input w-full"
+                  >
+                    {dailyPlans.map((plan) => (
+                      <option key={plan.id || plan._id} value={plan.name}>{plan.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">No daily plans available</div>
+              )} */}
               <div className="p-2 bg-green-100 rounded-lg">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
@@ -363,9 +503,9 @@ export default function CarPlans() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
+        {/* <Card>
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-purple-100 rounded-lg">
                 <Users className="h-6 w-6 text-purple-600" />
               </div>
@@ -375,13 +515,13 @@ export default function CarPlans() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-yellow-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-yellow-600" />
+                <IndianRupee className="h-6 w-6 text-yellow-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
@@ -391,9 +531,9 @@ export default function CarPlans() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
+        {/* <Card>
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-orange-100 rounded-lg">
                 <Star className="h-6 w-6 text-orange-600" />
               </div>
@@ -403,7 +543,7 @@ export default function CarPlans() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Tabs */}
@@ -419,7 +559,7 @@ export default function CarPlans() {
           >
             Car Plans ({carPlans.length})
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('enrollments')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'enrollments'
@@ -428,7 +568,7 @@ export default function CarPlans() {
             }`}
           >
             Driver Enrollments ({driverEnrollments.length})
-          </button>
+          </button> */}
         </nav>
       </div>
 
@@ -451,7 +591,7 @@ export default function CarPlans() {
 
             </div>
 
-            {activeTab === 'plans' && (
+            {/* {activeTab === 'plans' && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
@@ -483,7 +623,7 @@ export default function CarPlans() {
                   </select>
                 </div>
               </>
-            )}
+            )} */}
 
             {/* <div className="flex items-end">
               <button className="btn btn-outline w-full">
@@ -495,35 +635,58 @@ export default function CarPlans() {
         </CardContent>
       </Card>
 
-      {/* Vehicle specific rent slabs (from screenshots) */}
+      {/* Vehicle specific rent slabs (dynamic) */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between w-full">
             <div>
-              <CardTitle className="text-lg">Vehicle Rent Plans</CardTitle>
-              <p className="text-sm text-gray-500">Select a vehicle to view rent slabs</p>
+              <CardTitle className="text-lg">Uber Rent Plans</CardTitle>
+              <p className="text-sm text-gray-500">Select a vehicle to view weekly rent slabs</p>
             </div>
-            <div className="w-48">
-              <select
-                value={selectedVehicle}
-                onChange={(e) => setSelectedVehicle(e.target.value)}
-                className="input w-full"
-              >
-                {Object.keys(vehiclePlanSlabs).map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
+            <div className="flex items-center gap-3">
+              <div className="w-48">
+                <select
+                  value={selectedVehicle}
+                  onChange={(e) => setSelectedVehicle(e.target.value)}
+                  className="input w-full"
+                >
+                  {weeklyPlans.map((plan) => (
+                    <option key={plan.id || plan._id} value={plan.name}>{plan.name}</option>
+                  ))}
+                </select>
+              </div>
+              <PermissionGuard permission={PERMISSIONS.PLANS_EDIT}>
+                <button
+                  onClick={() => setShowVehicleSlabModal(true)}
+                  className="btn btn-outline flex items-center"
+                  disabled={!selectedVehicle}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Plan
+                </button>
+                {/* <button
+                  onClick={() => handleDeletePlan(selectedVehicle, 'weekly')}
+                  className="btn btn-danger flex items-center"
+                  disabled={!selectedVehicle}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </button> */}
+              </PermissionGuard>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {vehiclePlanSlabs[selectedVehicle] ? (
+          {selectedVehicle && weeklyPlans.find(p => p.name === selectedVehicle) && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Security Deposit: </span>
+              <span className="text-lg font-bold text-green-600">
+                ₹{weeklyPlans.find(p => p.name === selectedVehicle)?.securityDeposit || 0}
+              </span>
+            </div>
+          )}
+          {vehicleWeeklySlabs.length > 0 ? (
             <div className="overflow-x-auto">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">ACTIVE - {selectedVehicle}</h3>
-                <div className="text-sm text-gray-600">Security Deposit - {formatCurrency(vehiclePlanSlabs[selectedVehicle].securityDeposit)}</div>
-              </div>
-
               <table className="min-w-full border-collapse border border-slate-200 text-sm">
                 <thead>
                   <tr className="bg-green-600 text-white">
@@ -535,26 +698,106 @@ export default function CarPlans() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vehiclePlanSlabs[selectedVehicle].rows.map((r, idx) => (
+                  {vehicleWeeklySlabs.map((r, idx) => (
                     <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-3 py-2">{r.trips}</td>
-                      <td className="px-3 py-2 text-right">{r.rentDay}</td>
-                      <td className="px-3 py-2 text-right">{r.weeklyRent}</td>
-                      <td className="px-3 py-2 text-right">105</td>
-                      <td className="px-3 py-2 text-right">60%</td>
+                      <td className="px-3 py-2 text-right">₹{r.rentDay}</td>
+                      <td className="px-3 py-2 text-right">₹{r.weeklyRent}</td>
+                      <td className="px-3 py-2 text-right">₹{r.accidentalCover || 105}</td>
+                      <td className="px-3 py-2 text-right">{r.acceptanceRate || 60}%</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No slab data available for selected vehicle.</p>
+            <p className="text-sm text-gray-500">No weekly rent slab data available for selected vehicle.</p>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between w-full">
+            <div>
+              <CardTitle className="text-lg">Daily Rent Plans</CardTitle>
+              <p className="text-sm text-gray-500">Select a vehicle to view daily rent slabs</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-48">
+                <select
+                  value={selectedDailyVehicle}
+                  onChange={(e) => setSelectedDailyVehicle(e.target.value)}
+                  className="input w-full"
+                >
+                  {dailyPlans.map((plan) => (
+                    <option key={plan.id || plan._id} value={plan.name}>{plan.name}</option>
+                  ))}
+                </select>
+              </div>
+              <PermissionGuard permission={PERMISSIONS.PLANS_EDIT}>
+                <button
+                  onClick={() => setShowDailySlabModal(true)}
+                  className="btn btn-outline flex items-center"
+                  disabled={!selectedDailyVehicle}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Plan
+                </button>
+                {/* <button
+                  onClick={() => handleDeletePlan(selectedDailyVehicle, 'daily')}
+                  className="btn btn-danger flex items-center"
+                  disabled={!selectedDailyVehicle}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </button> */}
+              </PermissionGuard>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {selectedDailyVehicle && dailyPlans.find(p => p.name === selectedDailyVehicle) && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Security Deposit: </span>
+              <span className="text-lg font-bold text-green-600">
+                ₹{dailyPlans.find(p => p.name === selectedDailyVehicle)?.securityDeposit || 0}
+              </span>
+            </div>
+          )}
+          {vehicleDailySlabs.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse border border-slate-200 text-sm">
+                <thead>
+                  <tr className="bg-green-600 text-white">
+                    <th className="px-3 py-2 text-left">Daily Trips</th>
+                    <th className="px-3 py-2 text-right">Rent / Day</th>
+                    <th className="px-3 py-2 text-right">Weekly Rent</th>
+                    <th className="px-3 py-2 text-right">Accidental Cover</th>
+                    <th className="px-3 py-2 text-right">Acceptance Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vehicleDailySlabs.map((r, idx) => (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-3 py-2">{r.trips}</td>
+                      <td className="px-3 py-2 text-right">₹{r.rentDay}</td>
+                      <td className="px-3 py-2 text-right">₹{r.weeklyRent}</td>
+                      <td className="px-3 py-2 text-right">₹{r.accidentalCover || 105}</td>
+                      <td className="px-3 py-2 text-right">{r.acceptanceRate || 60}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No daily rent slab data available for selected vehicle.</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Car Plans Tab */}
-      {activeTab === 'plans' && (
+    
+      {/* {activeTab === 'plans' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredPlans.map(plan => (
             <Card key={plan.id} className="hover:shadow-lg transition-shadow">
@@ -574,7 +817,7 @@ export default function CarPlans() {
               </CardHeader>
               
               <CardContent className="space-y-4">
-                {/* Pricing */}
+          
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm text-gray-600">Monthly Fee</span>
@@ -586,7 +829,7 @@ export default function CarPlans() {
                   </div>
                 </div>
 
-                {/* Vehicle Types */}
+       
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Vehicle Types</h4>
                   <div className="flex flex-wrap gap-2">
@@ -596,7 +839,7 @@ export default function CarPlans() {
                   </div>
                 </div>
 
-                {/* Features */}
+       
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Key Features</h4>
                   <ul className="text-sm text-gray-600 space-y-1">
@@ -612,7 +855,7 @@ export default function CarPlans() {
                   </ul>
                 </div>
 
-                {/* Stats */}
+               
                 <div className="bg-blue-50 rounded-lg p-3">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Enrolled Drivers</span>
@@ -620,19 +863,23 @@ export default function CarPlans() {
                   </div>
                 </div>
 
-                {/* Actions */}
+            
                 <div className="flex space-x-2 pt-2">
-                  {/* <button className="btn btn-outline flex-1 text-sm">
-                    <Eye className="h-3 w-3 mr-1" />
-                    View Details
-                  </button> */}
+                 
                   <PermissionGuard permission={PERMISSIONS.PLANS_EDIT}>
-                    <button onClick={() => { setSelectedPlan(plan); setShowPlanModal(true); }} className="btn btn-primary flex-1 text-sm">
-                      <Edit className="h-3 w-3 mr-1" />
-                      Edit Plan
-                    </button>
                     <button
-                      // onClick={() => handlePlanToggle(plan.id)}
+  onClick={() => {
+    setSelectedPlan(plan);
+    setShowPlanModal(true);
+  }}
+  className="flex items-center justify-center gap-2 bg-[#10284C] hover:bg-[#1B3A73] text-white text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+>
+  <Edit className="w-4 h-4" />
+  <span>Edit Plan</span>
+</button>
+
+                    <button
+                      onClick={() => handlePlanToggle(plan.id)}
                       className={`btn ${plan.status === 'active' ? 'btn-danger' : 'btn-success'} text-sm`}
                     >
                       {plan.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -643,7 +890,7 @@ export default function CarPlans() {
             </Card>
           ))}
         </div>
-      )}
+      )} */}
 
       {/* Driver Enrollments Tab */}
       {activeTab === 'enrollments' && (

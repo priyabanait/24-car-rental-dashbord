@@ -13,6 +13,7 @@ npm run dev
 Endpoints (examples):
 - GET /api/drivers
 - GET /api/drivers/:id
+- GET /api/drivers/earnings/summary
 - POST /api/auth/login  { email, password }
 - GET /api/vehicles
 - GET /api/investors
@@ -22,6 +23,13 @@ Endpoints (examples):
 - GET /api/tickets
 - GET /api/employees
 - GET /api/dashboard
+- GET /api/static/driver-enrollments
+- GET /api/static/vehicle-rent-slabs
+- GET /api/payments/drivers
+- GET /api/payments/drivers/:id
+- POST /api/payments/drivers/create
+- PUT /api/payments/drivers/:id
+- DELETE /api/payments/drivers/:id
 
 Auth: POST /api/auth/login returns { user, token }. Use `Authorization: Bearer <token>` to call protected endpoints (POST/PUT/DELETE)
 

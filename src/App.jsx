@@ -9,11 +9,23 @@ import DriversList from './pages/drivers/DriversList';
 import DriverStatus from './pages/drivers/DriverStatus';
 import DriverPerformance from './pages/drivers/DriverPerformance';
 import DriverPayments from './pages/drivers/DriverPayments';
+import DriverLogin from './pages/drivers/DriverLogin';
+import DriverPlanSelection from './pages/drivers/DriverPlanSelection';
+import DriverMyPlans from './pages/drivers/DriverMyPlans';
 import VehicleDocuments from './pages/vehicles/VehicleDocuments';
 import InvestmentManagement from './pages/investments/InvestmentManagement';
+import Investors from './pages/investments/Investors';
+import InvesterLogin from './pages/investments/InvesterLogin';
+import InvestorPlanSelection from './pages/investments/InvestorPlanSelection';
 import PaymentManagement from './pages/payments/DriverPayments';
 import ExpenseManagement from './pages/expenses/ExpenseManagement';
+import ExpenseReports from './pages/expenses/ExpenseReports';
+import ExpenseCategories from './pages/expenses/ExpenseCategories';
+import FinancialReports from './pages/reports/FinancialReports';
+import PerformanceReports from './pages/reports/PerformanceReports';
 import CarPlans from './pages/plans/CarPlans';
+import DriverEnrollments from './pages/plans/DriverEnrollments';
+import DriverPlanSelections from './pages/plans/DriverPlanSelections';
 import AdminUsers from './pages/admin/AdminUsers';
 import RoleManagement from './pages/admin/RoleManagement';
 import AllVehicles from './pages/vehicles/AllVehicles';
@@ -51,6 +63,13 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public standalone Driver Login (not redirected even if authenticated) */}
+      <Route path="/drivers/login" element={<DriverLogin />} />
+      <Route path="/drivers/select-plan" element={<DriverPlanSelection />} />
+      <Route path="/drivers/my-plans" element={<DriverMyPlans />} />
+      {/* Public Investor routes */}
+      <Route path="/investors/login" element={<InvesterLogin />} />
+      <Route path="/investors/select-plan" element={<InvestorPlanSelection />} />
       <Route path="/login" element={
         <PublicRoute>
           <Login />
@@ -73,14 +92,23 @@ function AppRoutes() {
         <Route path="drivers/status" element={<DriverStatus />} />
         <Route path="drivers/performance" element={<DriverPerformance />} />
         <Route path="drivers/payments" element={<DriverPayments />} />
+  {/* Removed DriverLogin from protected nested routes to avoid dashboard layout */}
         <Route path="vehicles/documents" element={<VehicleDocuments />} />
         <Route path="investments" element={<InvestmentManagement />} />
+        <Route path="investments/investors" element={<Investors />} />
         <Route path="payments/drivers" element={<PaymentManagement />} />
         <Route path="expenses" element={<ExpenseManagement />} />
+        <Route path="expenses/reports" element={<ExpenseReports />} />
+        <Route path="expenses/categories" element={<ExpenseCategories />} />
+        <Route path="reports/financial" element={<FinancialReports />} />
+        <Route path="reports/performance" element={<PerformanceReports />} />
         <Route path="plans" element={<CarPlans />} />
+        <Route path="plans/enrollments" element={<DriverEnrollments />} />
+        <Route path="plans/selections" element={<DriverPlanSelections />} />
         <Route path="admin/users" element={<AdminUsers />} />
         <Route path="admin/roles" element={<RoleManagement />} />
         <Route path="vehicles/allvehicles" element={<AllVehicles />} />
+          <Route path="investments/InvesterLogin" element={<InvesterLogin />} />
         {/* Add more routes as we create them */}
       </Route>
     </Routes>

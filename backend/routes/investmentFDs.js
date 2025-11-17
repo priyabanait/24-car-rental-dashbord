@@ -1,0 +1,338 @@
+import express from 'express';
+import InvestmentFD from '../models/investmentFD.js';
+import InvestmentPlan from '../models/investmentPlan.js';
+
+const router = express.Router();
+
+// GET all investment FDs
+router.get('/', async (req, res) => {
+  try {
+    const investments = await InvestmentFD.find().sort({ investmentDate: -1 });
+    res.json(investments);
+  } catch (error) {
+    console.error('Error fetching investment FDs:', error);
+    res.status(500).json({ error: 'Failed to fetch investment FDs', message: error.message });
+  }
+});
+
+// GET single investment FD by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const investment = await InvestmentFD.findById(req.params.id);
+    if (!investment) {
+      return res.status(404).json({ error: 'Investment FD not found' });
+    }
+    res.json(investment);
+  } catch (error) {
+    console.error('Error fetching investment FD:', error);
+    res.status(500).json({ error: 'Failed to fetch investment FD', message: error.message });
+  }
+});
+
+// POST - Create new investment FD
+router.post('/', async (req, res) => {
+  try {
+    const {
+      investorName,
+      email,
+      phone,
+      address,
+      investmentDate,
+      paymentMethod,
+      investmentRate,
+      investmentAmount,
+      planId,
+      fdType,
+      termMonths,
+      termYears,
+      status,
+      kycStatus,
+      maturityDate,
+      notes
+    } = req.body;
+
+    // Validation
+    if (!investorName || !phone || !address || !investmentDate || !paymentMethod || !investmentRate || !investmentAmount || !fdType) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Validate FD type
+    if (!['monthly', 'yearly'].includes(fdType)) {
+      return res.status(400).json({ error: 'Invalid FD type. Must be monthly or yearly' });
+    }
+
+    // Validate term based on FD type
+    if (fdType === 'monthly' && (!termMonths || termMonths < 1 || termMonths > 12)) {
+      return res.status(400).json({ error: 'For monthly FD, term must be between 1-12 months' });
+    }
+    if (fdType === 'yearly' && (!termYears || termYears < 1 || termYears > 10)) {
+      return res.status(400).json({ error: 'For yearly FD, term must be between 1-10 years' });
+    }
+
+    // Validate payment method
+    const validPaymentMethods = ['Cash', 'Bank Transfer', 'Cheque', 'Online', 'UPI'];
+    if (!validPaymentMethods.includes(paymentMethod)) {
+      return res.status(400).json({ error: 'Invalid payment method' });
+    }
+
+    // Validate numbers
+    if (isNaN(investmentRate) || parseFloat(investmentRate) < 0) {
+      return res.status(400).json({ error: 'Invalid investment rate' });
+    }
+    if (isNaN(investmentAmount) || parseFloat(investmentAmount) <= 0) {
+      return res.status(400).json({ error: 'Invalid investment amount' });
+    }
+
+    // Validate kycStatus if provided
+    if (kycStatus && !['pending', 'approved', 'rejected'].includes(kycStatus)) {
+      return res.status(400).json({ error: 'Invalid KYC status' });
+    }
+
+    // Calculate maturity date if not provided
+    let calculatedMaturityDate = maturityDate ? new Date(maturityDate) : null;
+    if (!calculatedMaturityDate) {
+      const invDate = new Date(investmentDate);
+      if (fdType === 'monthly') {
+        calculatedMaturityDate = new Date(invDate.setMonth(invDate.getMonth() + parseInt(termMonths)));
+      } else if (fdType === 'yearly') {
+        calculatedMaturityDate = new Date(invDate.setFullYear(invDate.getFullYear() + parseInt(termYears)));
+      }
+    }
+
+    // Resolve plan name if planId provided
+    let resolvedPlanId = null;
+    let resolvedPlanName = '';
+    if (planId) {
+      try {
+        const plan = await InvestmentPlan.findById(planId).select('name');
+        if (!plan) {
+          return res.status(400).json({ error: 'Invalid planId: plan not found' });
+        }
+        resolvedPlanId = plan._id;
+        resolvedPlanName = plan.name || '';
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid planId format' });
+      }
+    }
+
+    // Create new investment FD
+      // Calculate maturity amount (simple interest)
+      const principal = parseFloat(investmentAmount);
+      const rate = parseFloat(investmentRate) / 100;
+      const time = fdType === 'monthly' ? parseFloat(termMonths) / 12 : parseFloat(termYears);
+      const maturityAmount = principal + (principal * rate * time);
+
+      const newInvestment = new InvestmentFD({
+        investorName: investorName.trim(),
+        email: email ? email.trim() : '',
+        phone: phone.trim(),
+        address: address.trim(),
+        investmentDate: new Date(investmentDate),
+        paymentMethod,
+        investmentRate: parseFloat(investmentRate),
+        investmentAmount: principal,
+        planId: resolvedPlanId,
+        planName: resolvedPlanName,
+        fdType,
+        termMonths: fdType === 'monthly' ? parseInt(termMonths) : undefined,
+        termYears: fdType === 'yearly' ? parseInt(termYears) : undefined,
+        status: status || 'active',
+        kycStatus: kycStatus || 'pending',
+        maturityDate: calculatedMaturityDate,
+        notes: notes || '',
+        maturityAmount
+      });
+
+    const savedInvestment = await newInvestment.save();
+    res.status(201).json(savedInvestment);
+  } catch (error) {
+    console.error('Error creating investment FD:', error);
+    res.status(500).json({ error: 'Failed to create investment FD', message: error.message });
+  }
+});
+
+// PUT - Update investment FD
+router.put('/:id', async (req, res) => {
+  try {
+    const {
+      investorName,
+      email,
+      phone,
+      address,
+      investmentDate,
+      paymentMethod,
+      investmentRate,
+      investmentAmount,
+      planId,
+      fdType,
+      termMonths,
+      termYears,
+      status,
+      kycStatus,
+      maturityDate,
+      notes
+    } = req.body;
+
+    // Find investment
+    const investment = await InvestmentFD.findById(req.params.id);
+    if (!investment) {
+      return res.status(404).json({ error: 'Investment FD not found' });
+    }
+
+    // Validate FD type if provided
+    if (fdType && !['monthly', 'yearly'].includes(fdType)) {
+      return res.status(400).json({ error: 'Invalid FD type. Must be monthly or yearly' });
+    }
+
+    // Validate term based on FD type
+    if (fdType === 'monthly' && termMonths !== undefined && (termMonths < 1 || termMonths > 12)) {
+      return res.status(400).json({ error: 'For monthly FD, term must be between 1-12 months' });
+    }
+    if (fdType === 'yearly' && termYears !== undefined && (termYears < 1 || termYears > 10)) {
+      return res.status(400).json({ error: 'For yearly FD, term must be between 1-10 years' });
+    }
+
+    // Validate FD type if provided
+    if (fdType && !['monthly', 'yearly'].includes(fdType)) {
+      return res.status(400).json({ error: 'Invalid FD type. Must be monthly or yearly' });
+    }
+
+    // Validate term based on FD type
+    if (fdType === 'monthly' && termMonths !== undefined && (termMonths < 1 || termMonths > 12)) {
+      return res.status(400).json({ error: 'For monthly FD, term must be between 1-12 months' });
+    }
+    if (fdType === 'yearly' && termYears !== undefined && (termYears < 1 || termYears > 10)) {
+      return res.status(400).json({ error: 'For yearly FD, term must be between 1-10 years' });
+    }
+
+    // Validate payment method if provided
+    if (paymentMethod) {
+      const validPaymentMethods = ['Cash', 'Bank Transfer', 'Cheque', 'Online', 'UPI'];
+      if (!validPaymentMethods.includes(paymentMethod)) {
+        return res.status(400).json({ error: 'Invalid payment method' });
+      }
+    }
+
+    // Validate numbers if provided
+    if (investmentRate !== undefined && (isNaN(investmentRate) || parseFloat(investmentRate) < 0)) {
+      return res.status(400).json({ error: 'Invalid investment rate' });
+    }
+    if (investmentAmount !== undefined && (isNaN(investmentAmount) || parseFloat(investmentAmount) <= 0)) {
+      return res.status(400).json({ error: 'Invalid investment amount' });
+    }
+
+    // Validate kycStatus if provided
+    if (kycStatus !== undefined && !['pending', 'approved', 'rejected'].includes(kycStatus)) {
+      return res.status(400).json({ error: 'Invalid KYC status' });
+    }
+
+    // Update fields
+    if (investorName !== undefined) investment.investorName = investorName.trim();
+    if (email !== undefined) investment.email = email.trim();
+    if (phone !== undefined) investment.phone = phone.trim();
+    if (address !== undefined) investment.address = address.trim();
+    if (investmentDate !== undefined) investment.investmentDate = new Date(investmentDate);
+    if (paymentMethod !== undefined) investment.paymentMethod = paymentMethod;
+    if (investmentRate !== undefined) investment.investmentRate = parseFloat(investmentRate);
+    if (investmentAmount !== undefined) investment.investmentAmount = parseFloat(investmentAmount);
+    if (fdType !== undefined) investment.fdType = fdType;
+    if (termMonths !== undefined) investment.termMonths = investment.fdType === 'monthly' ? parseInt(termMonths) : undefined;
+    if (termYears !== undefined) investment.termYears = investment.fdType === 'yearly' ? parseInt(termYears) : undefined;
+
+    // Recalculate maturityAmount if relevant fields changed
+    if (
+      investmentAmount !== undefined || investmentRate !== undefined || fdType !== undefined || termMonths !== undefined || termYears !== undefined
+    ) {
+      const principal = investment.investmentAmount;
+      const rate = investment.investmentRate / 100;
+      const time = investment.fdType === 'monthly' ? (investment.termMonths || 0) / 12 : (investment.termYears || 0);
+      investment.maturityAmount = principal + (principal * rate * time);
+    }
+
+    // Update plan if provided
+    if (planId !== undefined) {
+      if (!planId) {
+        investment.planId = null;
+        investment.planName = '';
+      } else {
+        try {
+          const plan = await InvestmentPlan.findById(planId).select('name');
+          if (!plan) {
+            return res.status(400).json({ error: 'Invalid planId: plan not found' });
+          }
+          investment.planId = plan._id;
+          investment.planName = plan.name || '';
+        } catch (e) {
+          return res.status(400).json({ error: 'Invalid planId format' });
+        }
+      }
+    }
+    if (status !== undefined) investment.status = status;
+    if (kycStatus !== undefined) investment.kycStatus = kycStatus;
+    
+    // Recalculate maturity date if investment date or term changed
+    if ((investmentDate !== undefined || fdType !== undefined || termMonths !== undefined || termYears !== undefined) && maturityDate === undefined) {
+      const invDate = new Date(investment.investmentDate);
+      if (investment.fdType === 'monthly' && investment.termMonths) {
+        investment.maturityDate = new Date(invDate.setMonth(invDate.getMonth() + investment.termMonths));
+      } else if (investment.fdType === 'yearly' && investment.termYears) {
+        investment.maturityDate = new Date(invDate.setFullYear(invDate.getFullYear() + investment.termYears));
+      }
+    } else if (maturityDate !== undefined) {
+      investment.maturityDate = maturityDate ? new Date(maturityDate) : null;
+    }
+    
+    if (notes !== undefined) investment.notes = notes;
+
+    const updatedInvestment = await investment.save();
+    res.json(updatedInvestment);
+  } catch (error) {
+    console.error('Error updating investment FD:', error);
+    res.status(500).json({ error: 'Failed to update investment FD', message: error.message });
+  }
+});
+
+// DELETE - Remove investment FD
+router.delete('/:id', async (req, res) => {
+  try {
+    const investment = await InvestmentFD.findByIdAndDelete(req.params.id);
+    if (!investment) {
+      return res.status(404).json({ error: 'Investment FD not found' });
+    }
+    res.json({ message: 'Investment FD deleted successfully', investment });
+  } catch (error) {
+    console.error('Error deleting investment FD:', error);
+    res.status(500).json({ error: 'Failed to delete investment FD', message: error.message });
+  }
+});
+
+// GET statistics
+router.get('/stats/summary', async (req, res) => {
+  try {
+    const [totalInvestments, activeInvestments, stats] = await Promise.all([
+      InvestmentFD.countDocuments(),
+      InvestmentFD.countDocuments({ status: 'active' }),
+      InvestmentFD.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: '$investmentAmount' },
+            avgRate: { $avg: '$investmentRate' }
+          }
+        }
+      ])
+    ]);
+
+    res.json({
+      totalInvestments,
+      activeInvestments,
+      totalAmount: stats[0]?.totalAmount || 0,
+      avgRate: stats[0]?.avgRate || 0
+    });
+  } catch (error) {
+    console.error('Error fetching investment FD stats:', error);
+    res.status(500).json({ error: 'Failed to fetch statistics', message: error.message });
+  }
+});
+
+export default router;

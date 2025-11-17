@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Receipt, 
   DollarSign, 
@@ -30,6 +30,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { PermissionGuard } from '../../components/guards/PermissionGuards';
 import { PERMISSIONS } from '../../utils/permissions';
 import toast from 'react-hot-toast';
+import ExpenseModal from '../../components/expenses/ExpenseModal';
 
 export default function ExpenseManagement() {
   const { hasPermission } = useAuth();
@@ -39,114 +40,61 @@ export default function ExpenseManagement() {
   const [dateRange, setDateRange] = useState('thisMonth');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
 
-  const [expenses, setExpenses] = useState([
-    {
-      id: 1,
-      title: 'Vehicle Maintenance - KA-05-AB-1234',
-      category: 'maintenance',
-      subcategory: 'General Service',
-      amount: 15000,
-      date: '2024-10-25',
-      vendor: 'City Auto Service',
-      vehicleId: 'KA-05-AB-1234',
-      driverId: 'DR001',
-      driverName: 'Rajesh Kumar',
-      description: 'Full service including oil change, brake pad replacement',
-      status: 'approved',
-      receiptUrl: 'receipt1.pdf',
-      approvedBy: 'Admin',
-      approvedDate: '2024-10-25',
-      paymentMethod: 'bank_transfer',
-      invoiceNumber: 'INV-2024-001'
-    },
-    {
-      id: 2,
-      title: 'Fuel Expense - Multiple Vehicles',
-      category: 'fuel',
-      subcategory: 'Petrol',
-      amount: 25000,
-      date: '2024-10-24',
-      vendor: 'Shell Petrol Pump',
-      vehicleId: 'Multiple',
-      driverId: null,
-      driverName: null,
-      description: 'Bulk fuel purchase for fleet vehicles',
-      status: 'pending',
-      receiptUrl: 'receipt2.pdf',
-      approvedBy: null,
-      approvedDate: null,
-      paymentMethod: 'cash',
-      invoiceNumber: 'FUEL-2024-025'
-    },
-    {
-      id: 3,
-      title: 'Office Rent - October 2024',
-      category: 'administrative',
-      subcategory: 'Rent',
-      amount: 50000,
-      date: '2024-10-01',
-      vendor: 'Property Management Co.',
-      vehicleId: null,
-      driverId: null,
-      driverName: null,
-      description: 'Monthly office rent payment',
-      status: 'approved',
-      receiptUrl: 'receipt3.pdf',
-      approvedBy: 'Finance Admin',
-      approvedDate: '2024-10-01',
-      paymentMethod: 'bank_transfer',
-      invoiceNumber: 'RENT-2024-10'
-    },
-    {
-      id: 4,
-      title: 'Insurance Premium - Vehicle Fleet',
-      category: 'insurance',
-      subcategory: 'Vehicle Insurance',
-      amount: 120000,
-      date: '2024-10-15',
-      vendor: 'National Insurance Co.',
-      vehicleId: 'Fleet',
-      driverId: null,
-      driverName: null,
-      description: 'Quarterly insurance premium for 50 vehicles',
-      status: 'approved',
-      receiptUrl: 'receipt4.pdf',
-      approvedBy: 'Super Admin',
-      approvedDate: '2024-10-15',
-      paymentMethod: 'bank_transfer',
-      invoiceNumber: 'INS-2024-Q4'
-    },
-    {
-      id: 5,
-      title: 'Driver Salary - Support Staff',
-      category: 'salary',
-      subcategory: 'Support Staff',
-      amount: 45000,
-      date: '2024-10-30',
-      vendor: 'HR Department',
-      vehicleId: null,
-      driverId: 'Multiple',
-      driverName: 'Support Staff',
-      description: 'Monthly salary for support and admin staff',
-      status: 'rejected',
-      receiptUrl: null,
-      approvedBy: null,
-      approvedDate: null,
-      paymentMethod: 'bank_transfer',
-      invoiceNumber: 'SAL-2024-10'
-    }
-  ]);
+  const [expenses, setExpenses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selectedExpense, setSelectedExpense] = useState(null);
 
-  const expenseCategories = [
-    { key: 'fuel', label: 'Fuel', icon: Fuel, color: 'text-orange-600' },
-    { key: 'maintenance', label: 'Maintenance', icon: Wrench, color: 'text-blue-600' },
-    { key: 'insurance', label: 'Insurance', icon: Car, color: 'text-green-600' },
-    { key: 'administrative', label: 'Administrative', icon: Building, color: 'text-purple-600' },
-    { key: 'salary', label: 'Salary & Benefits', icon: Users, color: 'text-indigo-600' },
-    { key: 'marketing', label: 'Marketing', icon: FileText, color: 'text-pink-600' },
-    { key: 'technology', label: 'Technology', icon: FileText, color: 'text-gray-600' },
-    { key: 'other', label: 'Other', icon: FileText, color: 'text-gray-500' }
-  ];
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true); setError(null);
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+        const res = await fetch(`${API_BASE}/api/expenses`);
+        if (!res.ok) throw new Error(`Failed to load expenses: ${res.status}`);
+        const data = await res.json();
+        if (mounted) setExpenses(data);
+      } catch (err) {
+        console.error(err); setError(err.message || 'Failed to load expenses');
+      } finally { if (mounted) setLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const iconMap = {
+    fuel: { icon: Fuel, color: 'text-orange-600' },
+    maintenance: { icon: Wrench, color: 'text-blue-600' },
+    insurance: { icon: Car, color: 'text-green-600' },
+    administrative: { icon: Building, color: 'text-purple-600' },
+    salary: { icon: Users, color: 'text-indigo-600' },
+    marketing: { icon: FileText, color: 'text-pink-600' },
+    technology: { icon: FileText, color: 'text-gray-600' },
+    other: { icon: FileText, color: 'text-gray-500' }
+  };
+  const [expenseCategories, setExpenseCategories] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+        const res = await fetch(`${API_BASE}/api/expenses/categories`);
+        if (res.ok) {
+          const cats = await res.json();
+          const withIcons = cats.map(c => ({
+            ...c,
+            icon: iconMap[c.key]?.icon || FileText,
+            color: iconMap[c.key]?.color || 'text-gray-500'
+          }));
+          if (mounted) setExpenseCategories(withIcons);
+        }
+      } catch (e) {
+        // Non-fatal; keep default empty and rely on keys only
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -215,37 +163,130 @@ export default function ExpenseManagement() {
 
   const metrics = calculateMetrics();
 
-  const handleExpenseAction = (expenseId, action) => {
-    setExpenses(prev => prev.map(expense => {
-      if (expense.id === expenseId) {
-        let newStatus = expense.status;
-        let approvedBy = expense.approvedBy;
-        let approvedDate = expense.approvedDate;
-        
-        switch (action) {
-          case 'approve':
-            newStatus = 'approved';
-            approvedBy = 'Current User';
-            approvedDate = new Date().toISOString().split('T')[0];
-            break;
-          case 'reject':
-            newStatus = 'rejected';
-            approvedBy = null;
-            approvedDate = null;
-            break;
-          case 'pending':
-            newStatus = 'pending';
-            approvedBy = null;
-            approvedDate = null;
-            break;
-        }
-        
-        return { ...expense, status: newStatus, approvedBy, approvedDate };
+  const handleExpenseAction = async (expenseId, action) => {
+    if (!hasPermission(PERMISSIONS.EXPENSES_EDIT)) return;
+    try {
+      const expense = expenses.find(e => e.id === expenseId);
+      if (!expense) throw new Error('Expense not found locally');
+      let update = {};
+      switch(action) {
+        case 'approve':
+          update = { status: 'approved', approvedBy: 'Current User', approvedDate: new Date().toISOString().split('T')[0] }; break;
+        case 'reject':
+          update = { status: 'rejected', approvedBy: null, approvedDate: null }; break;
+        case 'pending':
+          update = { status: 'pending', approvedBy: null, approvedDate: null }; break;
+        default:
+          return;
       }
-      return expense;
-    }));
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const token = localStorage.getItem('udriver_token');
+      const res = await fetch(`${API_BASE}/api/expenses/${expenseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token?{ Authorization: `Bearer ${token}`}: {}) },
+        body: JSON.stringify(update)
+      });
+      if (!res.ok) throw new Error(`Failed to update expense: ${res.status}`);
+      const updated = await res.json();
+      setExpenses(prev => prev.map(e => e.id === expenseId ? updated : e));
+      toast.success(`Expense ${action}d successfully`);
+    } catch(err) {
+      console.error(err); toast.error(err.message || 'Action failed');
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId) => {
+    if (!hasPermission(PERMISSIONS.EXPENSES_DELETE)) return;
+    if (!window.confirm('Delete this expense?')) return;
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const token = localStorage.getItem('udriver_token');
+      const res = await fetch(`${API_BASE}/api/expenses/${expenseId}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error(`Failed to delete: ${res.status}`);
+      setExpenses(prev => prev.filter(e => e.id !== expenseId));
+      toast.success('Expense deleted');
+    } catch(err) {
+      console.error(err); toast.error(err.message || 'Delete failed');
+    }
+  };
+
+  const handleCreateExpense = () => {
+    setSelectedExpense(null);
+    setShowExpenseModal(true);
+  };
+
+  const handleSaveExpense = async (expenseData) => {
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+    const token = localStorage.getItem('udriver_token');
     
-    toast.success(`Expense ${action}ed successfully`);
+    if (selectedExpense) {
+      // Update existing expense
+      const res = await fetch(`${API_BASE}/api/expenses/${selectedExpense.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token?{ Authorization: `Bearer ${token}` }: {}) },
+        body: JSON.stringify(expenseData)
+      });
+      if (!res.ok) {
+        let msg = `Failed to update expense: ${res.status}`;
+        try { const b = await res.json(); if (b?.message) msg = b.message; } catch {}
+        throw new Error(msg);
+      }
+      const updated = await res.json();
+      setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? updated : e));
+    } else {
+      // Create new expense
+      const res = await fetch(`${API_BASE}/api/expenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token?{ Authorization: `Bearer ${token}` }: {}) },
+        body: JSON.stringify(expenseData)
+      });
+      if (!res.ok) {
+        let msg = `Failed to create expense: ${res.status}`;
+        try { const b = await res.json(); if (b?.message) msg = b.message; } catch {}
+        throw new Error(msg);
+      }
+      const created = await res.json();
+      setExpenses(prev => [...prev, created]);
+    }
+  };
+
+  const handleEditExpense = (expense) => {
+    setSelectedExpense(expense);
+    setShowExpenseModal(true);
+  };
+
+  const handleChangeExpenseStatus = async (expenseId, newStatus) => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const token = localStorage.getItem('udriver_token');
+      const update = { status: newStatus };
+      if (newStatus === 'approved') {
+        update.approvedBy = 'Current User';
+        update.approvedDate = new Date().toISOString().split('T')[0];
+      } else {
+        update.approvedBy = null;
+        update.approvedDate = null;
+      }
+      const res = await fetch(`${API_BASE}/api/expenses/${expenseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type':'application/json', ...(token?{ 'Authorization': `Bearer ${token}` }: {}) },
+        body: JSON.stringify(update)
+      });
+      if (!res.ok) {
+        let msg = `Failed to update status: ${res.status}`;
+        try { const b = await res.json(); if (b && b.message) msg = b.message; } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+      const updated = await res.json();
+      setExpenses(prev => prev.map(e => e.id === expenseId ? updated : e));
+      toast.success('Expense status updated');
+    } catch(err) {
+      console.error(err);
+      toast.error(err.message || 'Failed to update status');
+    }
   };
 
   return (
@@ -259,7 +300,7 @@ export default function ExpenseManagement() {
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <PermissionGuard permission={PERMISSIONS.EXPENSES_CREATE}>
             <button 
-              onClick={() => setShowExpenseModal(true)}
+              onClick={handleCreateExpense}
               className="btn btn-primary flex items-center"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -376,16 +417,17 @@ export default function ExpenseManagement() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search expenses..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="input pl-10"
-                />
-              </div>
+            <div className="relative w-full max-w-sm">
+  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+  <input
+    type="text"
+    placeholder="Search expenses..."
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-700"
+  />
+</div>
+
             </div>
 
             <div>
@@ -432,12 +474,12 @@ export default function ExpenseManagement() {
               </select>
             </div>
 
-            <div className="flex items-end">
+            {/* <div className="flex items-end">
               <button className="btn btn-outline w-full">
                 <Filter className="h-4 w-4 mr-2" />
                 Apply Filters
               </button>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>
@@ -448,6 +490,12 @@ export default function ExpenseManagement() {
           <CardTitle>Expense Records ({filteredExpenses.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          {loading && (
+            <div className="p-4 text-center text-sm text-gray-600">Loading expenses...</div>
+          )}
+          {error && (
+            <div className="p-4 text-center text-sm text-red-600">{error}</div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -527,40 +575,48 @@ export default function ExpenseManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(expense.date)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
+                    <td className="px-6 py-4 whitespace-nowrap text-start text-sm space-x-2 font-medium">
+                      {/* <div className="flex items-center justify-start "> */}
+                        <PermissionGuard permission={PERMISSIONS.EXPENSES_EDIT}>
+                          <select
+                            value={expense.status || 'pending'}
+                            onChange={(e) => handleChangeExpenseStatus(expense.id, e.target.value)}
+                           className="input text-sm h-10 leading-6 text-center"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="processing">Processing</option>
+                          </select>
+                        </PermissionGuard>
+                        
+                        {/* <button
                           className="text-indigo-600 hover:text-indigo-900"
                           title="View Details"
+                          onClick={async () => {
+                            try {
+                              const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+                              const res = await fetch(`${API_BASE}/api/expenses/${expense.id}`);
+                              if (!res.ok) throw new Error('Failed to fetch expense');
+                              const full = await res.json();
+                              setSelectedExpense(full);
+                              toast.success('Loaded expense details');
+                            } catch(err) { toast.error(err.message || 'Failed to load'); }
+                          }}
                         >
                           <Eye className="h-4 w-4" />
-                        </button>
+                        </button> */}
+                        
                         <PermissionGuard permission={PERMISSIONS.EXPENSES_EDIT}>
                           <button
                             className="text-green-600 hover:text-green-900"
                             title="Edit Expense"
+                            onClick={() => handleEditExpense(expense)}
                           >
                             <Edit className="h-4 w-4" />
                           </button>
-                          {expense.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleExpenseAction(expense.id, 'approve')}
-                                className="text-green-600 hover:text-green-900"
-                                title="Approve"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleExpenseAction(expense.id, 'reject')}
-                                className="text-red-600 hover:text-red-900"
-                                title="Reject"
-                              >
-                                <AlertTriangle className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
                         </PermissionGuard>
+                        
                         {expense.receiptUrl && (
                           <button
                             className="text-blue-600 hover:text-blue-900"
@@ -569,15 +625,17 @@ export default function ExpenseManagement() {
                             <Download className="h-4 w-4" />
                           </button>
                         )}
+                        
                         <PermissionGuard permission={PERMISSIONS.EXPENSES_DELETE}>
                           <button
                             className="text-red-600 hover:text-red-900"
                             title="Delete Expense"
+                            onClick={() => handleDeleteExpense(expense.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </PermissionGuard>
-                      </div>
+                      
                     </td>
                   </tr>
                 ))}
@@ -586,6 +644,19 @@ export default function ExpenseManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal */}
+      <ExpenseModal
+        isOpen={showExpenseModal}
+        onClose={() => { setShowExpenseModal(false); setSelectedExpense(null); }}
+        onSave={handleSaveExpense}
+        expense={selectedExpense}
+        categories={expenseCategories}
+      />
     </div>
   );
 }
+
+// Mount ExpenseModal at bottom
+// Note: We place it outside to keep return above clean; React allows fragments
+

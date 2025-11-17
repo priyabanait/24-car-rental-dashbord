@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  DollarSign,
+  IndianRupee,
   CreditCard,
   Clock,
   CheckCircle,
@@ -16,10 +16,12 @@ import {
   Wallet,
   TrendingUp,
   Users,
-  Trash2
+  Trash2,
+  Send
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { processZwitchPayout } from '../../utils/zwitchPayment';
 
 export default function DriverPayments() {
   const { hasPermission } = useAuth();
@@ -32,6 +34,9 @@ export default function DriverPayments() {
   const [error, setError] = useState(null);
   const [showNewPayment, setShowNewPayment] = useState(false);
   const [drivers, setDrivers] = useState([]);
+  const [processingPayment, setProcessingPayment] = useState(null);
+  const [showProcessModal, setShowProcessModal] = useState(false);
+  const [selectedPaymentForProcessing, setSelectedPaymentForProcessing] = useState(null);
   const [newPayment, setNewPayment] = useState({
     driverId: '',
     amount: '',
@@ -49,7 +54,7 @@ export default function DriverPayments() {
       setLoading(true);
       setError(null);
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         // Load drivers for selector
         const dRes = await fetch(`${API_BASE}/api/drivers`);
         if (!dRes.ok) throw new Error(`Failed to load drivers: ${dRes.status}`);
@@ -186,6 +191,68 @@ export default function DriverPayments() {
 
   // actions (approve/retry) removed from UI; keeping placeholder for future use
 
+  const handleProcessPayment = async (payment) => {
+    if (!hasPermission('payments.process')) {
+      alert('You do not have permission to process payments');
+      return;
+    }
+
+    // Get driver details for bank info
+    const driver = drivers.find(d => d.id === payment.driverId);
+    if (!driver) {
+      alert('Driver not found');
+      return;
+    }
+
+    setSelectedPaymentForProcessing({ ...payment, driver });
+    setShowProcessModal(true);
+  };
+
+  const executePayment = async (bankDetails) => {
+    setProcessingPayment(selectedPaymentForProcessing.id);
+    try {
+      const result = await processZwitchPayout({
+        driverId: selectedPaymentForProcessing.driverId,
+        amount: selectedPaymentForProcessing.amount,
+        accountNumber: bankDetails.accountNumber,
+        ifsc: bankDetails.ifsc,
+        accountHolderName: bankDetails.accountHolderName,
+        purpose: `Driver Payment - ${selectedPaymentForProcessing.type}`,
+        paymentId: selectedPaymentForProcessing.txId
+      });
+
+      if (result.success) {
+        // Update payment status in UI
+        setPayments(prev => prev.map(p => 
+          p.id === selectedPaymentForProcessing.id 
+            ? { 
+                ...p, 
+                status: 'completed',
+                transactionId: result.data.zwitchTransactionId,
+                method: 'bank_transfer'
+              }
+            : p
+        ));
+        alert('Payment processed successfully!');
+        setShowProcessModal(false);
+        setSelectedPaymentForProcessing(null);
+      } else {
+        throw new Error(result.message || 'Payment failed');
+      }
+    } catch (error) {
+      console.error('Payment processing error:', error);
+      alert(`Payment failed: ${error.message}`);
+      // Update payment status to failed
+      setPayments(prev => prev.map(p => 
+        p.id === selectedPaymentForProcessing.id 
+          ? { ...p, status: 'failed', failureReason: error.message }
+          : p
+      ));
+    } finally {
+      setProcessingPayment(null);
+    }
+  };
+
   const handleBulkAction = (action) => {
     if (!hasPermission('payments.process') || selectedPayments.size === 0) return;
     
@@ -233,7 +300,7 @@ export default function DriverPayments() {
           )}
           <button className="btn btn-primary" onClick={async () => {
             try {
-              const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+              const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
               setLoading(true);
               setError(null);
               // re-fetch drivers and transactions
@@ -287,7 +354,7 @@ export default function DriverPayments() {
           <CardContent className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <IndianRupee className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Amount</p>
@@ -427,12 +494,7 @@ export default function DriverPayments() {
       {/* Payments Table */}
       <Card>
         <CardContent className="p-0">
-          {loading && (
-            <div className="p-4 text-center text-sm text-gray-600">Loading payments...</div>
-          )}
-          {error && (
-            <div className="p-4 text-center text-sm text-red-600">{error}</div>
-          )}
+        
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -531,14 +593,25 @@ export default function DriverPayments() {
                       <div className="text-sm text-gray-900">{formatDate(payment.date)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center">
+                      <div className="flex items-center space-x-2">
+                        {/* Process Payment Button - Only for pending/failed payments */}
+                        {(payment.status === 'pending' || payment.status === 'failed') && hasPermission('payments.process') && (
+                          <button
+                            className="text-green-600 hover:text-green-800 disabled:opacity-50"
+                            title="Process Payment"
+                            disabled={processingPayment === payment.id}
+                            onClick={() => handleProcessPayment(payment)}
+                          >
+                            <Send className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           className="text-red-600 hover:text-red-800"
                           title="Delete"
                           onClick={async () => {
                             if (!window.confirm('Delete this payment?')) return;
                             try {
-                              const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+                              const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
                               const token = localStorage.getItem('udriver_token') || 'mock';
                               if (payment.txId) {
                                 const res = await fetch(`${API_BASE}/api/transactions/${payment.txId}`, {
@@ -563,6 +636,12 @@ export default function DriverPayments() {
               </tbody>
             </table>
           </div>
+            {loading && (
+            <div className="p-4 text-center text-sm text-gray-600">Loading payments...</div>
+          )}
+          {error && (
+            <div className="p-4 text-center text-sm text-red-600">{error}</div>
+          )}
         </CardContent>
       </Card>
 
@@ -638,7 +717,7 @@ export default function DriverPayments() {
                   className="btn btn-primary"
                   onClick={async () => {
                     try {
-                      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+                      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
                       const token = localStorage.getItem('udriver_token') || 'mock';
                       const payload = {
                         driverId: newPayment.driverId,
@@ -688,6 +767,150 @@ export default function DriverPayments() {
                   disabled={!newPayment.driverId || !newPayment.amount}
                 >
                   Create
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Process Payment Modal */}
+      {showProcessModal && selectedPaymentForProcessing && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowProcessModal(false)} />
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Process Payment via ZWITCH</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Real-time bank transfer for {selectedPaymentForProcessing.driverName}
+                </p>
+              </div>
+              <div className="p-6 space-y-4">
+                {/* Payment Details */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Payment Amount</span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {formatCurrency(selectedPaymentForProcessing.amount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Payment Type</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {getPaymentTypeLabel(selectedPaymentForProcessing.type)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bank Details Form */}
+                <form id="bankDetailsForm" onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  executePayment({
+                    accountNumber: formData.get('accountNumber'),
+                    ifsc: formData.get('ifsc'),
+                    accountHolderName: formData.get('accountHolderName')
+                  });
+                }}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Account Holder Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="accountHolderName"
+                        required
+                        defaultValue={selectedPaymentForProcessing.driver?.accountHolderName || selectedPaymentForProcessing.driver?.name || ''}
+                        className="input-field w-full"
+                        placeholder="Enter account holder name"
+                      />
+                      {(selectedPaymentForProcessing.driver?.accountHolderName || selectedPaymentForProcessing.driver?.name) && (
+                        <p className="text-xs text-green-600 mt-1">✓ Auto-filled from driver profile</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Account Number *
+                      </label>
+                      <input
+                        type="text"
+                        name="accountNumber"
+                        required
+                        pattern="[0-9]{9,18}"
+                        defaultValue={selectedPaymentForProcessing.driver?.bankAccountNumber || selectedPaymentForProcessing.driver?.accountNumber || ''}
+                        className="input-field w-full"
+                        placeholder="Enter bank account number"
+                      />
+                      {(selectedPaymentForProcessing.driver?.bankAccountNumber || selectedPaymentForProcessing.driver?.accountNumber) ? (
+                        <p className="text-xs text-green-600 mt-1">✓ Auto-filled from driver profile</p>
+                      ) : (
+                        <p className="text-xs text-gray-500 mt-1">9-18 digits</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        IFSC Code *
+                      </label>
+                      <input
+                        type="text"
+                        name="ifsc"
+                        required
+                        pattern="^[A-Z]{4}0[A-Z0-9]{6}$"
+                        defaultValue={selectedPaymentForProcessing.driver?.ifscCode || selectedPaymentForProcessing.driver?.bankIfsc || selectedPaymentForProcessing.driver?.ifsc || ''}
+                        className="input-field w-full uppercase"
+                        placeholder="e.g., SBIN0001234"
+                        style={{ textTransform: 'uppercase' }}
+                      />
+                      {(selectedPaymentForProcessing.driver?.ifscCode || selectedPaymentForProcessing.driver?.bankIfsc || selectedPaymentForProcessing.driver?.ifsc) ? (
+                        <p className="text-xs text-green-600 mt-1">✓ Auto-filled from driver profile</p>
+                      ) : (
+                        <p className="text-xs text-gray-500 mt-1">11 characters (e.g., SBIN0001234)</p>
+                      )}
+                    </div>
+                  </div>
+                </form>
+
+                {/* Warning */}
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-yellow-400 mr-2" />
+                    <div className="text-sm text-yellow-700">
+                      <p className="font-medium">Important:</p>
+                      <p>Please verify bank details before processing. This will initiate a real-time IMPS transfer.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowProcessModal(false)}
+                  disabled={processingPayment}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  form="bankDetailsForm"
+                  className="btn btn-primary"
+                  disabled={processingPayment}
+                >
+                  {processingPayment ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Process Payment
+                    </>
+                  )}
                 </button>
               </div>
             </div>

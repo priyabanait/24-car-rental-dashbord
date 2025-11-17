@@ -3,55 +3,125 @@ import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }) {
+  // Dynamic options from backend; keep COLORS static
+  const COLORS = [
+    'White', 'Black', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Other'
+  ];
+
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [models, setModels] = useState([]);
+  const [carNames, setCarNames] = useState([]);
+
   const [form, setForm] = useState({
     registrationNumber: '',
     model: '',
+    carName: '',
+    brand: '',
+  category: '',
     ownerName: '',
     ownerPhone: '',
     kycStatus: '',
     manufactureYear: '',
     registrationDate: '',
+  rcExpiryDate: '',
     roadTaxDate: '',
+    roadTaxNumber: '',
     insuranceDate: '',
     permitDate: '',
     emissionDate: '',
     trafficFine: '',
     trafficFineDate: '',
     fuelType: '',
+    color: '',
     assignedDriver: '',
     status: 'active',
-    remarks: ''
+    remarks: '',
+    // Document & Photo uploads (File objects)
+    registrationCardPhoto: null,
+    roadTaxPhoto: null,
+    pucNumber: '',
+    pucPhoto: null,
+    permitPhoto: null,
+    carFrontPhoto: null,
+    carLeftPhoto: null,
+    carRightPhoto: null,
+    carBackPhoto: null,
+    carFullPhoto: null
   });
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  const loadOptions = async (type, setter) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/vehicle-options?type=${encodeURIComponent(type)}`);
+      const data = res.ok ? await res.json() : [];
+      const values = Array.isArray(data) ? data.map(o => o.value) : [];
+      setter(values);
+    } catch (e) {
+      console.error('loadOptions error', e);
+      setter([]);
+    }
+  };
+
+  useEffect(() => {
+    // load dropdown options when opening
+    if (isOpen) {
+      loadOptions('category', setCategories);
+      loadOptions('brand', setBrands);
+      loadOptions('model', setModels);
+      loadOptions('carName', setCarNames);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (vehicle) {
       setForm({
         registrationNumber: vehicle.registrationNumber || '',
         model: vehicle.model || '',
+        carName: vehicle.carName || vehicle.name || '',
+  brand: vehicle.brand || '',
+  category: vehicle.category || '',
         ownerName: vehicle.ownerName || vehicle.owner || '',
         ownerPhone: vehicle.ownerPhone || '',
         kycStatus: vehicle.kycStatus || vehicle.kyc || vehicle.kyc_status || '',
         manufactureYear: vehicle.year || vehicle.manufactureYear || '',
         registrationDate: vehicle.registrationDate || vehicle.purchaseDate || '',
+        rcExpiryDate: vehicle.rcExpiryDate || vehicle.rcExpiry || '',
         roadTaxDate: vehicle.roadTaxDate || '',
+        roadTaxNumber: vehicle.roadTaxNumber || '',
         insuranceDate: vehicle.insuranceDate || vehicle.insuranceExpiry || '',
         permitDate: vehicle.permitDate || '',
         emissionDate: vehicle.emissionDate || '',
         trafficFine: vehicle.trafficFine || '',
         trafficFineDate: vehicle.trafficFineDate || '',
         fuelType: vehicle.fuelType || '',
+        color: vehicle.color || '',
         assignedDriver: vehicle.assignedDriver || '',
         status: vehicle.status || 'active',
-        remarks: vehicle.remarks || ''
+        remarks: vehicle.remarks || '',
+        // Files are user-provided during edit; keep null by default
+        registrationCardPhoto: null,
+        roadTaxPhoto: null,
+        pucNumber: vehicle.pucNumber || '',
+        pucPhoto: null,
+        permitPhoto: null,
+        carFrontPhoto: null,
+        carLeftPhoto: null,
+        carRightPhoto: null,
+        carBackPhoto: null,
+        carFullPhoto: null
       });
     } else {
       setForm({
-        registrationNumber: '', model: '', ownerName: '', ownerPhone: '', kycStatus: '', manufactureYear: '',
-        registrationDate: '', roadTaxDate: '', insuranceDate: '', permitDate: '', emissionDate: '',
-        trafficFine: '', trafficFineDate: '', fuelType: '', assignedDriver: '', status: 'active', remarks: ''
+  registrationNumber: '', model: '', carName: '', brand: '', category: '', ownerName: '', ownerPhone: '', kycStatus: '', manufactureYear: '',
+        registrationDate: '', rcExpiryDate: '', roadTaxDate: '', roadTaxNumber: '', insuranceDate: '', permitDate: '', emissionDate: '',
+        trafficFine: '', trafficFineDate: '', fuelType: '', color: '', assignedDriver: '', status: 'active', remarks: '',
+        registrationCardPhoto: null, roadTaxPhoto: null, pucNumber: '', pucPhoto: null, permitPhoto: null,
+        carFrontPhoto: null, carLeftPhoto: null, carRightPhoto: null, carBackPhoto: null, carFullPhoto: null
       });
     }
   }, [vehicle, isOpen]);
@@ -71,6 +141,10 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       case 'model':
         if (!v.trim()) e.model = 'Vehicle model is required';
         else delete e.model;
+        break;
+      case 'brand':
+        // optional
+        delete e.brand;
         break;
       case 'ownerPhone':
         if (v && !/^\+?[0-9\s-]{7,15}$/.test(v)) e.ownerPhone = 'Enter a valid phone number';
@@ -94,6 +168,10 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
         if (!v.trim()) e.fuelType = 'Select a fuel type';
         else delete e.fuelType;
         break;
+      case 'color':
+        // optional
+        delete e.color;
+        break;
       case 'status':
         if (!v.trim()) e.status = 'Select status';
         else delete e.status;
@@ -107,23 +185,84 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
   };
 
   const validateForm = () => {
-    // run validations for required fields and collect results
-    const validations = [
-      validateField('registrationNumber', form.registrationNumber),
-      validateField('model', form.model),
-      validateField('ownerPhone', form.ownerPhone),
-      validateField('manufactureYear', form.manufactureYear),
-      validateField('trafficFine', form.trafficFine),
-      validateField('fuelType', form.fuelType),
-      validateField('status', form.status)
-    ];
-    // All validations must pass
-    return validations.every(isValid => isValid);
+    const currentYear = new Date().getFullYear();
+    const newErrors = {};
+
+    // Required fields
+    if (!String(form.registrationNumber || '').trim()) {
+      newErrors.registrationNumber = 'Registration number is required';
+    }
+    if (!String(form.model || '').trim()) {
+      newErrors.model = 'Vehicle model is required';
+    }
+    if (!String(form.fuelType || '').trim()) {
+      newErrors.fuelType = 'Select a fuel type';
+    }
+    if (!String(form.status || '').trim()) {
+      newErrors.status = 'Select status';
+    }
+
+    // Optional with validation
+    if (form.ownerPhone && !/^\+?[0-9\s-]{7,15}$/.test(String(form.ownerPhone))) {
+      newErrors.ownerPhone = 'Enter a valid phone number';
+    }
+    if (form.manufactureYear) {
+      const n = Number(form.manufactureYear);
+      if (Number.isNaN(n) || n < 1900 || n > currentYear + 1) {
+        newErrors.manufactureYear = `Enter a year between 1900 and ${currentYear + 1}`;
+      }
+    }
+    if (form.trafficFine) {
+      const n = Number(form.trafficFine);
+      if (Number.isNaN(n) || n < 0) {
+        newErrors.trafficFine = 'Traffic fine must be a positive number';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
     validateField(field, value);
+  };
+
+  const handleFileChange = (field, file) => {
+    setForm(prev => ({ ...prev, [field]: file }));
+  };
+
+  const addNewOption = async (type) => {
+    const label = {
+      category: 'Car Category',
+      brand: 'Brand',
+      model: 'Model Name',
+      carName: 'Car Name'
+    }[type];
+    const value = window.prompt(`Add new ${label}`);
+    if (!value || !value.trim()) return null;
+    try {
+      const res = await fetch(`${API_BASE}/api/vehicle-options`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, value: value.trim() })
+      });
+      if (res.status === 409) {
+        toast('Already exists, selecting it');
+      } else if (!res.ok) {
+        throw new Error('Failed to add option');
+      }
+      // reload and select
+      if (type === 'category') await loadOptions('category', setCategories);
+      if (type === 'brand') await loadOptions('brand', setBrands);
+      if (type === 'model') await loadOptions('model', setModels);
+      if (type === 'carName') await loadOptions('carName', setCarNames);
+      return value.trim();
+    } catch (e) {
+      console.error('addNewOption error', e);
+      toast.error('Failed to add option');
+      return null;
+    }
   };
 
   const handleSubmit = async () => {
@@ -137,23 +276,40 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     try {
       const payload = {
         registrationNumber: form.registrationNumber,
-        model: form.model,
+  model: form.model,
+  category: form.category,
+        carName: form.carName,
+        brand: form.brand,
         ownerName: form.ownerName,
         ownerPhone: form.ownerPhone,
         kycStatus: form.kycStatus || undefined,
         year: form.manufactureYear ? Number(form.manufactureYear) : undefined,
         manufactureYear: form.manufactureYear ? Number(form.manufactureYear) : undefined,
         registrationDate: form.registrationDate,
+  rcExpiryDate: form.rcExpiryDate,
         roadTaxDate: form.roadTaxDate,
+        roadTaxNumber: form.roadTaxNumber || undefined,
         insuranceDate: form.insuranceDate,
         permitDate: form.permitDate,
         emissionDate: form.emissionDate,
         trafficFine: form.trafficFine ? Number(form.trafficFine) : undefined,
         trafficFineDate: form.trafficFineDate,
         fuelType: form.fuelType,
+        color: form.color,
         assignedDriver: form.assignedDriver,
         status: form.status,
-        remarks: form.remarks
+        remarks: form.remarks,
+        // Files (parent should handle uploading e.g., via FormData)
+        registrationCardPhoto: form.registrationCardPhoto || undefined,
+        roadTaxPhoto: form.roadTaxPhoto || undefined,
+        pucNumber: form.pucNumber || undefined,
+        pucPhoto: form.pucPhoto || undefined,
+        permitPhoto: form.permitPhoto || undefined,
+        carFrontPhoto: form.carFrontPhoto || undefined,
+        carLeftPhoto: form.carLeftPhoto || undefined,
+        carRightPhoto: form.carRightPhoto || undefined,
+        carBackPhoto: form.carBackPhoto || undefined,
+        carFullPhoto: form.carFullPhoto || undefined
       };
 
       // Delegate saving to parent; expect it to throw on error
@@ -181,15 +337,112 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
 
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Starting block: Category, Brand */}
+              <div>
+                <label className="block text-sm font-medium">Car Category</label>
+                <div className="flex gap-2">
+                  <select className="input flex-1" value={form.category} onChange={async (e)=>{
+                    const val = e.target.value;
+                    if (val === '__ADD__') {
+                      const added = await addNewOption('category');
+                      if (added) handleChange('category', added);
+                    } else handleChange('category', val);
+                  }}>
+                    <option value="">Select</option>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__ADD__">+ Add new...</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Brand</label>
+                <div className="flex gap-2">
+                  <select className={`input flex-1 ${errors.brand ? 'border-red-500' : ''}`} value={form.brand} onChange={async (e)=>{
+                    const val = e.target.value;
+                    if (val === '__ADD__') {
+                      const added = await addNewOption('brand');
+                      if (added) handleChange('brand', added);
+                    } else handleChange('brand', val);
+                  }}>
+                    <option value="">Select</option>
+                    {brands.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                    <option value="__ADD__">+ Add new...</option>
+                  </select>
+                </div>
+                {errors.brand && <p className="text-xs text-red-600 mt-1">{errors.brand}</p>}
+              </div>
+
+              {/* Next: Model Name, Car Name */}
+              <div>
+                <label className="block text-sm font-medium">Model Name</label>
+                <div className="flex gap-2">
+                  <select className={`input flex-1 ${errors.model ? 'border-red-500' : ''}`} value={form.model} onChange={async (e)=>{
+                    const val = e.target.value;
+                    if (val === '__ADD__') {
+                      const added = await addNewOption('model');
+                      if (added) handleChange('model', added);
+                    } else handleChange('model', val);
+                  }}>
+                    <option value="">Select</option>
+                    {models.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                    <option value="__ADD__">+ Add new...</option>
+                  </select>
+                </div>
+                {errors.model && <p className="text-xs text-red-600 mt-1">{errors.model}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Car Name</label>
+                <div className="flex gap-2">
+                  <select className="input flex-1" value={form.carName} onChange={async (e)=>{
+                    const val = e.target.value;
+                    if (val === '__ADD__') {
+                      const added = await addNewOption('carName');
+                      if (added) handleChange('carName', added);
+                    } else handleChange('carName', val);
+                  }}>
+                    <option value="">Select</option>
+                    {carNames.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                    <option value="__ADD__">+ Add new...</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Next: Select Color, Fuel Type */}
+              <div>
+                <label className="block text-sm font-medium">Select Color</label>
+                <select className={`input ${errors.color ? 'border-red-500' : ''}`} value={form.color} onChange={(e)=>handleChange('color', e.target.value)}>
+                  <option value="">Select</option>
+                  {COLORS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                {errors.color && <p className="text-xs text-red-600 mt-1">{errors.color}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Fuel Type</label>
+                <select className={`input ${errors.fuelType ? 'border-red-500' : ''}`} value={form.fuelType} onChange={(e)=>handleChange('fuelType', e.target.value)}>
+                  <option value="">Select</option>
+                  <option value="Petrol">Petrol</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="CNG">CNG</option>
+                  <option value="Electric">Electric</option>
+                </select>
+                {errors.fuelType && <p className="text-xs text-red-600 mt-1">{errors.fuelType}</p>}
+              </div>
+
+              {/* Then: Vehicle No. and Owner details, etc. */}
               <div>
                 <label className="block text-sm font-medium">Vehicle No.</label>
                 <input className={`input ${errors.registrationNumber ? 'border-red-500' : ''}`} value={form.registrationNumber} onChange={(e)=>handleChange('registrationNumber', e.target.value)} />
                 {errors.registrationNumber && <p className="text-xs text-red-600 mt-1">{errors.registrationNumber}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Vehicle Model</label>
-                <input className={`input ${errors.model ? 'border-red-500' : ''}`} value={form.model} onChange={(e)=>handleChange('model', e.target.value)} />
-                {errors.model && <p className="text-xs text-red-600 mt-1">{errors.model}</p>}
               </div>
 
               <div>
@@ -212,6 +465,11 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
               <div>
                 <label className="block text-sm font-medium">Registration Date</label>
                 <input type="date" className="input" value={form.registrationDate} onChange={(e)=>handleChange('registrationDate', e.target.value)} />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">RC Expiry Date</label>
+                <input type="date" className="input" value={form.rcExpiryDate} onChange={(e)=>handleChange('rcExpiryDate', e.target.value)} />
               </div>
 
               <div>
@@ -245,17 +503,9 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                 <input type="date" className="input" value={form.trafficFineDate} onChange={(e)=>handleChange('trafficFineDate', e.target.value)} />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium">Fuel Type</label>
-                <select className={`input ${errors.fuelType ? 'border-red-500' : ''}`} value={form.fuelType} onChange={(e)=>handleChange('fuelType', e.target.value)}>
-                  <option value="">Select</option>
-                  <option value="Petrol">Petrol</option>
-                  <option value="Diesel">Diesel</option>
-                  <option value="CNG">CNG</option>
-                  <option value="Electric">Electric</option>
-                </select>
-                {errors.fuelType && <p className="text-xs text-red-600 mt-1">{errors.fuelType}</p>}
-              </div>
+             
+
+             
 
               <div>
                 <label className="block text-sm font-medium">Assign to Driver</label>
@@ -287,6 +537,95 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium">Remarks</label>
                 <textarea className="input" rows={2} value={form.remarks} onChange={(e)=>handleChange('remarks', e.target.value)} />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <h4 className="text-sm font-semibold mb-2">Road Tax & PUC</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium">Road Tax No.</label>
+                  <input className="input" value={form.roadTaxNumber} onChange={(e)=>handleChange('roadTaxNumber', e.target.value)} placeholder="Enter road tax number" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Road Tax Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('roadTaxPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.roadTaxPhoto && (
+                    <a href={vehicle.roadTaxPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">PUC Certificate No.</label>
+                  <input className="input" value={form.pucNumber} onChange={(e)=>handleChange('pucNumber', e.target.value)} placeholder="Enter PUC certificate number" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">PUC Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('pucPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.pucPhoto && (
+                    <a href={vehicle.pucPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <h4 className="text-sm font-semibold mb-2">Registration & Permit</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium">Registration Card Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('registrationCardPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.registrationCardPhoto && (
+                    <a href={vehicle.registrationCardPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Permit Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('permitPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.permitPhoto && (
+                    <a href={vehicle.permitPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <h4 className="text-sm font-semibold mb-2">Vehicle Photos</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium">Front Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carFrontPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.carFrontPhoto && (
+                    <a href={vehicle.carFrontPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Left Side Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carLeftPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.carLeftPhoto && (
+                    <a href={vehicle.carLeftPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Right Side Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carRightPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.carRightPhoto && (
+                    <a href={vehicle.carRightPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Back Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carBackPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.carBackPhoto && (
+                    <a href={vehicle.carBackPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Full Vehicle Photo</label>
+                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carFullPhoto', e.target.files?.[0] || null)} />
+                  {vehicle?.carFullPhoto && (
+                    <a href={vehicle.carFullPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -76,7 +76,7 @@ export default function VehiclesList() {
     (async function fetchVehicles(){
       setLoading(true);
       try{
-        const API_BASE =  'https://udrive-backend-mcrx.vercel.app';
+        const API_BASE =  'http://localhost:4000';
         const res = await fetch(`${API_BASE}/api/vehicles`);
         if(!res.ok) { throw new Error('Failed to load vehicles'); }
         const data = await res.json();
@@ -114,7 +114,7 @@ export default function VehiclesList() {
     // fetch fresh vehicle data from backend before opening modal so all fields are populated
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const apiId = resolveApiVehicleId(vehicle);
       if (apiId == null || Number.isNaN(apiId)) {
         // If we can't resolve an API id, skip fetching and use available data
@@ -139,7 +139,7 @@ export default function VehiclesList() {
   const handleViewVehicle = async (vehicle) => {
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const id = resolveApiVehicleId(vehicle);
       if (id == null || Number.isNaN(id)) {
         setSelectedVehicle(normalizeVehicle(vehicle));
@@ -161,7 +161,39 @@ export default function VehiclesList() {
 
   const handleSaveVehicle = async (vehicleData) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      // Convert file objects to base64 data URLs for API upload
+      const fileKeys = [
+        'registrationCardPhoto',
+        'roadTaxPhoto',
+        'pucPhoto',
+        'permitPhoto',
+        'carFrontPhoto',
+        'carLeftPhoto',
+        'carRightPhoto',
+        'carBackPhoto',
+        'carFullPhoto'
+      ];
+
+      const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+        if (!file) return resolve(undefined);
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const payload = { ...vehicleData };
+      for (const key of fileKeys) {
+        const val = payload[key];
+        if (val instanceof File) {
+          payload[key] = await readFileAsDataUrl(val);
+        } else if (val == null) {
+          // avoid sending null/undefined
+          delete payload[key];
+        }
+      }
+
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const headers = {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
@@ -173,18 +205,24 @@ export default function VehiclesList() {
         response = await fetch(`${API_BASE}/api/vehicles/${selectedVehicle.vehicleId}`, {
           method: 'PUT',
           headers,
-          body: JSON.stringify(vehicleData)
+          body: JSON.stringify(payload)
         });
       } else {
         // Create new vehicle
         response = await fetch(`${API_BASE}/api/vehicles`, {
           method: 'POST',
           headers,
-          body: JSON.stringify(vehicleData)
+          body: JSON.stringify(payload)
         });
       }
 
-      if (!response.ok) { if (handleAuthRedirectIfNeeded(response)) return; throw new Error(`Failed to ${selectedVehicle ? 'update' : 'create'} vehicle: ${response.status}`); }
+      if (!response.ok) {
+        if (handleAuthRedirectIfNeeded(response)) return;
+        let serverMsg = '';
+        try { const b = await response.json(); serverMsg = b && b.message ? b.message : ''; } catch {}
+        const msg = serverMsg || `Failed to ${selectedVehicle ? 'update' : 'create'} vehicle: ${response.status}`;
+        throw new Error(msg);
+      }
 
       const saved = normalizeVehicle(await response.json());
       
@@ -206,7 +244,7 @@ export default function VehiclesList() {
   const handleDeleteVehicle = async (vehicleOrId) => {
     if (!window.confirm('Delete this vehicle?')) return;
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const resolvedId = typeof vehicleOrId === 'object' ? resolveApiVehicleId(vehicleOrId) : (Number.isFinite(Number(vehicleOrId)) ? Number(vehicleOrId) : undefined);
       if (!resolvedId && resolvedId !== 0) {
         throw new Error('Vehicle not found');
@@ -228,7 +266,7 @@ export default function VehiclesList() {
 
   const handleChangeStatus = async (vehicleId, newStatus) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -246,7 +284,7 @@ export default function VehiclesList() {
 
   const handleChangeKyc = async (vehicleId, newKyc) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -277,7 +315,13 @@ export default function VehiclesList() {
 
   const filtered = vehiclesData.filter(v => {
     const q = searchTerm.trim().toLowerCase();
-    const matchesQ = !q || (v.registrationNumber||'').toLowerCase().includes(q) || (v.model||'').toLowerCase().includes(q) || (v.ownerName||'').toLowerCase().includes(q);
+    const matchesQ = !q 
+      || (v.registrationNumber||'').toLowerCase().includes(q) 
+      || (v.model||'').toLowerCase().includes(q) 
+      || (v.carName||'').toLowerCase().includes(q)
+      || (v.brand||v.make||'').toLowerCase().includes(q)
+      || (v.category||'').toLowerCase().includes(q)
+      || (v.ownerName||'').toLowerCase().includes(q);
     const matchesStatus = statusFilter === 'all' || v.status === statusFilter;
     const matchesKyc = kycFilter === 'all' || ((v.kycStatus || v.kyc || '').toString().toLowerCase() === kycFilter);
     return matchesQ && matchesStatus && matchesKyc;
@@ -310,8 +354,8 @@ export default function VehiclesList() {
       {/* Top stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-green-100 rounded-lg">
                 <Car className="h-6 w-6 text-green-600" />
               </div>
@@ -323,8 +367,8 @@ export default function VehiclesList() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-yellow-100 rounded-lg">
                 <Clock className="h-6 w-6 text-yellow-600" />
               </div>
@@ -339,8 +383,8 @@ export default function VehiclesList() {
        
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Car className="h-6 w-6 text-blue-600" />
               </div>
@@ -353,8 +397,8 @@ export default function VehiclesList() {
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-red-100 rounded-lg">
                 <XCircle className="h-6 w-6 text-red-600" />
               </div>
@@ -366,9 +410,9 @@ export default function VehiclesList() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
+        {/* <Card>
+          <CardContent className="p-2">
+            <div className="flex items-start">
               <div className="p-2 bg-purple-100 rounded-lg">
                 <Car className="h-6 w-6 text-purple-600" />
               </div>
@@ -378,7 +422,7 @@ export default function VehiclesList() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Search / Filters */}
@@ -439,19 +483,26 @@ export default function VehiclesList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Vehicle No.</TableHead>
+                  <TableHead>Car Category</TableHead>
+                  <TableHead>Brand</TableHead>
                   <TableHead>Vehicle Model</TableHead>
+                  <TableHead>Car Name</TableHead>
+                  <TableHead>Color</TableHead>
+                  <TableHead>Fuel Type</TableHead>
+                  <TableHead>Vehicle No.</TableHead>
                   <TableHead>Owner Name</TableHead>
                   <TableHead>Owner Phone</TableHead>
                   <TableHead>Manufacture Year</TableHead>
                   <TableHead>Registration Date</TableHead>
+                  <TableHead>RC Expiry</TableHead>
                   <TableHead>Road Tax Date</TableHead>
+                  <TableHead>Road Tax No.</TableHead>
                   <TableHead>Insurance Date</TableHead>
                   <TableHead>Permit Date</TableHead>
                   <TableHead>Emission Date</TableHead>
+                  <TableHead>PUC No.</TableHead>
                   <TableHead>Traffic Fine</TableHead>
                   <TableHead>Fine Date</TableHead>
-                  <TableHead>Fuel Type</TableHead>
                   <TableHead>Assigned Driver</TableHead>
                   <TableHead>KYC Status</TableHead>
                   <TableHead>Status</TableHead>
@@ -462,22 +513,28 @@ export default function VehiclesList() {
               <TableBody>
                 {filtered.map((v, index)=> (
                   <TableRow key={index}>
+                    <TableCell>{v.category || '-'}</TableCell>
+                    <TableCell>{v.brand || v.make || '-'}</TableCell>
+                    <TableCell>{v.model}</TableCell>
+                    <TableCell>{v.carName || '-'}</TableCell>
+                    <TableCell>{v.color || '-'}</TableCell>
+                    <TableCell>{v.fuelType || '-'}</TableCell>
                     <TableCell>
                       <div className="font-medium text-gray-900">{v.registrationNumber}</div>
-                      <div className="text-sm text-gray-500">Model: {v.model}</div>
                     </TableCell>
-                    <TableCell>{v.model}</TableCell>
                     <TableCell>{v.ownerName}</TableCell>
                     <TableCell>{v.ownerPhone}</TableCell>
                     <TableCell>{v.year || '-'}</TableCell>
                     <TableCell>{formatDate(v.registrationDate)}</TableCell>
+                    <TableCell>{formatDate(v.rcExpiryDate || v.rcExpiry)}</TableCell>
                     <TableCell>{formatDate(v.roadTaxDate)}</TableCell>
+                    <TableCell>{v.roadTaxNumber || '-'}</TableCell>
                     <TableCell>{formatDate(v.insuranceDate || v.insuranceExpiry)}</TableCell>
                     <TableCell>{formatDate(v.permitDate)}</TableCell>
                     <TableCell>{formatDate(v.emissionDate)}</TableCell>
+                    <TableCell>{v.pucNumber || '-'}</TableCell>
                     <TableCell>{v.trafficFine ?? '-'}</TableCell>
                     <TableCell>{formatDate(v.trafficFineDate)}</TableCell>
-                    <TableCell>{v.fuelType || '-'}</TableCell>
                     <TableCell>{v.assignedDriver || <Badge variant="warning">Not Assigned</Badge>}</TableCell>
                     <TableCell>{getKycBadge(v.kycStatus || v.kyc || v.kyc_status)}</TableCell>
                     <TableCell>{getStatusBadge(v.status)}</TableCell>

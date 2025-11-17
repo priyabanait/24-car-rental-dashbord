@@ -1,4 +1,5 @@
-import { X, Mail, Phone, FileText, User, MapPin, Car, CreditCard } from 'lucide-react';
+import { useState } from 'react';
+import { X, Mail, Phone, FileText, User, MapPin, Car, CreditCard, ZoomIn, Download } from 'lucide-react';
 import { formatDate } from '../../utils';
 
 const docUrl = (doc) => {
@@ -9,24 +10,58 @@ const docUrl = (doc) => {
 };
 
 export default function DriverDetailModal({ isOpen, onClose, driver }) {
+  const [fullScreenImage, setFullScreenImage] = useState(null);
+
   if (!isOpen || !driver) return null;
 
-  const renderDocumentPreview = (doc) => {
-    if (!doc) return <div className="text-sm text-gray-500">Not uploaded</div>;
+  const renderDocumentPreview = (doc, label) => {
+    if (!doc) return <div className="text-sm text-gray-500 text-center py-8">Not uploaded</div>;
 
     // Handle string URLs (from backend)
     if (typeof doc === 'string') {
-      if (doc.match(/\.(pdf)$/i)) {
+      // Check if it's a PDF
+      if (doc.match(/\.(pdf)$/i) || doc.includes('/pdf/') || doc.includes('.pdf')) {
         return (
-          <a href={doc} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">
-            View PDF
-          </a>
+          <div className="flex flex-col items-center space-y-2">
+            <FileText className="h-16 w-16 text-red-500" />
+            <a 
+              href={doc} 
+              target="_blank" 
+              rel="noreferrer" 
+              className="text-primary-600 hover:underline text-sm font-medium"
+            >
+              View PDF
+            </a>
+            <a 
+              href={doc} 
+              download 
+              className="text-gray-600 hover:text-gray-900 text-xs flex items-center"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              Download
+            </a>
+          </div>
         );
       }
-      if (doc.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-        return <img src={doc} alt="Document" className="h-32 w-32 object-cover rounded border" />;
-      }
-      return <a href={doc} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">{doc}</a>;
+      
+      // Treat everything else as an image (including Cloudinary URLs without extensions)
+      // Most documents from Cloudinary are images
+      return (
+        <div className="relative group cursor-pointer h-full w-full">
+          <img 
+            src={doc} 
+            alt={label || "Document"} 
+            className="h-full w-full object-cover rounded-lg transition-transform group-hover:scale-105" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setFullScreenImage({ url: doc, label });
+            }}
+          />
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+            <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </div>
+      );
     }
 
     // Handle File objects (from file inputs)
@@ -34,18 +69,27 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
       if (doc.type.startsWith('image/')) {
         const previewUrl = URL.createObjectURL(doc);
         return (
-          <img 
-            src={previewUrl} 
-            alt="Document" 
-            className="h-32 w-32 object-cover rounded border"
-            onLoad={() => URL.revokeObjectURL(previewUrl)}
-          />
+          <div className="relative group cursor-pointer h-full w-full">
+            <img 
+              src={previewUrl} 
+              alt={label || "Document"} 
+              className="h-full w-full object-cover rounded-lg transition-transform group-hover:scale-105"
+              onLoad={() => URL.revokeObjectURL(previewUrl)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFullScreenImage({ url: previewUrl, label });
+              }}
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+              <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </div>
         );
       }
-      return <div className="text-sm text-gray-600">{doc.name}</div>;
+      return <div className="text-sm text-gray-600 text-center py-8">{doc.name}</div>;
     }
 
-    return <div className="text-sm text-gray-500">Invalid document</div>;
+    return <div className="text-sm text-gray-500 text-center py-8">Invalid document</div>;
   };
 
   return (
@@ -107,10 +151,45 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
                         </div>
                       </div>
                       <div>
+                        <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.dateOfBirth ? formatDate(driver.dateOfBirth) : '—'}</div>
+                      </div>
+                      <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700">Address</label>
                         <div className="mt-1 flex items-start">
                           <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
                           <span className="text-sm text-gray-900 whitespace-pre-line">{driver.address}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">City</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.city || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">State</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.state || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Pincode</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.pincode || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">GPS Coordinates</label>
+                        <div className="mt-1 text-sm text-gray-900">
+                          {driver.latitude && driver.longitude 
+                            ? `${parseFloat(driver.latitude).toFixed(6)}, ${parseFloat(driver.longitude).toFixed(6)}`
+                            : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Emergency Contact</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.emergencyContact || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Emergency Phone</label>
+                        <div className="mt-1 flex items-center">
+                          <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                          <span className="text-sm text-gray-900">{driver.emergencyPhone || '—'}</span>
                         </div>
                       </div>
                       <div>
@@ -123,8 +202,44 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
 
                 <div className="card">
                   <div className="p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">License & Documents Info</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">License Number</label>
+                        <div className="mt-1 text-sm font-mono text-gray-900">{driver.licenseNumber || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">License Class</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.licenseClass || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">License Expiry Date</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.licenseExpiryDate ? formatDate(driver.licenseExpiryDate) : '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Aadhar Number</label>
+                        <div className="mt-1 text-sm font-mono text-gray-900">{driver.aadharNumber || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">PAN Number</label>
+                        <div className="mt-1 text-sm font-mono text-gray-900">{driver.panNumber || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Electric Bill No.</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.electricBillNo || '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <div className="p-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Professional</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Driving Experience</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.experience || '—'}</div>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Plan</label>
                         <div className="mt-1 flex items-center">
@@ -133,8 +248,23 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Vehicle</label>
+                        <label className="block text-sm font-medium text-gray-700">Vehicle Preference</label>
                         <div className="mt-1 text-sm text-gray-900">{driver.vehiclePreference || driver.vehicleAssigned || '—'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Total Trips</label>
+                        <div className="mt-1 text-sm text-gray-900">{driver.totalTrips || 0}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Total Earnings</label>
+                        <div className="mt-1 text-sm font-medium text-gray-900">₹{driver.totalEarnings?.toLocaleString() || 0}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Rating</label>
+                        <div className="mt-1 flex items-center">
+                          <span className="text-yellow-400 mr-1">★</span>
+                          <span className="text-sm font-medium text-gray-900">{driver.rating || 0}</span>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">KYC Status</label>
@@ -144,60 +274,141 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
                         <label className="block text-sm font-medium text-gray-700">Status</label>
                         <div className="mt-1 text-sm text-gray-900">{driver.status || '—'}</div>
                       </div>
+                      {driver.previousEmployment && (
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700">Previous Employment</label>
+                          <div className="mt-1 text-sm text-gray-900 whitespace-pre-line">{driver.previousEmployment}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Documents */}
+              {/* Bank Details - Right Column */}
               <div className="space-y-6">
                 <div className="card">
                   <div className="p-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Documents</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      {[
-                        { key: 'licenseDocument', label: 'License Document', number: driver.licenseNumber },
-                        { key: 'aadharDocument', label: 'Aadhar Card', number: driver.aadharNumber },
-                        { key: 'panDocument', label: 'PAN Card', number: driver.panNumber },
-                        { key: 'bankDocument', label: 'Bank Document', number: driver.accountNumber },
-                      ].map(({ key, label, number }) => (
-                        <div key={key} className="border rounded-lg p-3 bg-gray-50">
-                          <div className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                            <FileText className="h-4 w-4 mr-2 text-gray-400" />
-                            {label}
-                          </div>
-                          {number && (
-                            <div className="text-xs text-gray-500 mb-2 font-mono">
-                              {number}
-                            </div>
-                          )}
-                          <div className="flex items-center justify-center bg-white rounded border p-2">
-                            {renderDocumentPreview(driver[key])}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <div className="p-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Bank Details</h3>
-                    <div className="space-y-2 text-sm text-gray-900">
-                      <div className="flex justify-between"><span className="text-gray-600">Bank</span><span>{driver.bankName || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-600">Account No.</span><span className="font-mono">{driver.accountNumber || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-600">IFSC</span><span className="font-mono">{driver.ifscCode || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-600">Holder</span><span>{driver.accountHolderName || '—'}</span></div>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <span className="text-gray-600">Bank Name</span>
+                        <div className="mt-1 font-medium text-gray-900">{driver.bankName || '—'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Branch Name</span>
+                        <div className="mt-1 font-medium text-gray-900">{driver.accountBranchName || '—'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Account Number</span>
+                        <div className="mt-1 font-mono text-gray-900">{driver.accountNumber || '—'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">IFSC Code</span>
+                        <div className="mt-1 font-mono text-gray-900">{driver.ifscCode || '—'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Account Holder</span>
+                        <div className="mt-1 font-medium text-gray-900">{driver.accountHolderName || '—'}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Documents Section - Full Width Horizontal */}
+            <div className="card">
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-gray-500" />
+                  Documents
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {[
+                    { key: 'profilePhoto', label: 'Profile Photo', number: null },
+                    { key: 'licenseDocument', label: 'License Document', number: driver.licenseNumber },
+                    { key: 'aadharDocument', label: 'Aadhar Front', number: driver.aadharNumber },
+                    { key: 'aadharDocumentBack', label: 'Aadhar Back', number: driver.aadharNumber },
+                    { key: 'panDocument', label: 'PAN Card', number: driver.panNumber },
+                    { key: 'bankDocument', label: 'Bank Document', number: driver.accountNumber },
+                    { key: 'electricBillDocument', label: 'Electric Bill', number: driver.electricBillNo },
+                  ].map(({ key, label, number }) => (
+                    <div key={key} className="border rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                      <div className="bg-gray-50 px-3 py-2 border-b">
+                        <div className="text-xs font-medium text-gray-700 truncate" title={label}>
+                          {label}
+                        </div>
+                        {number && (
+                          <div className="text-xs text-gray-500 font-mono truncate mt-1" title={number}>
+                            {number}
+                          </div>
+                        )}
+                      </div>
+                      <div className="aspect-square flex items-center justify-center bg-gray-50 p-2">
+                        {renderDocumentPreview(driver[key], label)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Full Screen Image Viewer */}
+        {fullScreenImage && (
+          <div 
+            className="fixed inset-0 z-[60] bg-black bg-opacity-95 flex items-center justify-center p-4"
+            onClick={() => setFullScreenImage(null)}
+          >
+            <button
+              onClick={() => setFullScreenImage(null)}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-10"
+            >
+              <X className="h-8 w-8" />
+            </button>
+            
+            <div className="relative max-w-6xl max-h-[90vh] w-full h-full flex flex-col items-center justify-center">
+              {fullScreenImage.label && (
+                <div className="absolute top-0 left-0 right-0 bg-black bg-opacity-50 text-white px-6 py-3 text-center">
+                  <h3 className="text-lg font-medium">{fullScreenImage.label}</h3>
+                </div>
+              )}
+              
+              <img
+                src={fullScreenImage.url}
+                alt={fullScreenImage.label || "Document"}
+                className="max-w-full max-h-full object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
+              
+              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 px-6 py-3 flex justify-center space-x-4">
+                <a
+                  href={fullScreenImage.url}
+                  download
+                  className="px-4 py-2 bg-white text-gray-900 rounded-lg hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Download</span>
+                </a>
+                <a
+                  href={fullScreenImage.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center space-x-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                  <span>Open in New Tab</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, MapPin, FileText, Upload, Camera, Car, CreditCard } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, FileText, Upload, Camera, Car, CreditCard, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function DriverModal({ isOpen, onClose, driver = null, onSave }) {
@@ -14,6 +14,8 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     city: '',
     state: '',
     pincode: '',
+    latitude: '',
+    longitude: '',
     emergencyContact: '',
     emergencyPhone: '',
     
@@ -37,13 +39,17 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     accountNumber: '',
     ifscCode: '',
     accountHolderName: '',
+    accountBranchName: '',
     
     // Documents
     profilePhoto: null,
     licenseDocument: null,
     aadharDocument: null,
+    aadharDocumentBack: null,
     panDocument: null,
     bankDocument: null,
+    electricBillDocument: null,
+    electricBillNo: '',
     
     // Status
     status: 'pending',
@@ -52,6 +58,8 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [documentPreviews, setDocumentPreviews] = useState({});
 
   const steps = [
@@ -64,10 +72,54 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
 
   useEffect(() => {
     if (driver) {
-      setFormData({ ...driver });
+      // Format dates for date inputs (YYYY-MM-DD)
+      const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) return '';
+          return date.toISOString().split('T')[0];
+        } catch {
+          return '';
+        }
+      };
+
+      setFormData({ 
+        ...driver,
+        planType: driver.currentPlan || driver.planType || '', // Map currentPlan back to planType
+        dateOfBirth: formatDateForInput(driver.dateOfBirth),
+        licenseExpiryDate: formatDateForInput(driver.licenseExpiryDate),
+        // Ensure all required fields have values (prevent undefined)
+        name: driver.name || '',
+        email: driver.email || '',
+        phone: driver.phone || '',
+        address: driver.address || '',
+        city: driver.city || '',
+        state: driver.state || '',
+        pincode: driver.pincode || '',
+        latitude: driver.latitude || '',
+        longitude: driver.longitude || '',
+        emergencyContact: driver.emergencyContact || '',
+        emergencyPhone: driver.emergencyPhone || '',
+        licenseNumber: driver.licenseNumber || '',
+        licenseClass: driver.licenseClass || 'LMV',
+        aadharNumber: driver.aadharNumber || '',
+        panNumber: driver.panNumber || '',
+        experience: driver.experience || '',
+        previousEmployment: driver.previousEmployment || '',
+        vehiclePreference: driver.vehiclePreference || driver.vehicleAssigned || '',
+        bankName: driver.bankName || '',
+        accountNumber: driver.accountNumber || '',
+        ifscCode: driver.ifscCode || '',
+        accountHolderName: driver.accountHolderName || '',
+        accountBranchName: driver.accountBranchName || '',
+        electricBillNo: driver.electricBillNo || '',
+        status: driver.status || 'pending',
+        kycStatus: driver.kycStatus || 'pending'
+      });
       // Set document previews for existing documents
       const previews = {};
-      ['profilePhoto', 'licenseDocument', 'aadharDocument', 'panDocument', 'bankDocument'].forEach(key => {
+      ['profilePhoto', 'licenseDocument', 'aadharDocument', 'aadharDocumentBack', 'panDocument', 'bankDocument', 'electricBillDocument'].forEach(key => {
         if (driver[key]) {
           previews[key] = driver[key];
         }
@@ -85,6 +137,8 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
         city: '',
         state: '',
         pincode: '',
+        latitude: '',
+        longitude: '',
         emergencyContact: '',
         emergencyPhone: '',
         licenseNumber: '',
@@ -100,11 +154,15 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
         accountNumber: '',
         ifscCode: '',
         accountHolderName: '',
+        accountBranchName: '',
+        electricBillNo: '',
         profilePhoto: null,
         licenseDocument: null,
         aadharDocument: null,
+        aadharDocumentBack: null,
         panDocument: null,
         bankDocument: null,
+        electricBillDocument: null,
         status: 'pending',
         kycStatus: 'pending'
       });
@@ -134,6 +192,123 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     return Math.abs(ageDt.getUTCFullYear() - 1970);
   };
 
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        // Update coordinates
+        setFormData(prev => ({ 
+          ...prev, 
+          latitude: latitude.toString(), 
+          longitude: longitude.toString() 
+        }));
+
+        // Reverse geocoding to get address
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+          );
+          const data = await response.json();
+          
+          if (data && data.address) {
+            const address = data.address;
+            const fullAddress = data.display_name || '';
+            
+            setFormData(prev => ({
+              ...prev,
+              address: fullAddress,
+              city: address.city || address.town || address.village || '',
+              state: address.state || '',
+              pincode: address.postcode || '',
+              latitude: latitude.toString(),
+              longitude: longitude.toString()
+            }));
+            
+            toast.success('Location captured successfully');
+          } else {
+            toast.success('Location coordinates captured');
+          }
+        } catch (error) {
+          console.error('Reverse geocoding error:', error);
+          toast.success('Location coordinates captured');
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (error) => {
+        setLocationLoading(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error('Location permission denied. Please enable location access.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error('Location information unavailable.');
+            break;
+          case error.TIMEOUT:
+            toast.error('Location request timed out.');
+            break;
+          default:
+            toast.error('An error occurred while getting location.');
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  const getCoordinatesFromAddress = async (address) => {
+    if (!address || address.trim().length < 10) {
+      return;
+    }
+
+    setGeocodingLoading(true);
+    try {
+      // Build search query with additional context if available
+      let searchQuery = address;
+      if (formData.city) {
+        searchQuery += `, ${formData.city}`;
+      }
+      if (formData.state) {
+        searchQuery += `, ${formData.state}`;
+      }
+      if (formData.pincode) {
+        searchQuery += `, ${formData.pincode}`;
+      }
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&addressdetails=1`
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const location = data[0];
+        setFormData(prev => ({
+          ...prev,
+          latitude: location.lat,
+          longitude: location.lon
+        }));
+        toast.success('Coordinates fetched successfully');
+      } else {
+        toast.error('Could not find coordinates for this address');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      toast.error('Failed to fetch coordinates');
+    } finally {
+      setGeocodingLoading(false);
+    }
+  };
+
   const validateField = (field, value) => {
     // return error message string or empty/null if valid
     if (field === 'name') {
@@ -141,11 +316,11 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
       if (!/^[a-zA-Z\s]{2,50}$/.test(value.trim())) return 'Name should only contain letters and spaces (2-50 characters)';
       return '';
     }
-    if (field === 'email') {
-      if (!value || !value.trim()) return 'Email is required';
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) return 'Please enter a valid email address';
-      return '';
-    }
+    // if (field === 'email') {
+    //   if (!value || !value.trim()) return 'Email is required';
+    //   if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) return 'Please enter a valid email address';
+    //   return '';
+    // }
     if (field === 'phone' || field === 'emergencyPhone') {
       if (!value || !value.trim()) return field === 'phone' ? 'Phone is required' : '';
       const digits = String(value).replace(/\D/g, '');
@@ -154,13 +329,14 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
       return '';
     }
     if (field === 'dateOfBirth') {
-      if (!value) return 'Date of birth is required';
-      const age = calculateAge(value);
-      if (age === null) return 'Invalid date';
-      if (age < 18) return 'Driver must be at least 18 years old';
-      if (age > 65) return 'Driver age cannot exceed 65 years';
-      return '';
-    }
+  if (!value) return ''; // skip validation if no date is entered
+  const age = calculateAge(value);
+  if (age < 18) return 'Driver must be at least 18 years old';
+  if (age > 65) return 'Driver age cannot exceed 65 years';
+  return '';
+}
+
+
     if (field === 'address') {
       if (!value || !value.trim()) return 'Address is required';
       if (value.trim().length < 10) return 'Please enter complete address (min 10 characters)';
@@ -222,6 +398,11 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
       if (!/^[a-zA-Z\s]{2,50}$/.test(value.trim())) return 'Enter valid account holder name';
       return '';
     }
+    if (field === 'accountBranchName') {
+      if (!value || !value.trim()) return 'Account branch name is required';
+      if (!/^[a-zA-Z\s]{2,50}$/.test(value.trim())) return 'Enter valid branch name';
+      return '';
+    }
     return '';
   };
 
@@ -265,7 +446,7 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
         break;
 
       case 4: // Banking
-        ['bankName', 'accountNumber', 'ifscCode', 'accountHolderName'].forEach(f => {
+        ['bankName', 'accountNumber', 'ifscCode', 'accountHolderName', 'accountBranchName'].forEach(f => {
           const err = validateField(f, formData[f]);
           if (err) newErrors[f] = err;
         });
@@ -279,6 +460,13 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
   const handleNext = () => {
     if (validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, 5));
+    } else {
+      // Scroll to first error
+      const firstError = Object.keys(errors)[0];
+      if (firstError) {
+        console.log('Validation errors:', errors);
+        toast.error(`Please fix errors in ${firstError}`);
+      }
     }
   };
 
@@ -307,12 +495,16 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
         totalEarnings: driver?.totalEarnings || 0,
         rating: driver?.rating || 0,
         vehicleAssigned: formData.vehiclePreference,
+        currentPlan: formData.planType, // Map planType to currentPlan for display
+        planAmount: 800, // Default plan amount, can be calculated based on plan type
         // Include existing document URLs if they haven't been changed
         profilePhoto: formData.profilePhoto || driver?.profilePhoto,
         licenseDocument: formData.licenseDocument || driver?.licenseDocument,
         aadharDocument: formData.aadharDocument || driver?.aadharDocument,
+        aadharDocumentBack: formData.aadharDocumentBack || driver?.aadharDocumentBack,
         panDocument: formData.panDocument || driver?.panDocument,
-        bankDocument: formData.bankDocument || driver?.bankDocument
+        bankDocument: formData.bankDocument || driver?.bankDocument,
+        electricBillDocument: formData.electricBillDocument || driver?.electricBillDocument
       };
 
       // Filter out undefined or null values to prevent overwriting existing data
@@ -411,6 +603,31 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                 {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Latitude
+                </label>
+                <input
+                  type="text"
+                  value={formData.latitude}
+                  onChange={(e) => handleInputChange('latitude', e.target.value)}
+                  className="input"
+                  placeholder="Enter latitude"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Longitude
+                </label>
+                <input
+                  type="text"
+                  value={formData.longitude}
+                  onChange={(e) => handleInputChange('longitude', e.target.value)}
+                  className="input"
+                  placeholder="Enter longitude"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   City
@@ -550,7 +767,20 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                 />
                 {errors.panNumber && <p className="mt-1 text-sm text-red-600">{errors.panNumber}</p>}
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Electric Bill No.
+                </label>
+                <input
+                  type="text"
+                  value={formData.electricBillNo}
+                  onChange={(e) => handleInputChange('electricBillNo', e.target.value)}
+                  className="input"
+                  placeholder="Enter electric bill number"
+                />
+              </div>
             </div>
+            
 
             {/* Document Upload Section */}
             <div className="space-y-4">
@@ -560,8 +790,10 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                 {[
                   { key: 'profilePhoto', label: 'Profile Photo', accept: 'image/*' },
                   { key: 'licenseDocument', label: 'License Document', accept: '.pdf,.jpg,.jpeg,.png' },
-                  { key: 'aadharDocument', label: 'Aadhar Document', accept: '.pdf,.jpg,.jpeg,.png' },
-                  { key: 'panDocument', label: 'PAN Document', accept: '.pdf,.jpg,.jpeg,.png' }
+                  { key: 'aadharDocument', label: 'Aadhar Front Side Document', accept: '.pdf,.jpg,.jpeg,.png' },
+                  { key: 'aadharDocumentBack', label: 'Aadhar Back Side Document', accept: '.pdf,.jpg,.jpeg,.png' },
+                  { key: 'panDocument', label: 'PAN Document', accept: '.pdf,.jpg,.jpeg,.png' },
+                  { key: 'electricBillDocument', label: 'Electric Bill', accept: '.pdf,.jpg,.jpeg,.png' }
                 ].map(({ key, label, accept }) => (
                   <div key={key} className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                     <div className="text-center">
@@ -633,8 +865,7 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                   <option value="">Select Plan</option>
                   <option value="Uber Plan">Uber Plan</option>
                   <option value="Daily Collection">Daily Collection</option>
-                  <option value="Weekend Plan">Weekend Plan</option>
-                  <option value="Custom Plan">Custom Plan</option>
+                 
                 </select>
                 {errors.planType && <p className="mt-1 text-sm text-red-600">{errors.planType}</p>}
               </div>
@@ -649,11 +880,12 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                   className="input"
                 >
                   <option value="">Select Vehicle Type</option>
-                  <option value="Sedan">Sedan</option>
-                  <option value="Hatchback">Hatchback</option>
-                  <option value="SUV">SUV</option>
-                  <option value="Taxi">Taxi</option>
-                  <option value="Auto">Auto Rickshaw</option>
+                  <option value="Dzire ">Dzire</option>
+                  <option value="WagonR ">WagonR</option>
+                  <option value="Aura ">Aura</option>
+                  <option value="Eartiga">Eartiga</option>
+                  <option value="Spresso ">Spresso</option>
+                  <option value="Triber ">Triber</option>
                 </select>
               </div>
 
@@ -692,7 +924,19 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                 />
                 {errors.bankName && <p className="mt-1 text-sm text-red-600">{errors.bankName}</p>}
               </div>
-
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Branch Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.accountBranchName}
+                  onChange={(e) => handleInputChange('accountBranchName', e.target.value)}
+                  className={`input ${errors.accountBranchName ? 'border-red-300' : ''}`}
+                  placeholder="Enter branch name"
+                />
+                {errors.accountBranchName && <p className="mt-1 text-sm text-red-600">{errors.accountBranchName}</p>}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Account Number *
@@ -739,10 +983,17 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
             {/* Bank Document Upload */}
             <div className="space-y-4">
               <h4 className="text-md font-medium text-gray-900">Bank Document</h4>
-              
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 <div className="text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  {documentPreviews.bankDocument ? (
+                    <img 
+                      src={documentPreviews.bankDocument.startsWith('data:') ? documentPreviews.bankDocument : documentPreviews.bankDocument + '?t=' + new Date().getTime()} 
+                      alt="Bank Document" 
+                      className="mx-auto h-20 w-20 object-cover rounded" 
+                    />
+                  ) : (
+                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  )}
                   <div className="mt-2">
                     <label className="cursor-pointer">
                       <span className="text-sm font-medium text-primary-600 hover:text-primary-500">
@@ -782,6 +1033,18 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                   <span className="font-medium text-gray-700">Phone:</span>
                   <span className="ml-2 text-gray-900">{formData.phone}</span>
                 </div>
+                <div>
+                  <span className="font-medium text-gray-700">Address:</span>
+                  <span className="ml-2 text-gray-900">{formData.address}</span>
+                </div>
+                {formData.latitude && formData.longitude && (
+                  <div>
+                    <span className="font-medium text-gray-700">GPS Location:</span>
+                    <span className="ml-2 text-gray-900">
+                      {parseFloat(formData.latitude).toFixed(6)}, {parseFloat(formData.longitude).toFixed(6)}
+                    </span>
+                  </div>
+                )}
                 <div>
                   <span className="font-medium text-gray-700">License:</span>
                   <span className="ml-2 text-gray-900">{formData.licenseNumber}</span>

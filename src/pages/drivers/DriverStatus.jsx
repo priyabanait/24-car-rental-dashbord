@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { PermissionGuard } from '../../components/guards/PermissionGuards';
+import { PERMISSIONS } from '../../utils/permissions';
+import toast from 'react-hot-toast';
 
 export default function DriverStatus() {
   const { hasPermission } = useAuth();
@@ -34,7 +37,7 @@ export default function DriverStatus() {
       setLoading(true);
       setError(null);
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const res = await fetch(`${API_BASE}/api/drivers`);
         if (!res.ok) throw new Error(`Failed to load drivers: ${res.status}`);
         const list = await res.json();
@@ -71,7 +74,7 @@ export default function DriverStatus() {
 
     (async () => {
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const token = localStorage.getItem('udriver_token') || 'mock';
         const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
           method: 'PUT',
@@ -84,16 +87,44 @@ export default function DriverStatus() {
         if (!res.ok) throw new Error(`Failed to update: ${res.status}`);
         const updated = await res.json();
         setDriversData(prev => prev.map(d => d.id === driverId ? updated : d));
+        toast.success('Driver status updated');
       } catch (err) {
         console.error('Status update failed', err);
+        toast.error(err.message || 'Failed to update status');
       }
     })();
+  };
+
+  const handleChangeDriverStatus = async (driverId, newStatus) => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const token = localStorage.getItem('udriver_token') || 'mock';
+      const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!res.ok) {
+        let msg = `Failed to update status: ${res.status}`;
+        try { const body = await res.json(); if (body?.message) msg = body.message; } catch {}
+        throw new Error(msg);
+      }
+      const updated = await res.json();
+      setDriversData(prev => prev.map(d => d.id === driverId ? updated : d));
+      toast.success('Driver status updated');
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Failed to update status');
+    }
   };
 
   const handleBulkStatusUpdate = (newStatus) => {
     if (!hasPermission('drivers.edit') || selectedDrivers.size === 0) return;
     const ids = Array.from(selectedDrivers);
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-mcrx.vercel.app';
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
     const token = localStorage.getItem('udriver_token') || 'mock';
 
     (async () => {
@@ -242,62 +273,70 @@ export default function DriverStatus() {
       </div>
 
       {/* Filters and Search */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-4">
-            <div className="flex flex-1 items-center space-x-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search drivers..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 input-field"
-                />
-              </div>
+     <Card className="shadow-sm border border-gray-200 rounded-xl">
+  <CardContent className="p-6">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="input-field"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="suspended">Suspended</option>
-              </select>
-            </div>
+      {/* 🔍 Search + Filter Section */}
+      <div className="flex flex-1 flex-col md:flex-row items-center gap-3">
+        {/* Search Input */}
+        <div className="relative w-full md:max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search drivers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#10284C] focus:border-[#10284C] outline-none transition-all"
+          />
+        </div>
 
-            {/* Bulk Actions */}
-            {selectedDrivers.size > 0 && hasPermission('drivers.edit') && (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">
-                  {selectedDrivers.size} selected
-                </span>
-                <button 
-                  onClick={() => handleBulkStatusUpdate('active')}
-                  className="btn btn-sm btn-success"
-                >
-                  Activate
-                </button>
-                <button 
-                  onClick={() => handleBulkStatusUpdate('inactive')}
-                  className="btn btn-sm btn-warning"
-                >
-                  Deactivate
-                </button>
-                <button 
-                  onClick={() => handleBulkStatusUpdate('suspended')}
-                  className="btn btn-sm btn-destructive"
-                >
-                  Suspend
-                </button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Status Dropdown */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-full md:w-48 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#10284C] focus:border-[#10284C] outline-none transition-all bg-white"
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="suspended">Suspended</option>
+        </select>
+      </div>
+
+      {/* ⚙️ Bulk Actions */}
+      {selectedDrivers.size > 0 && hasPermission("drivers.edit") && (
+        <div className="flex items-center flex-wrap gap-2">
+          <span className="text-sm text-gray-600">
+            {selectedDrivers.size} selected
+          </span>
+
+          <button
+            onClick={() => handleBulkStatusUpdate("active")}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-all"
+          >
+            Activate
+          </button>
+
+          <button
+            onClick={() => handleBulkStatusUpdate("inactive")}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg transition-all"
+          >
+            Deactivate
+          </button>
+
+          <button
+            onClick={() => handleBulkStatusUpdate("suspended")}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-all"
+          >
+            Suspend
+          </button>
+        </div>
+      )}
+    </div>
+  </CardContent>
+</Card>
+
 
       {loading && (
         <div className="p-4 text-center text-sm text-gray-600">Loading drivers...</div>
@@ -382,30 +421,26 @@ export default function DriverStatus() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
-                        {hasPermission('drivers.edit') && (
-                          <button
-                            onClick={() => handleStatusToggle(driver.id, driver.status)}
-                            className={`p-1 rounded ${
-                              driver.status === 'active' 
-                                ? 'text-green-600 hover:bg-green-50' 
-                                : 'text-gray-400 hover:bg-gray-50'
-                            }`}
-                            title={driver.status === 'active' ? 'Deactivate' : 'Activate'}
+                        <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}>
+                          <select
+                            value={driver.status || 'inactive'}
+                            onChange={(e) => handleChangeDriverStatus(driver.id, e.target.value)}
+                              className="input text-sm h-10 leading-6 text-center"
                           >
-                            {driver.status === 'active' ? 
-                              <ToggleRight className="h-5 w-5" /> : 
-                              <ToggleLeft className="h-5 w-5" />
-                            }
-                          </button>
-                        )}
-                        <button className="text-indigo-600 hover:text-indigo-900">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="suspended">Suspended</option>
+                            <option value="pending">Pending</option>
+                          </select>
+                        </PermissionGuard>
+                        {/* <button className="text-indigo-600 hover:text-indigo-900" title="View Details">
                           <Eye className="h-4 w-4" />
-                        </button>
-                        {hasPermission('drivers.edit') && (
-                          <button className="text-yellow-600 hover:text-yellow-900">
+                        </button> */}
+                        {/* <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}>
+                          <button className="text-yellow-600 hover:text-yellow-900" title="Edit Driver">
                             <Edit className="h-4 w-4" />
                           </button>
-                        )}
+                        </PermissionGuard> */}
                       </div>
                     </td>
                   </tr>

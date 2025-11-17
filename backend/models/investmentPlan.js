@@ -1,14 +1,17 @@
 import mongoose from 'mongoose';
 
 const InvestmentPlanSchema = new mongoose.Schema({
-  id: Number,
-  name: String,
-  minAmount: Number,
-  maxAmount: Number,
-  returnRate: Number,
-  duration: Number,
-  description: String,
+  name: { type: String, required: true },
+  minAmount: { type: Number, required: true },
+  maxAmount: { type: Number, required: true },
+  duration: { type: Number, required: true }, // in months
+  expectedROI: { type: Number, required: true },
+  riskLevel: { type: String, required: true, enum: ['low', 'medium', 'high'] },
   features: [String],
+  active: { type: Boolean, default: true },
+  // Additional fields for compatibility
+  returnRate: Number,
+  description: String,
   status: String,
   investorsCount: Number,
   totalInvested: Number
