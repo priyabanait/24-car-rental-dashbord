@@ -11,8 +11,9 @@ export default function DriverPlanSelections() {
   const [planTypeFilter, setPlanTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [summaries, setSummaries] = useState({});
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   useEffect(() => {
     fetchSelections();
@@ -25,6 +26,19 @@ export default function DriverPlanSelections() {
       if (res.ok) {
         const data = await res.json();
         setSelections(data);
+        // Fetch daily rent summaries for selections that have started
+        const ids = data.filter(s => s.rentStartDate).map(s => s._id);
+        if (ids.length) {
+          const results = await Promise.allSettled(
+            ids.map(id => fetch(`${API_BASE}/api/driver-plan-selections/${id}/rent-summary`).then(r => r.json()))
+          );
+          const map = {};
+          results.forEach((r, i) => {
+            const id = ids[i];
+            if (r.status === 'fulfilled') map[id] = r.value;
+          });
+          setSummaries(map);
+        }
       } else {
         toast.error('Failed to load plan selections');
       }
@@ -274,6 +288,9 @@ export default function DriverPlanSelections() {
                     Security Deposit
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Daily Rent
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Selected Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -319,16 +336,18 @@ export default function DriverPlanSelections() {
                           <div className="text-xs text-gray-500">
                             Weekly: ₹{selection.selectedRentSlab.weeklyRent}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            Cover: ₹{selection.selectedRentSlab.accidentalCover || 105}
-                          </div>
+                          {selection.planType === 'weekly' && (
+                            <div className="text-xs text-gray-500">
+                              Cover: ₹{selection.selectedRentSlab.accidentalCover || 105}
+                            </div>
+                          )}
                           <div className="text-xs font-semibold text-gray-900">
                             Total {selection.planType === 'weekly' ? 'Weekly' : 'Daily'} Payment: ₹
                             {(
                               (selection.planType === 'weekly'
                                 ? (selection.selectedRentSlab?.weeklyRent || 0)
                                 : (selection.selectedRentSlab?.rentDay || 0)
-                              ) + (selection.selectedRentSlab?.accidentalCover || 105)
+                              ) + (selection.planType === 'weekly' ? (selection.selectedRentSlab?.accidentalCover || 105) : 0)
                             ).toLocaleString('en-IN')}
                           </div>
                         </div>
@@ -341,6 +360,21 @@ export default function DriverPlanSelections() {
                         <IndianRupee className="h-4 w-4 mr-1" />
                         {selection.securityDeposit || 0}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {selection.rentStartDate ? (
+                        <div className="text-xs text-gray-700">
+                          <div>
+                            Rent/Day: ₹{(summaries[selection._id]?.rentPerDay ?? selection.selectedRentSlab?.rentDay ?? 0).toLocaleString('en-IN')}
+                          </div>
+                          <div>
+                            Days: {summaries[selection._id]?.totalDays ?? '-'} | Due: ₹{(summaries[selection._id]?.totalDue ?? 0).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[10px] text-gray-500">Start: {formatDate(selection.rentStartDate)}</div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">Not started</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(selection.selectedDate)}</div>

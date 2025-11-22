@@ -1,10 +1,17 @@
+import driverWalletRouter from './driverWallet.js';
+
+import driverWalletMessageRouter from './driverWalletMessage.js';
+
 import express from 'express';
 import authRouter from './auth.js';
 import driversRouter from './drivers.js';
 import driverAuthRouter from './driverAuth.js';
 import driverPlanSelectionsRouter from './driverPlanSelections.js';
 import vehiclesRouter from './vehicles.js';
+import vehiclesByDriverRouter from './vehiclesByDriver.js';
 import investorsRouter from './investors.js';
+import investorWalletRouter from './investorWallet.js';
+import investorWalletMessageRouter from './investorWalletMessage.js';
 import driverPlansRouter from './driverPlans.js';
 import investmentPlansRouter from './investmentPlans.js';
 import transactionsRouter from './transactions.js';
@@ -27,13 +34,17 @@ import investmentFDsRouter from './investmentFDs.js';
 import paymentsRouter from './payments.js';
 
 const router = express.Router();
-
+router.use('/driver-wallet', driverWalletRouter);
+router.use('/driver-wallet-message', driverWalletMessageRouter);
 router.use('/auth', authRouter);
 router.use('/drivers', driversRouter);
 router.use('/drivers', driverAuthRouter);
 router.use('/driver-plan-selections', driverPlanSelectionsRouter);
 router.use('/vehicles', vehiclesRouter);
+router.use('/vehicles-by-driver', vehiclesByDriverRouter);
 router.use('/investors', investorsRouter);
+router.use('/investor-wallet', investorWalletRouter);
+router.use('/investor-wallet-message', investorWalletMessageRouter);
 router.use('/driver-plans', driverPlansRouter);
 router.use('/investment-plans', investmentPlansRouter);
 router.use('/transactions', transactionsRouter);

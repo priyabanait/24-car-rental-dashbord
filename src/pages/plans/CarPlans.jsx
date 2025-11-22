@@ -140,7 +140,7 @@ export default function CarPlans() {
 
   const metrics = calculateMetrics();
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   const mapApiPlanToUI = (p) => ({
     // Preserve Mongo _id separately and prefer it as plan identifier for API ops
@@ -773,8 +773,8 @@ export default function CarPlans() {
                     <th className="px-3 py-2 text-left">Daily Trips</th>
                     <th className="px-3 py-2 text-right">Rent / Day</th>
                     <th className="px-3 py-2 text-right">Weekly Rent</th>
-                    <th className="px-3 py-2 text-right">Accidental Cover</th>
-                    <th className="px-3 py-2 text-right">Acceptance Rate</th>
+                    {/* <th className="px-3 py-2 text-right">Accidental Cover</th>
+                    <th className="px-3 py-2 text-right">Acceptance Rate</th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -783,8 +783,8 @@ export default function CarPlans() {
                       <td className="px-3 py-2">{r.trips}</td>
                       <td className="px-3 py-2 text-right">₹{r.rentDay}</td>
                       <td className="px-3 py-2 text-right">₹{r.weeklyRent}</td>
-                      <td className="px-3 py-2 text-right">₹{r.accidentalCover || 105}</td>
-                      <td className="px-3 py-2 text-right">{r.acceptanceRate || 60}%</td>
+                      {/* <td className="px-3 py-2 text-right">₹{r.accidentalCover || 105}</td>
+                      <td className="px-3 py-2 text-right">{r.acceptanceRate || 60}%</td> */}
                     </tr>
                   ))}
                 </tbody>

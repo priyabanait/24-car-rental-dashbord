@@ -32,58 +32,72 @@ export default function VehicleDocuments() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
   const [vehicleDocuments, setVehicleDocuments] = useState([]);
+  const [drivers, setDrivers] = useState([]);
 
   useEffect(() => {
     let mounted = true;
-    (async function fetchVehicles() {
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+    (async function fetchAll() {
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
-        const res = await fetch(`${API_BASE}/api/vehicles`);
-        if (!res.ok) throw new Error(`Failed to load vehicles: ${res.status}`);
-        const vehicles = await res.json();
+        const [vehicleRes, driverRes] = await Promise.all([
+          fetch(`${API_BASE}/api/vehicles`),
+          fetch(`${API_BASE}/api/drivers`)
+        ]);
+        if (!vehicleRes.ok) throw new Error(`Failed to load vehicles: ${vehicleRes.status}`);
+        if (!driverRes.ok) throw new Error(`Failed to load drivers: ${driverRes.status}`);
+        const vehicles = await vehicleRes.json();
+        const driversData = await driverRes.json();
+        if (mounted) setDrivers(driversData);
 
         // Map vehicles to the document-centric shape expected by this page
-        const docs = vehicles.map(v => ({
-          id: v.vehicleId ?? v.id ?? v._id,
-          vehicleNumber: v.registrationNumber || v.registration_number || v.regNo || v.vehicleId || v.id,
-          vehicleType: v.model || v.make || '',
-          driverName: v.assignedDriver || v.driverName || '',
-          documents: {
-            registration: {
-              expiryDate: v.registrationDate || v.registration_expiry || null,
-              uploadDate: v.registrationDate || null,
-              status: v.registrationDate ? 'verified' : 'pending'
-            },
-            insurance: {
-              expiryDate: v.insuranceDate || v.insuranceExpiry || null,
-              uploadDate: v.insuranceDate || null,
-              status: v.insuranceDate ? 'verified' : 'pending'
-            },
-            puc: {
-              expiryDate: v.emissionDate || null,
-              uploadDate: v.emissionDate || null,
-              status: v.emissionDate ? 'verified' : 'pending'
-            },
-            permit: {
-              expiryDate: v.permitDate || null,
-              uploadDate: v.permitDate || null,
-              status: v.permitDate ? 'verified' : 'pending'
-            },
-            // fitness: {
-            //   expiryDate: v.fitnessExpiry || v.fitnessDate || null,
-            //   uploadDate: v.fitnessExpiry || null,
-            //   status: v.fitnessExpiry || v.fitnessDate ? 'verified' : 'pending'
-            // }
+        const docs = vehicles.map(v => {
+          let driverName = '';
+          if (v.assignedDriver) {
+            const found = driversData.find(d => d._id === v.assignedDriver);
+            driverName = found ? (found.name || found.username || found.phone) : v.assignedDriver;
+          } else {
+            driverName = v.driverName || '';
           }
-        }));
-
+          return {
+            id: v.vehicleId ?? v.id ?? v._id,
+            vehicleNumber: v.registrationNumber || v.registration_number || v.regNo || v.vehicleId || v.id,
+            vehicleType: v.model || v.make || '',
+            driverName,
+            documents: {
+              registration: {
+                expiryDate: v.registrationDate || v.registration_expiry || null,
+                uploadDate: v.registrationDate || null,
+                status: v.registrationDate ? 'verified' : 'pending'
+              },
+              insurance: {
+                expiryDate: v.insuranceDate || v.insuranceExpiry || null,
+                uploadDate: v.insuranceDate || null,
+                status: v.insuranceDate ? 'verified' : 'pending'
+              },
+              puc: {
+                expiryDate: v.emissionDate || null,
+                uploadDate: v.emissionDate || null,
+                status: v.emissionDate ? 'verified' : 'pending'
+              },
+              permit: {
+                expiryDate: v.permitDate || null,
+                uploadDate: v.permitDate || null,
+                status: v.permitDate ? 'verified' : 'pending'
+              },
+              // fitness: {
+              //   expiryDate: v.fitnessExpiry || v.fitnessDate || null,
+              //   uploadDate: v.fitnessExpiry || null,
+              //   status: v.fitnessExpiry || v.fitnessDate ? 'verified' : 'pending'
+              // }
+            }
+          };
+        });
         if (mounted) setVehicleDocuments(docs);
       } catch (err) {
         console.error('Failed to fetch vehicle documents', err);
         toast.error('Failed to load vehicle documents');
       }
     })();
-
     return () => { mounted = false; };
   }, []);
 

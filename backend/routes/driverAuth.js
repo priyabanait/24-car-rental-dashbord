@@ -57,7 +57,8 @@ router.post('/signup', async (req, res) => {
 			driver: {
 				id: driverSignup._id,
 				username: driverSignup.username,
-				mobile: driverSignup.mobile
+				mobile: driverSignup.mobile,
+				registrationCompleted: driverSignup.registrationCompleted || false
 			}
 		});
 	} catch (error) {
@@ -103,7 +104,8 @@ router.post('/login', async (req, res) => {
 			driver: {
 				id: driverSignup._id,
 				username: driverSignup.username,
-				mobile: driverSignup.mobile
+				mobile: driverSignup.mobile,
+				registrationCompleted: driverSignup.registrationCompleted || false
 			}
 		});
 	} catch (error) {
@@ -154,7 +156,8 @@ router.post('/signup-otp', async (req, res) => {
 			driver: {
 				id: driverSignup._id,
 				username: driverSignup.username,
-				mobile: driverSignup.mobile
+				mobile: driverSignup.mobile,
+				registrationCompleted: driverSignup.registrationCompleted || false
 			}
 		});
 	} catch (error) {
@@ -199,7 +202,8 @@ router.post('/login-otp', async (req, res) => {
 			driver: {
 				id: driverSignup._id,
 				username: driverSignup.username,
-				mobile: driverSignup.mobile
+				mobile: driverSignup.mobile,
+				registrationCompleted: driverSignup.registrationCompleted || false
 			}
 		});
 	} catch (error) {

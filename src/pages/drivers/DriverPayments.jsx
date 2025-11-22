@@ -54,7 +54,7 @@ export default function DriverPayments() {
       setLoading(true);
       setError(null);
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         // Load drivers for selector
         const dRes = await fetch(`${API_BASE}/api/drivers`);
         if (!dRes.ok) throw new Error(`Failed to load drivers: ${dRes.status}`);
@@ -63,10 +63,15 @@ export default function DriverPayments() {
         setDrivers(dList);
 
         // Load transactions
-        const tRes = await fetch(`${API_BASE}/api/transactions`);
+        const tRes = await fetch(`${API_BASE}/api/transactions?include=summary`);
         if (!tRes.ok) throw new Error(`Failed to load payments: ${tRes.status}`);
-        const tx = await tRes.json();
+        const txData = await tRes.json();
         if (!mounted) return;
+        
+        // Check if response includes summary
+        const tx = txData.transactions || txData;
+        const backendSummary = txData.summary || null;
+        
         if (tx && tx.length > 0) {
           const mapped = tx.map((t) => {
             const drv = dList.find(dr => dr.id === t.driverId);
@@ -300,18 +305,20 @@ export default function DriverPayments() {
           )}
           <button className="btn btn-primary" onClick={async () => {
             try {
-              const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+              const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
               setLoading(true);
               setError(null);
               // re-fetch drivers and transactions
               const [dRes, tRes] = await Promise.all([
                 fetch(`${API_BASE}/api/drivers`),
-                fetch(`${API_BASE}/api/transactions`)
+                fetch(`${API_BASE}/api/transactions?include=summary`)
               ]);
               if (!dRes.ok) throw new Error(`Failed to load drivers: ${dRes.status}`);
               if (!tRes.ok) throw new Error(`Failed to load payments: ${tRes.status}`);
-              const [dList, tx] = await Promise.all([dRes.json(), tRes.json()]);
+              const [dList, txData] = await Promise.all([dRes.json(), tRes.json()]);
               setDrivers(dList);
+              
+              const tx = txData.transactions || txData;
               if (tx && tx.length > 0) {
                 const mapped = tx.map((t) => {
                   const drv = dList.find(dr => dr.id === t.driverId);
@@ -611,7 +618,7 @@ export default function DriverPayments() {
                           onClick={async () => {
                             if (!window.confirm('Delete this payment?')) return;
                             try {
-                              const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+                              const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
                               const token = localStorage.getItem('udriver_token') || 'mock';
                               if (payment.txId) {
                                 const res = await fetch(`${API_BASE}/api/transactions/${payment.txId}`, {
@@ -717,7 +724,7 @@ export default function DriverPayments() {
                   className="btn btn-primary"
                   onClick={async () => {
                     try {
-                      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+                      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
                       const token = localStorage.getItem('udriver_token') || 'mock';
                       const payload = {
                         driverId: newPayment.driverId,

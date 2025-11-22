@@ -36,6 +36,7 @@ export default function VehiclesList() {
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [vehiclesData, setVehiclesData] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -73,15 +74,21 @@ export default function VehiclesList() {
 
   useEffect(() => {
     let mounted = true;
-    (async function fetchVehicles(){
+    (async function fetchAll(){
       setLoading(true);
       try{
-        const API_BASE =  'https://udrive-backend-1hzo.vercel.app';
-        const res = await fetch(`${API_BASE}/api/vehicles`);
-        if(!res.ok) { throw new Error('Failed to load vehicles'); }
-        const data = await res.json();
-        const normalized = Array.isArray(data) ? data.map(normalizeVehicle) : [];
+        const API_BASE =  'http://localhost:4000';
+        const [vehicleRes, driverRes] = await Promise.all([
+          fetch(`${API_BASE}/api/vehicles`),
+          fetch(`${API_BASE}/api/drivers`)
+        ]);
+        if(!vehicleRes.ok) { throw new Error('Failed to load vehicles'); }
+        if(!driverRes.ok) { throw new Error('Failed to load drivers'); }
+        const vehicleData = await vehicleRes.json();
+        const driverData = await driverRes.json();
+        const normalized = Array.isArray(vehicleData) ? vehicleData.map(normalizeVehicle) : [];
         if(mounted) setVehiclesData(normalized);
+        if(mounted) setDrivers(driverData);
       }catch(err){
         console.error(err);
         setError(err.message || 'Failed to load vehicles');
@@ -114,7 +121,7 @@ export default function VehiclesList() {
     // fetch fresh vehicle data from backend before opening modal so all fields are populated
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const apiId = resolveApiVehicleId(vehicle);
       if (apiId == null || Number.isNaN(apiId)) {
         // If we can't resolve an API id, skip fetching and use available data
@@ -139,7 +146,7 @@ export default function VehiclesList() {
   const handleViewVehicle = async (vehicle) => {
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const id = resolveApiVehicleId(vehicle);
       if (id == null || Number.isNaN(id)) {
         setSelectedVehicle(normalizeVehicle(vehicle));
@@ -193,7 +200,7 @@ export default function VehiclesList() {
         }
       }
 
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const headers = {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
@@ -244,7 +251,7 @@ export default function VehiclesList() {
   const handleDeleteVehicle = async (vehicleOrId) => {
     if (!window.confirm('Delete this vehicle?')) return;
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const resolvedId = typeof vehicleOrId === 'object' ? resolveApiVehicleId(vehicleOrId) : (Number.isFinite(Number(vehicleOrId)) ? Number(vehicleOrId) : undefined);
       if (!resolvedId && resolvedId !== 0) {
         throw new Error('Vehicle not found');
@@ -266,7 +273,7 @@ export default function VehiclesList() {
 
   const handleChangeStatus = async (vehicleId, newStatus) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -284,7 +291,7 @@ export default function VehiclesList() {
 
   const handleChangeKyc = async (vehicleId, newKyc) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -504,6 +511,7 @@ export default function VehiclesList() {
                   <TableHead>Traffic Fine</TableHead>
                   <TableHead>Fine Date</TableHead>
                   <TableHead>Assigned Driver</TableHead>
+                  <TableHead>Rent Days</TableHead>
                   <TableHead>KYC Status</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Remarks</TableHead>
@@ -535,7 +543,27 @@ export default function VehiclesList() {
                     <TableCell>{v.pucNumber || '-'}</TableCell>
                     <TableCell>{v.trafficFine ?? '-'}</TableCell>
                     <TableCell>{formatDate(v.trafficFineDate)}</TableCell>
-                    <TableCell>{v.assignedDriver || <Badge variant="warning">Not Assigned</Badge>}</TableCell>
+                    <TableCell>{
+                      v.assignedDriver
+                        ? (() => {
+                            const found = drivers.find(d => d._id === v.assignedDriver);
+                            return found ? (found.name || found.username || found.phone) : v.assignedDriver;
+                          })()
+                        : <Badge variant="warning">Not Assigned</Badge>
+                    }</TableCell>
+                    <TableCell>{
+                      v.rentStartDate && v.assignedDriver
+                        ? (() => {
+                            const start = new Date(v.rentStartDate);
+                            let end = new Date();
+                            if (v.status === 'inactive' && v.rentPausedDate) {
+                              end = new Date(v.rentPausedDate);
+                            }
+                            const diff = Math.max(1, Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                            return `${diff} days`;
+                          })()
+                        : '-'
+                    }</TableCell>
                     <TableCell>{getKycBadge(v.kycStatus || v.kyc || v.kyc_status)}</TableCell>
                     <TableCell>{getStatusBadge(v.status)}</TableCell>
                     <TableCell>{v.remarks || '-'}</TableCell>

@@ -1,3 +1,4 @@
+import DriverWalletMessages from './pages/drivers/DriverWalletMessages';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -18,6 +19,7 @@ import Investors from './pages/investments/Investors';
 import InvesterLogin from './pages/investments/InvesterLogin';
 import InvestorPlanSelection from './pages/investments/InvestorPlanSelection';
 import PaymentManagement from './pages/payments/DriverPayments';
+import PaymentProcess from './pages/payments/PaymentProcess';
 import ExpenseManagement from './pages/expenses/ExpenseManagement';
 import ExpenseReports from './pages/expenses/ExpenseReports';
 import ExpenseCategories from './pages/expenses/ExpenseCategories';
@@ -30,6 +32,9 @@ import AdminUsers from './pages/admin/AdminUsers';
 import RoleManagement from './pages/admin/RoleManagement';
 import SignupCredentials from './pages/admin/SignupCredentials';
 import AllVehicles from './pages/vehicles/AllVehicles';
+import DriverWallet from './pages/drivers/DriverWallet';
+import InvestorWallet from './pages/investors/InvestorWallet';
+import InvestmentWalletMessages from './pages/investors/InvestmentWalletMessages';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -68,9 +73,11 @@ function AppRoutes() {
       <Route path="/drivers/login" element={<DriverLogin />} />
       <Route path="/drivers/select-plan" element={<DriverPlanSelection />} />
       <Route path="/drivers/my-plans" element={<DriverMyPlans />} />
-      {/* Public Investor routes */}
+
+    {/* Public Investor routes */}
       <Route path="/investors/login" element={<InvesterLogin />} />
       <Route path="/investors/select-plan" element={<InvestorPlanSelection />} />
+      
       <Route path="/login" element={
         <PublicRoute>
           <Login />
@@ -98,6 +105,8 @@ function AppRoutes() {
         <Route path="investments" element={<InvestmentManagement />} />
         <Route path="investments/investors" element={<Investors />} />
         <Route path="payments/drivers" element={<PaymentManagement />} />
+        <Route path="payments/driverpayments" element={<PaymentManagement />} />
+        <Route path="payments/process" element={<PaymentProcess />} />
         <Route path="expenses" element={<ExpenseManagement />} />
         <Route path="expenses/reports" element={<ExpenseReports />} />
         <Route path="expenses/categories" element={<ExpenseCategories />} />
@@ -111,6 +120,10 @@ function AppRoutes() {
         <Route path="admin/signup-credentials" element={<SignupCredentials />} />
         <Route path="vehicles/allvehicles" element={<AllVehicles />} />
           <Route path="investments/InvesterLogin" element={<InvesterLogin />} />
+                <Route path="/drivers/wallet" element={<DriverWallet />}/>
+                <Route path="/drivers/wallet-messages" element={<DriverWalletMessages />} />
+                      <Route path="/investments/wallet" element={<InvestorWallet />} />
+                      <Route path="/investments/wallet-messages" element={<InvestmentWalletMessages />} />
         {/* Add more routes as we create them */}
       </Route>
     </Routes>

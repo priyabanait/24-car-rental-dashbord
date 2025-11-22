@@ -8,7 +8,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     'White', 'Black', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Other'
   ];
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -54,6 +54,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [drivers, setDrivers] = useState([]);
 
   const loadOptions = async (type, setter) => {
     try {
@@ -74,8 +75,19 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       loadOptions('brand', setBrands);
       loadOptions('model', setModels);
       loadOptions('carName', setCarNames);
+      fetchDrivers();
     }
   }, [isOpen]);
+
+  const fetchDrivers = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/drivers`);
+      const data = res.ok ? await res.json() : [];
+      setDrivers(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setDrivers([]);
+    }
+  };
 
   useEffect(() => {
     if (vehicle) {
@@ -509,7 +521,18 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
 
               <div>
                 <label className="block text-sm font-medium">Assign to Driver</label>
-                <input className="input" value={form.assignedDriver} onChange={(e)=>handleChange('assignedDriver', e.target.value)} placeholder="Driver ID or name" />
+                <select
+                  className="input"
+                  value={form.assignedDriver}
+                  onChange={e => handleChange('assignedDriver', e.target.value)}
+                >
+                  <option value="">Select Driver</option>
+                  {drivers.map(driver => (
+                    <option key={driver._id} value={driver._id}>
+                      {driver.name || driver.username || driver.phone}
+                    </option>
+                  ))}
+                </select>
               </div>
               
 

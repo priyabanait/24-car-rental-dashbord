@@ -28,7 +28,7 @@ async function start() {
     await seedDB();
     // ✅ Important: listen on all interfaces
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`✅ udriver backend listening on http://192.168.1.57:${PORT}`);
+      console.log(`✅ udriver backend listening on http://localhost:${PORT}`);
     });
   } catch (err) {
     console.error('Failed to start server:', err);

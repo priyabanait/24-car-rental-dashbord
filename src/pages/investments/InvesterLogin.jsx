@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Smartphone, User, Lock } from "lucide-react";
 
 const DriverAuth = () => {
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
   const [authMode, setAuthMode] = useState("login"); // 'login' or 'signup'
   const [loginType, setLoginType] = useState("password"); // 'password' or 'otp'
   const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +47,7 @@ const DriverAuth = () => {
             return;
           }
           // Investor Signup
-          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/signup`, {
+          res = await fetch(`${API_BASE}/api/investors/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ investorName: username, phone: mobile, email: "", password }),
@@ -58,7 +59,7 @@ const DriverAuth = () => {
             setLoading(false);
             return;
           }
-          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/login`, {
+          res = await fetch(`${API_BASE}/api/investors/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone: mobile, password }),
@@ -73,7 +74,7 @@ const DriverAuth = () => {
             return;
           }
           // Investor Signup with mobile and OTP (password)
-          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/signup`, {
+          res = await fetch(`${API_BASE}/api/investors/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ investorName: username, phone: mobile, email: "", password: otp }),
@@ -85,7 +86,7 @@ const DriverAuth = () => {
             setLoading(false);
             return;
           }
-          res = await fetch(`https://udrive-backend-1hzo.vercel.app/api/investors/login`, {
+          res = await fetch(`${API_BASE}/api/investors/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone: mobile, password: otp }),

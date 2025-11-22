@@ -9,7 +9,17 @@ router.get('/', async (req, res) => {
     const list = await CarPlan.find({ 
       dailyRentSlabs: { $exists: true, $ne: [] } 
     }).lean();
-    res.json(list);
+    
+    // Remove accidentalCover and acceptanceRate from dailyRentSlabs
+    const cleanedList = list.map(plan => ({
+      ...plan,
+      dailyRentSlabs: plan.dailyRentSlabs?.map(slab => {
+        const { accidentalCover, acceptanceRate, ...cleanSlab } = slab;
+        return cleanSlab;
+      })
+    }));
+    
+    res.json(cleanedList);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Failed to load daily rent plans' });
@@ -23,7 +33,17 @@ router.get('/:id', async (req, res) => {
     if (!plan || !plan.dailyRentSlabs || plan.dailyRentSlabs.length === 0) {
       return res.status(404).json({ message: 'Daily rent plan not found' });
     }
-    res.json(plan);
+    
+    // Remove accidentalCover and acceptanceRate from dailyRentSlabs
+    const cleanedPlan = {
+      ...plan,
+      dailyRentSlabs: plan.dailyRentSlabs.map(slab => {
+        const { accidentalCover, acceptanceRate, ...cleanSlab } = slab;
+        return cleanSlab;
+      })
+    };
+    
+    res.json(cleanedPlan);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Failed to load daily rent plan' });
@@ -36,12 +56,19 @@ router.post('/', async (req, res) => {
     const body = req.body;
     console.log('daily-rent-plans POST payload:', JSON.stringify(body).slice(0, 1000));
     
+    // Clean dailyRentSlabs - remove accidentalCover and acceptanceRate
+    let dailyRentSlabs = Array.isArray(body.dailyRentSlabs) ? body.dailyRentSlabs : [];
+    dailyRentSlabs = dailyRentSlabs.map(slab => {
+      const { accidentalCover, acceptanceRate, ...cleanSlab } = slab;
+      return cleanSlab;
+    });
+    
     const payload = {
       name: body.name || 'Daily Rent Plan',
       vehicleType: body.vehicleType || body.category || 'General',
       securityDeposit: body.securityDeposit || 0,
       weeklyRentSlabs: [], // Empty for daily plans
-      dailyRentSlabs: Array.isArray(body.dailyRentSlabs) ? body.dailyRentSlabs : [],
+      dailyRentSlabs,
       status: body.status || 'active',
       category: body.category || 'standard',
       createdDate: body.createdDate || new Date().toISOString()
@@ -61,14 +88,32 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const body = req.body;
+    
+    // Clean dailyRentSlabs if provided
+    let dailyRentSlabs = Array.isArray(body.dailyRentSlabs) ? body.dailyRentSlabs : [];
+    dailyRentSlabs = dailyRentSlabs.map(slab => {
+      const { accidentalCover, acceptanceRate, ...cleanSlab } = slab;
+      return cleanSlab;
+    });
+    
     const updateData = {
       ...body,
-      dailyRentSlabs: Array.isArray(body.dailyRentSlabs) ? body.dailyRentSlabs : []
+      dailyRentSlabs
     };
     
     const updated = await CarPlan.findByIdAndUpdate(req.params.id, updateData, { new: true }).lean();
     if (!updated) return res.status(404).json({ message: 'Not found' });
-    res.json(updated);
+    
+    // Clean the response
+    const cleanedUpdated = {
+      ...updated,
+      dailyRentSlabs: updated.dailyRentSlabs?.map(slab => {
+        const { accidentalCover, acceptanceRate, ...cleanSlab } = slab;
+        return cleanSlab;
+      })
+    };
+    
+    res.json(cleanedUpdated);
   } catch (err) {
     console.error(err);
     res.status(400).json({ message: 'Failed to update daily rent plan' });

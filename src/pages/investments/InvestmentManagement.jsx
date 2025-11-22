@@ -33,7 +33,7 @@ import InvestmentDetailModal from '../../components/investors/InvestmentDetailMo
 import InvestmentPlanModal from '../../components/investors/InvestmentPlanModal';
 
 // Centralized API base (falls back to local backend). Using explicit base + GET for reads for clarity.
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 
 export default function InvestmentManagement() {
@@ -680,7 +680,7 @@ const handleExportReport = () => {
       {/* Investments Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Investor Database ({filteredInvestments.length})</CardTitle>
+          <CardTitle>Registered Investor Details({filteredInvestments.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">

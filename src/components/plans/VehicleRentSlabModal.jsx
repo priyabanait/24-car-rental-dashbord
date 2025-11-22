@@ -247,7 +247,7 @@ export default function VehicleRentSlabModal({ isOpen, onClose, vehicleName, veh
                         min="0"
                       />
                     </div>
-                    <div>
+                    {/* <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Accidental Cover (₹)</label>
                       <input
                         type="text"
@@ -269,7 +269,7 @@ export default function VehicleRentSlabModal({ isOpen, onClose, vehicleName, veh
                         min="0"
                         max="100"
                       />
-                    </div>
+                    </div> */}
                   </div>
                   <button
                     type="button"

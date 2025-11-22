@@ -24,6 +24,11 @@ const VehicleSchema = new mongoose.Schema({
     unique: true,
     required: true
   },
+  investorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Investor',
+    required: true
+  },
   registrationNumber: {
     type: String,
     trim: true,
@@ -50,6 +55,8 @@ const VehicleSchema = new mongoose.Schema({
   trafficFineDate: String,
   fuelType: String,
   assignedDriver: String,
+  rentStartDate: Date,
+  rentPausedDate: Date,
   kycStatus: {
     type: String,
     enum: ['verified', 'pending', 'rejected', 'incomplete'],

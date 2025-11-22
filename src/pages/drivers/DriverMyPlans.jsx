@@ -7,8 +7,9 @@ export default function DriverMyPlans() {
   const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [summaries, setSummaries] = useState({});
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   useEffect(() => {
     // Check if driver is logged in
@@ -35,6 +36,21 @@ export default function DriverMyPlans() {
       if (res.ok) {
         const data = await res.json();
         setPlans(data);
+        // Load daily rent summaries for plans that have started
+        const idsToFetch = data
+          .filter(p => p.rentStartDate)
+          .map(p => p._id);
+        if (idsToFetch.length) {
+          const results = await Promise.allSettled(
+            idsToFetch.map(id => fetch(`${API_BASE}/api/driver-plan-selections/${id}/rent-summary`).then(r => r.json()))
+          );
+          const map = {};
+          results.forEach((r, idx) => {
+            const id = idsToFetch[idx];
+            if (r.status === 'fulfilled') map[id] = r.value;
+          });
+          setSummaries(map);
+        }
       } else {
         toast.error('Failed to load your plans');
       }
@@ -205,6 +221,31 @@ export default function DriverMyPlans() {
                   <div className="mt-4 flex items-center justify-center bg-green-500/20 border border-green-500/50 rounded-lg py-2">
                     <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
                     <span className="text-green-400 font-semibold">Active Plan</span>
+                  </div>
+                )}
+
+                {/* Daily Rent Summary */}
+                {plan.rentStartDate && (
+                  <div className="mt-4 bg-white/10 rounded-lg p-4 border border-white/20">
+                    <h4 className="text-white font-semibold mb-2">Daily Rent Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-white">
+                      <div>
+                        <p className="text-white/70 text-xs">Start Date</p>
+                        <p className="font-bold">{new Date(plan.rentStartDate).toLocaleDateString('en-IN')}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/70 text-xs">Rent / Day</p>
+                        <p className="text-[#00C6FF] font-bold">₹{(summaries[plan._id]?.rentPerDay ?? plan.selectedRentSlab?.rentDay ?? 0).toLocaleString('en-IN')}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/70 text-xs">Days</p>
+                        <p className="font-bold">{summaries[plan._id]?.totalDays ?? '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/70 text-xs">Total Due</p>
+                        <p className="text-[#00C6FF] font-bold">₹{(summaries[plan._id]?.totalDue ?? 0).toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

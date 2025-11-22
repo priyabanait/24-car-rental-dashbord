@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IndianRupee, Calendar, TrendingUp, Shield, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import PaymentConfirmationModal from '../../components/investors/PaymentConfirmationModal';
 
 export default function InvestorPlanSelection() {
   const navigate = useNavigate();
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1hzo.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,10 @@ export default function InvestorPlanSelection() {
   const [termYears, setTermYears] = useState(1);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [createdFdData, setCreatedFdData] = useState(null);
 
   useEffect(() => {
     const storedId = localStorage.getItem('investor_id');
@@ -132,14 +137,24 @@ export default function InvestorPlanSelection() {
           termMonths: fdType === 'monthly' ? Number(termMonths) : undefined,
           termYears: fdType === 'yearly' ? Number(termYears) : undefined,
           status: 'active',
-          kycStatus: 'pending',
-          notes
+          notes,
+          paymentStatus: 'pending'
         })
       });
       const data = await res.json();
       if (res.ok) {
         toast.success('FD created successfully');
-        navigate('/');
+        // Store FD data and show payment modal
+        setCreatedFdData({
+          ...data,
+          investorName,
+          investmentAmount: Number(investmentAmount),
+          investmentRate: Number(investmentRate || 0),
+          fdType,
+          termMonths: fdType === 'monthly' ? Number(termMonths) : undefined,
+          termYears: fdType === 'yearly' ? Number(termYears) : undefined
+        });
+        setShowPaymentModal(true);
       } else {
         toast.error(data.error || data.message || 'Failed to create FD');
       }
@@ -147,6 +162,49 @@ export default function InvestorPlanSelection() {
       toast.error('Network error. Please try again');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePaymentComplete = async (paymentMode) => {
+    if (!createdFdData || !createdFdData._id) {
+      console.error('FD data not found:', createdFdData);
+      toast.error('FD data not found');
+      return;
+    }
+
+    console.log('Confirming payment:', {
+      fdId: createdFdData._id,
+      paymentMode,
+      apiUrl: `${API_BASE}/api/investment-fds/${createdFdData._id}/confirm-payment`
+    });
+
+    try {
+      const res = await fetch(`${API_BASE}/api/investment-fds/${createdFdData._id}/confirm-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMode })
+      });
+
+      console.log('Payment confirmation response status:', res.status);
+
+      const data = await res.json();
+      console.log('Payment confirmation response data:', data);
+      
+      if (res.ok) {
+        toast.success(`Payment confirmed via ${paymentMode}!`);
+        setShowPaymentModal(false);
+        // Navigate to home or investments page
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
+      } else {
+        console.error('Payment confirmation failed:', data);
+        toast.error(data.error || data.message || 'Failed to confirm payment');
+      }
+    } catch (error) {
+      console.error('Payment confirmation error:', error);
+      toast.error('Network error. Failed to confirm payment');
+      throw error;
     }
   };
 
@@ -325,6 +383,14 @@ export default function InvestorPlanSelection() {
           </div>
         )}
       </div>
+
+      {/* Payment Confirmation Modal */}
+      <PaymentConfirmationModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        fdData={createdFdData}
+        onPaymentComplete={handlePaymentComplete}
+      />
     </div>
   );
 }

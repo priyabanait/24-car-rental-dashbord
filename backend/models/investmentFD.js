@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const investmentFDSchema = new mongoose.Schema({
+  investorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'InvestorSignup',
+    default: null
+  },
   investorName: {
     type: String,
     required: true,
@@ -59,9 +64,9 @@ const investmentFDSchema = new mongoose.Schema({
     default: 'monthly'
   },
   termMonths: {
-    type: Number,
-    min: 1,
-    max: 12
+     type: Number,
+     min: 1,
+     max: 120 // Increased max to 120 months (10 years)
   },
   termYears: {
     type: Number,
@@ -79,17 +84,31 @@ const investmentFDSchema = new mongoose.Schema({
   notes: {
     type: String,
     default: ''
+  },
+  maturityAmount: {
+    type: Number,
+    default: 0
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending'
+  },
+  paymentDate: {
+    type: Date,
+    default: null
+  },
+  paymentMode: {
+    type: String,
+    enum: ['online', 'cash'],
+    required: false
   }
-    ,
-    maturityAmount: {
-      type: Number,
-      default: 0
-    }
 }, {
   timestamps: true
 });
 
 // Add indexes for better query performance
+investmentFDSchema.index({ investorId: 1 });
 investmentFDSchema.index({ investorName: 1 });
 investmentFDSchema.index({ phone: 1 });
 investmentFDSchema.index({ investmentDate: -1 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PERMISSIONS } from '../../utils/permissions';
+import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -47,6 +48,16 @@ const navigation = [
       //   href: '/drivers/login',
       //   permission: PERMISSIONS.DRIVERS_VIEW
       // },
+       { 
+        name: 'Driver Wallet', 
+        href: '/drivers/wallet',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
+       { 
+        name: 'Driver Wallet Messages', 
+        href: '/drivers/wallet-messages',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
       // { 
       //   name: 'Driver Status', 
       //   href: '/drivers/status',
@@ -134,6 +145,16 @@ const navigation = [
         href: '/investments/investors',
         permission: PERMISSIONS.INVESTMENTS_VIEW
       },
+       { 
+        name: 'Investment Wallet', 
+        href: '/investments/wallet',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
+      { 
+        name: 'Investment Wallet Messages', 
+        href: '/investments/wallet-messages',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
       // { 
       //   name: 'Investment Plans', 
       //   href: '/investments/plans',
@@ -166,11 +187,16 @@ const navigation = [
       //   href: '/drivers/payments',
       //   permission: PERMISSIONS.PAYMENTS_VIEW
       // }
-      // { 
-      //   name: 'Process Payments', 
-      //   href: '/payments/process',
-      //   permission: PERMISSIONS.PAYMENTS_PROCESS
-      // },
+      { 
+        name: 'Invester FD Payments', 
+        href: '/payments/process',
+        permission: PERMISSIONS.PAYMENTS_PROCESS
+      },
+        { 
+        name: 'Driver Payments', 
+        href: '/payments/driverpayments',
+        permission: PERMISSIONS.PAYMENTS_PROCESS
+      },
       // { 
       //   name: 'Analytics', 
       //   href: '/payments/analytics',
@@ -311,7 +337,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const { user, hasPermission } = useAuth();
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState(new Set());
-
+  const navigate = useNavigate();
   const toggleExpanded = (itemName) => {
     const newExpanded = new Set(expandedItems);
     if (newExpanded.has(itemName)) {
@@ -358,12 +384,15 @@ export default function Sidebar({ collapsed, onToggle }) {
             <span className="text-sm font-bold text-white">UD</span>
           </div>
         ) : (
-          <div className="flex items-center">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center mr-3">
-              <span className="text-sm font-bold text-white">UD</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">UDriver</span>
-          </div>
+           <div
+      className="flex items-center cursor-pointer"
+      onClick={() => navigate("/")}
+    >
+      <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center mr-3">
+        <span className="text-sm font-bold text-white">UD</span>
+      </div>
+      <span className="text-xl font-bold text-gray-900">UDriver</span>
+    </div>
         )}
       </div>
 

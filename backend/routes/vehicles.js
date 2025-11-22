@@ -152,6 +152,18 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// Get vehicles by investorId
+router.get('/investor/:investorId', async (req, res) => {
+  try {
+    const { investorId } = req.params;
+    const vehicles = await Vehicle.find({ investorId }).lean();
+    res.json(vehicles.map(normalizeVehicleShape));
+  } catch (err) {
+    console.error('Error fetching vehicles for investor:', err);
+    res.status(500).json({ message: 'Failed to fetch vehicles for investor' });
+  }
+});
+
 // Get all vehicles
 router.get('/', async (req, res) => {
   try {
@@ -316,6 +328,24 @@ router.put('/:id', async (req, res) => {
         }
         delete updates[field];
       }
+    }
+
+
+    // If assignedDriver is being set and not empty, set rentStartDate if not already set
+    let existing = await Vehicle.findOne({ vehicleId });
+    if (updates.assignedDriver && updates.assignedDriver !== '') {
+      if (existing && !existing.rentStartDate) {
+        updates.rentStartDate = new Date();
+      }
+    }
+
+    // If status is being set to inactive, store rentPausedDate
+    if (updates.status === 'inactive' && existing && existing.status === 'active') {
+      updates.rentPausedDate = new Date();
+    }
+    // If status is being set to active, clear rentPausedDate
+    if (updates.status === 'active') {
+      updates.rentPausedDate = null;
     }
 
     const vehicle = await Vehicle.findOneAndUpdate(
