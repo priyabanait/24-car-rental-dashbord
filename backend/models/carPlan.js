@@ -16,6 +16,8 @@ const DailyRentSlabSchema = new mongoose.Schema({
   weeklyRent: Number
 }, { _id: false });
 
+
+
 const CarPlanSchema = new mongoose.Schema({
   name: { type: String, required: true },
   vehicleType: { type: String },
@@ -24,7 +26,8 @@ const CarPlanSchema = new mongoose.Schema({
   dailyRentSlabs: { type: [DailyRentSlabSchema], default: [] },
   status: { type: String, default: 'active' },
   category: { type: String, default: 'standard' },
-  createdDate: String
+  createdDate: String,
+  photo: { type: String } // Add photo URL field
 }, { timestamps: true });
 
 export default mongoose.models.CarPlan || mongoose.model('CarPlan', CarPlanSchema);

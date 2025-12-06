@@ -28,7 +28,7 @@ import { PERMISSIONS } from '../../utils/permissions';
 import toast from 'react-hot-toast';
 
 export default function DriverEnrollments() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [planFilter, setPlanFilter] = useState('all');
@@ -338,25 +338,30 @@ export default function DriverEnrollments() {
           </p>
         </div>
         <div className="mt-4 lg:mt-0 flex space-x-3">
-          {/* {hasPermission(PERMISSIONS.PLANS_CREATE) && (
-            <button 
-              onClick={handleCreate}
-              className="btn btn-primary flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Enrollment
-            </button>
-          )} */}
-          {/* {hasPermission(PERMISSIONS.PLANS_CREATE) && (
-            <button 
-              onClick={handleSyncDrivers}
-              className="btn btn-outline flex items-center"
-              disabled={loading}
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Sync from Drivers
-            </button>
-          )} */}
+          {/* Hide Add/Sync for manager role */}
+          {user?.role && !user.role.toLowerCase().includes('manager') && (
+            <>
+              {hasPermission(PERMISSIONS.PLANS_CREATE) && (
+                <button 
+                  onClick={handleCreate}
+                  className="btn btn-primary flex items-center"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Enrollment
+                </button>
+              )}
+              {hasPermission(PERMISSIONS.PLANS_CREATE) && (
+                <button 
+                  onClick={handleSyncDrivers}
+                  className="btn btn-outline flex items-center"
+                  disabled={loading}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Sync from Drivers
+                </button>
+              )}
+            </>
+          )}
           {hasPermission(PERMISSIONS.REPORTS_EXPORT) && (
             <button 
               onClick={handleExport}
@@ -784,7 +789,7 @@ export default function DriverEnrollments() {
       )}
 
       {/* Create/Edit Modal */}
-      {showCreateModal && (
+      {showCreateModal && user?.role && !user.role.toLowerCase().includes('manager') && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowCreateModal(false)} />

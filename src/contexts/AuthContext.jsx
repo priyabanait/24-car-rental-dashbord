@@ -18,8 +18,8 @@ const MOCK_USERS = [
     id: 1,
     email: 'admin@udrive.com',
     password: 'admin123',
-    name: 'John Smith',
-    role: 'super_admin',
+    name: 'Admin',
+   
     permissions: ROLES.SUPER_ADMIN.permissions,
     avatar: null,
     phone: '+91 98765 43210',
@@ -32,8 +32,8 @@ const MOCK_USERS = [
     id: 2,
     email: 'manager@udrive.com',
     password: 'manager123',
-    name: 'Sarah Johnson',
-    role: 'fleet_manager',
+    name: 'Manager',
+   
     permissions: ROLES.FLEET_MANAGER.permissions,
     avatar: null,
     phone: '+91 98765 43211',
@@ -46,8 +46,8 @@ const MOCK_USERS = [
     id: 3,
     email: 'finance@udrive.com',
     password: 'finance123',
-    name: 'Michael Chen',
-    role: 'finance_admin',
+    name: 'Finance',
+   
     permissions: ROLES.FINANCE_ADMIN.permissions,
     avatar: null,
     phone: '+91 98765 43212',

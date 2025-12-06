@@ -1,3 +1,4 @@
+import React from 'react';
 import DriverWalletMessages from './pages/drivers/DriverWalletMessages';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -35,6 +36,8 @@ import AllVehicles from './pages/vehicles/AllVehicles';
 import DriverWallet from './pages/drivers/DriverWallet';
 import InvestorWallet from './pages/investors/InvestorWallet';
 import InvestmentWalletMessages from './pages/investors/InvestmentWalletMessages';
+import ManagerPage from './pages/manager/ManagerPage';
+import InvestorCar from './pages/investments/InvestmentCar'
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -124,6 +127,8 @@ function AppRoutes() {
                 <Route path="/drivers/wallet-messages" element={<DriverWalletMessages />} />
                       <Route path="/investments/wallet" element={<InvestorWallet />} />
                       <Route path="/investments/wallet-messages" element={<InvestmentWalletMessages />} />
+                       <Route path="/investments/car" element={<InvestorCar />} />
+            <Route path="manager" element={<ManagerPage />} />
         {/* Add more routes as we create them */}
       </Route>
     </Routes>

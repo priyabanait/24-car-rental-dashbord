@@ -34,6 +34,12 @@ const navigation = [
     permission: PERMISSIONS.DASHBOARD_VIEW
   },
   {
+    name: 'Manage Manager',
+    href: '/manager',
+    icon: LayoutDashboard,
+    permission: PERMISSIONS.DASHBOARD_VIEW
+  },
+  {
     name: 'Driver Management',
     icon: Users,
     permission: PERMISSIONS.DRIVERS_VIEW,
@@ -143,6 +149,11 @@ const navigation = [
       { 
         name: 'Investment FD', 
         href: '/investments/investors',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
+       { 
+        name: 'Investment Car', 
+        href: '/investments/car',
         permission: PERMISSIONS.INVESTMENTS_VIEW
       },
        { 
@@ -356,19 +367,17 @@ export default function Sidebar({ collapsed, onToggle }) {
     return children?.some(child => isActive(child.href));
   };
 
+  // If user is manager, restrict add/delete actions
+  const isManager = user?.role && user.role.toLowerCase().includes('manager');
+  const restrictedActions = [
+    'create',
+    'delete'
+  ];
   const filteredNavigation = navigation.filter(item => {
-    // Check if user has permission for the main item
-    if (!hasPermission(item.permission)) return false;
-    
-    // If item has children, filter them too
+    // Show all sidebar sections and children for all users, regardless of role or permission
     if (item.children) {
-      item.children = item.children.filter(child => 
-        !child.permission || hasPermission(child.permission)
-      );
-      // Only show parent if it has at least one accessible child
-      return item.children.length > 0;
+      item.children = item.children;
     }
-    
     return true;
   });
 

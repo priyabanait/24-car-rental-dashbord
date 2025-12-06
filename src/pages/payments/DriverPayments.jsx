@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+// Helper to get initial extra state for all selections
+
 import { CreditCard, Users, Download, Search, Check, Clock, AlertTriangle, Wallet, User, Phone, IndianRupee, Eye, ChevronDown, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -9,6 +11,118 @@ import { PERMISSIONS } from '../../utils/permissions';
 import toast from 'react-hot-toast';
 
 export default function DriverPayments() {
+  // Manager dropdown state
+  const [managers, setManagers] = useState([]);
+  const [selectedManagers, setSelectedManagers] = useState({}); // { selectionId: managerId }
+   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [modeFilter, setModeFilter] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [selections, setSelections] = useState([]);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [rentSummaries, setRentSummaries] = useState({});
+  function getInitialExtraState(selections) {
+  const state = {};
+  selections.flat().forEach(s => {
+    state[s._id] = {
+      amount: s.extraAmount || '',
+      reason: s.extraReason || '',
+      loading: false
+    };
+  });
+  return state;
+}
+  // State for editing extra amount/reason per row
+  const [extraInputs, setExtraInputs] = useState({});
+  // State for adjustment amount per row
+  const [adjustmentInputs, setAdjustmentInputs] = useState({});
+  // Sync extraInputs state when selections change
+  useEffect(() => {
+    setExtraInputs(getInitialExtraState(selections));
+    // Initialize adjustmentInputs state
+    const adjState = {};
+    selections.flat().forEach(s => {
+      adjState[s._id] = s.adjustmentAmount || '';
+    });
+    setAdjustmentInputs(adjState);
+  }, [selections]);
+  // Save handler for extra amount/reason
+    // Save handler for adjustment amount
+    const handleSaveAdjustment = (selectionId) => {
+      const value = Number(adjustmentInputs[selectionId]) || 0;
+      setSelections(prev => prev.map(group =>
+        group.map(s =>
+          s._id === selectionId
+            ? { ...s, adjustmentAmount: value }
+            : s
+        )
+      ));
+      // Persist to backend
+      (async () => {
+        try {
+          const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ adjustmentAmount: value })
+          });
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || 'Failed to update adjustment amount');
+          }
+          toast.success('Adjustment amount updated');
+        } catch (e) {
+          toast.error(e.message || 'Failed to update adjustment amount');
+        }
+      })();
+    };
+  const handleSaveExtra = async (selectionId) => {
+    setExtraInputs(prev => ({
+      ...prev,
+      [selectionId]: { ...prev[selectionId], loading: true }
+    }));
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const token = localStorage.getItem('token');
+      const { amount, reason } = extraInputs[selectionId];
+      const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ extraAmount: Number(amount) || 0, extraReason: reason })
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to update extra amount');
+      }
+      // Update local state for this selection
+      setSelections(prev => prev.map(group =>
+        group.map(s =>
+          s._id === selectionId
+            ? { ...s, extraAmount: Number(amount) || 0, extraReason: reason }
+            : s
+        )
+      ));
+      toast.success('Extra amount updated');
+    } catch (e) {
+      toast.error(e.message || 'Failed to update extra amount');
+    } finally {
+      setExtraInputs(prev => ({
+        ...prev,
+        [selectionId]: { ...prev[selectionId], loading: false }
+      }));
+    }
+  };
     // Delete handler
     const handleDelete = async (selectionId) => {
       if (!window.confirm('Are you sure you want to delete this payment record?')) return;
@@ -29,19 +143,68 @@ export default function DriverPayments() {
         toast.error(e.message || 'Failed to delete record');
       }
     };
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [modeFilter, setModeFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [selections, setSelections] = useState([]);
-  const [selectedDetail, setSelectedDetail] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState(null);
-  const [rentSummaries, setRentSummaries] = useState({});
+ 
 
   useEffect(() => {
-    loadSelections();
-  }, []);
+    const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+    const managerFilter = selectedManagers?.filter || '';
+    
+    // Fetch managers for dropdown
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/managers`);
+        if (!res.ok) throw new Error(`Failed to load managers: ${res.status}`);
+        const data = await res.json();
+        setManagers(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading managers:', err);
+        setManagers([]);
+      }
+    })();
+
+    // Fetch payments by manager if selected, else fetch all
+    const fetchPayments = async () => {
+      setLoading(true);
+      try {
+        let url = `${API_BASE}/api/driver-plan-selections`;
+        if (managerFilter) {
+          url = `${API_BASE}/api/driver-plan-selections/by-manager/${encodeURIComponent(managerFilter)}`;
+          console.log('Fetching payments for manager:', managerFilter, 'URL:', url);
+        } else {
+          console.log('Fetching all payments');
+        }
+        const res = await fetch(url);
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+          throw new Error(errorData.message || `Failed to load payments: ${res.status}`);
+        }
+        const data = await res.json();
+        console.log('Payments data received:', data.length || 0, 'records');
+        // Group by driverMobile or driverUsername
+        const grouped = {};
+        (Array.isArray(data) ? data : []).forEach(s => {
+          const key = s.driverMobile || s.driverUsername || s._id;
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(s);
+        });
+        setSelections(Object.values(grouped));
+      } catch (err) {
+        console.error('Error loading payments:', err);
+        toast.error(err.message || 'Failed to load payments');
+        setSelections([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPayments();
+  }, [selectedManagers?.filter]);
+
+  // Debug: log selections after fetch
+ useEffect(() => {
+  console.log("DEBUG: Selections array:", selections);
+  console.log("DEBUG: Selected manager filter:", selectedManagers?.filter);
+}, [selections, selectedManagers]);
+
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -130,27 +293,92 @@ export default function DriverPayments() {
         tx.driverMobile?.includes(searchTerm) ||
         tx.planName?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      const matchesStatus = statusFilter === 'all' || tx.paymentStatus === statusFilter;
+      let matchesStatus = false;
+      if (statusFilter === 'unpaid') {
+        const rentDue = (() => {
+          if (tx.rentStartDate) {
+            const start = new Date(tx.rentStartDate);
+            let end = new Date();
+            if (tx.status === 'inactive' && tx.rentPausedDate) {
+              end = new Date(tx.rentPausedDate);
+            }
+            let days = Math.floor((end - start) / (1000 * 60 * 60 * 24));
+            days = Math.max(1, days + 1);
+            const rentPerDay = rentSummaries[tx._id]?.rentPerDay || 0;
+            return Math.max(0, (days * rentPerDay) - (tx.paidAmount || 0));
+          }
+          return 0;
+        })();
+        const depositDue = (tx.securityDeposit || 0) - (tx.paymentType === 'security' ? (tx.paidAmount || 0) : 0);
+        matchesStatus = (rentDue > 0) || (depositDue > 0);
+      } else {
+        matchesStatus = statusFilter === 'all' || tx.paymentStatus === statusFilter;
+      }
       const matchesMode = modeFilter === 'all' || tx.paymentMode === modeFilter;
-      return matchesSearch && matchesStatus && matchesMode;
+      // Date filter
+      let matchesDate = true;
+      if (fromDate) {
+        const txDate = tx.paymentDate ? new Date(tx.paymentDate) : null;
+        const from = new Date(fromDate);
+        matchesDate = txDate ? txDate >= from : false;
+      }
+      if (toDate) {
+        const txDate = tx.paymentDate ? new Date(tx.paymentDate) : null;
+        const to = new Date(toDate);
+        matchesDate = matchesDate && (txDate ? txDate <= to : false);
+      }
+      return matchesSearch && matchesStatus && matchesMode && matchesDate;
     });
   });
 
   const computeTotal = (s) => {
-    // Use stored calculated total if available, otherwise calculate
-    if (s.calculatedTotal) {
-      return s.calculatedTotal;
+    // Calculate days (inclusive)
+    let days = 0;
+    if (s.rentStartDate) {
+      const start = new Date(s.rentStartDate);
+      let end = new Date();
+      if (s.status === 'inactive' && s.rentPausedDate) {
+        end = new Date(s.rentPausedDate);
+      }
+      // Normalize to midnight for both dates
+      const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
+      days = Math.max(1, days);
     }
-    const deposit = s.calculatedDeposit || s.securityDeposit || 0;
-    const rent = s.calculatedRent || (() => {
+
+    // Rent per day/week
+    const rentPerDay = s.calculatedRent || (() => {
       const slab = s.selectedRentSlab || {};
       return s.planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
     })();
-    const cover = s.calculatedCover || (() => {
-      const slab = s.selectedRentSlab || {};
-      return s.planType === 'weekly' ? (slab.accidentalCover || 105) : 0;
-    })();
-    return deposit + rent + cover;
+    // Accidental cover for weekly plans
+    const accidentalCover = s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)) : 0;
+
+    // Adjustment logic
+    const adjustment = s.adjustmentAmount || 0;
+    // Deposit paid after adjustment
+    const depositPaid = (s.paidAmount || 0) + adjustment;
+    // Deposit due
+    let depositDue = 0;
+    if (s.paymentType === 'security') {
+      depositDue = Math.max(0, (s.securityDeposit || 0) - depositPaid);
+    } else {
+      depositDue = s.securityDeposit || 0;
+    }
+
+    // Rent due after adjustment
+    let rentDue = 0;
+    if (s.paidAmount && s.paymentType === 'rent') {
+      rentDue = Math.max(0, (days * rentPerDay) - (s.paidAmount || 0) - adjustment);
+    } else {
+      rentDue = Math.max(0, (days * rentPerDay) - adjustment);
+    }
+
+    // Total calculation
+    const extraAmount = s.extraAmount || 0;
+    const total = depositDue + rentDue + accidentalCover + extraAmount;
+    return total;
   };
 
   const stats = {
@@ -273,6 +501,7 @@ export default function DriverPayments() {
     );
   }
 
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -344,35 +573,119 @@ export default function DriverPayments() {
           </CardContent>
         </Card>
       </div>
+{/* Search Input */}
+<div>
+
+
+  <div className="relative w-full">
+    <Search
+      className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none"
+    />
+
+    <input
+      type="text"
+      placeholder="Search by driver or plan..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="
+        w-full pl-10 pr-3 py-2
+        border border-gray-300 rounded-md 
+        text-sm focus:outline-none 
+        focus:ring-2 focus:ring-blue-500
+      "
+    />
+  </div>
+</div>
+
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
+            {/* From Date */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">From Date</label>
               <input
-                type="text"
-                placeholder="Search by driver or plan..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input pl-10 w-full"
+                type="date"
+                value={fromDate}
+                onChange={e => setFromDate(e.target.value)}
+                className="input w-full"
               />
             </div>
-            <select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)} className="input w-full">
-              <option value="all">All Status</option>
-              <option value="completed">Completed</option>
-              <option value="pending">Pending</option>
-              <option value="failed">Failed</option>
-            </select>
-            <select value={modeFilter} onChange={(e)=>setModeFilter(e.target.value)} className="input w-full">
-              <option value="all">All Modes</option>
-              <option value="online">Online</option>
-              <option value="cash">Cash</option>
-            </select>
-            <button onClick={()=>{setSearchTerm('');setStatusFilter('all');setModeFilter('all');}} className="btn btn-secondary">Clear Filters</button>
+            {/* To Date */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">To Date</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={e => setToDate(e.target.value)}
+                className="input w-full"
+              />
+            </div>
+            {/* Status Filter */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input w-full"
+              >
+                <option value="all">All Status</option>
+                <option value="completed">Completed</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            {/* Mode Filter */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Mode</label>
+              <select
+                value={modeFilter}
+                onChange={(e) => setModeFilter(e.target.value)}
+                className="input w-full"
+              >
+                <option value="all">All Modes</option>
+                <option value="online">Online</option>
+                <option value="cash">Cash</option>
+              </select>
+            </div>
+            {/* Manager Filter Dropdown */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Manager</label>
+              <select
+                className="input w-full"
+                value={selectedManagers['filter'] || ''}
+                onChange={e => {
+                  const value = e.target.value;
+                  setSelectedManagers(prev => ({ ...prev, filter: value }));
+                }}
+              >
+                <option value="">All Managers</option>
+                {managers.map(mgr => (
+                  <option key={mgr._id} value={mgr._id}>{mgr.name}</option>
+                ))}
+              </select>
+            </div>
+            {/* Clear Filters Button */}
+            <div>
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setModeFilter('all');
+                  setFromDate('');
+                  setToDate('');
+                  setSelectedManagers(prev => ({ ...prev, filter: '' }));
+                }}
+                className="btn btn-secondary w-full"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader>
@@ -452,16 +765,71 @@ export default function DriverPayments() {
                                       )}
                                     </TableCell>
                                     <TableCell>
-                                      <div className="space-y-1">
-                                        <p className="font-bold text-blue-600">₹{computeTotal(s).toLocaleString('en-IN')}</p>
-                                        <p className="text-[11px] text-gray-500">= Deposit + Rent + Cover</p>
-                                        {/* Show rent paid if available */}
-                                        {s.paymentType === 'rent' && s.paidAmount !== null && s.paidAmount !== undefined && (
-                                          <div className="mt-1 pt-1 border-t border-gray-200">
-                                            <p className="text-xs font-semibold text-green-600">Rent Paid: ₹{s.paidAmount.toLocaleString('en-IN')}</p>
+                                        <div className="space-y-1">
+                                          <p className="font-bold text-blue-600">
+                                            ₹{(computeTotal(s)).toLocaleString('en-IN')}
+                                          </p>
+                                          <p className="text-[11px] text-gray-500">
+                                            Remaining Due = (Deposit Due + Rent Due + Accidental Cover + Extra Amount) 
+                                          </p>
+                                          <div className="text-[10px] text-gray-500 mt-1">
+                                            <div>Deposit Due: ₹{(() => {
+                                              const adjustment = s.adjustmentAmount || 0;
+                                              const depositPaid = (s.paidAmount || 0) + adjustment;
+                                              if (s.paymentType === 'security') {
+                                                return Math.max(0, (s.securityDeposit || 0) - depositPaid).toLocaleString('en-IN');
+                                              } else {
+                                                return (s.securityDeposit || 0).toLocaleString('en-IN');
+                                              }
+                                            })()}</div>
+                                            <div>Rent Due: ₹{(() => {
+                                              let days = 0;
+                                              if (s.rentStartDate) {
+                                                const start = new Date(s.rentStartDate);
+                                                let end = new Date();
+                                                if (s.status === 'inactive' && s.rentPausedDate) {
+                                                  end = new Date(s.rentPausedDate);
+                                                }
+                                                const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+                                                const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+                                                days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
+                                                days = Math.max(1, days);
+                                              }
+                                              const rentPerDay = s.calculatedRent || (() => {
+                                                const slab = s.selectedRentSlab || {};
+                                                return s.planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
+                                              })();
+                                              const adjustment = s.adjustmentAmount || 0;
+                                              let rentDue = Math.max(0, (days * rentPerDay) - adjustment);
+                                              if (s.paidAmount && s.paymentType === 'rent') {
+                                                rentDue = Math.max(0, (days * rentPerDay) - (s.paidAmount || 0) - adjustment);
+                                              }
+                                              return rentDue.toLocaleString('en-IN');
+                                            })()}</div>
+                                            <div>Accidental Cover: ₹{s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)).toLocaleString('en-IN') : '0'}</div>
+                                            <div>Extra Amount: ₹{(s.extraAmount || 0).toLocaleString('en-IN')}</div>
+                                            <div>Paid: ₹{(s.paidAmount || 0).toLocaleString('en-IN')}</div>
                                           </div>
-                                        )}
-                                      </div>
+                                          {/* Show all due calculated amounts below */}
+                                          <div className="mt-1">
+                                           
+                                            {/* Extra Amount Due and Reason */}
+                                            {s.extraAmount > 0 && (
+                                              <p className="text-xs text-yellow-700">Extra Amount: ₹{s.extraAmount.toLocaleString('en-IN')}</p>
+                                            )}
+                                            {s.extraAmount > 0 && s.extraReason && (
+                                              <p className="text-xs text-gray-700">Reason: {s.extraReason}</p>
+                                            )}
+                                          </div>
+                                          {/* Show rent paid if available */}
+                                          {s.paymentType === 'rent' && s.paidAmount !== null && s.paidAmount !== undefined && (
+                                            <div className="mt-1 pt-1 border-t border-gray-200">
+                                              <p className="text-xs font-semibold text-green-600">Rent Paid: ₹{s.paidAmount.toLocaleString('en-IN')}</p>
+                                            </div>
+                                          )}
+                                          {/* Show all due amounts, extra amount, and reason */}
+                                        
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                       {s.rentStartDate ? (
@@ -471,10 +839,18 @@ export default function DriverPayments() {
                                           if (s.status === 'inactive' && s.rentPausedDate) {
                                             end = new Date(s.rentPausedDate);
                                           }
-                                          const days = Math.floor((end - start) / (1000 * 60 * 60 * 24));
-                                          const rentPerDay = rentSummaries[s._id]?.rentPerDay || 0;
-                                          const depositDue = (s.securityDeposit || 0) - (s.paymentType === 'security' ? (s.paidAmount || 0) : 0);
-                                          const rentDue = Math.max(0, (days * rentPerDay) - (s.paidAmount || 0));
+                                          // Normalize to midnight for both dates
+                                          const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+                                          const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+                                          let days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
+                                          days = Math.max(1, days);
+                                              const rentPerDay = rentSummaries[s._id]?.rentPerDay || 0;
+                                          // Always show rent due as days * rentPerDay minus adjustment unless rent is actually paid
+                                          const adjustment = s.adjustmentAmount || 0;
+                                          let rentDue = Math.max(0, (days * rentPerDay) - adjustment);
+                                          if (s.paidAmount && s.paymentType === 'rent') {
+                                            rentDue = Math.max(0, (days * rentPerDay) - (s.paidAmount || 0) - adjustment);
+                                          }
                                           return (
                                             <div className="space-y-1">
                                               <p className="text-xs text-gray-600">
@@ -498,6 +874,59 @@ export default function DriverPayments() {
                                               <p className="text-xs font-semibold text-orange-600">
                                                 Rent Due: ₹{rentDue.toLocaleString('en-IN')}
                                               </p>
+                                              <div className="flex items-center gap-3">
+                                                <p className="text-xs font-semibold text-yellow-600 whitespace-nowrap">
+                                                  Adjustment Amount :
+                                                </p>
+                                                <input
+                                                  type="number"
+                                                  className="border border-gray-300 rounded px-2 py-1 text-xs w-24"
+                                                  placeholder="0"
+                                                  value={adjustmentInputs[s._id] ?? ''}
+                                                  onChange={e => setAdjustmentInputs(prev => ({
+                                                    ...prev,
+                                                    [s._id]: e.target.value
+                                                  }))}
+                                                  />
+                                                <button
+                                                  className="bg-yellow-600 text-white text-xs px-3 py-1 rounded"
+                                                  onClick={() => handleSaveAdjustment(s._id)}
+                                                >
+                                                  Save
+                                                </button>
+                                              </div>
+                                              <div className="flex items-center gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200 w-full">
+                                                <p className="text-xs font-semibold text-yellow-700 whitespace-nowrap">Extra Amount :</p>
+                                                <input
+                                                  type="number"
+                                                  className="border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500 w-24"
+                                                  placeholder="Amount"
+                                                  value={extraInputs[s._id]?.amount ?? ''}
+                                                  onChange={e => setExtraInputs(prev => ({
+                                                    ...prev,
+                                                    [s._id]: { ...prev[s._id], amount: e.target.value }
+                                                  }))}
+                                                  disabled={extraInputs[s._id]?.loading}
+                                                />
+                                                <input
+                                                  type="text"
+                                                  className="border border-gray-300 rounded-md px-3 py-1.5 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                                                  placeholder="Enter reason..."
+                                                  value={extraInputs[s._id]?.reason ?? ''}
+                                                  onChange={e => setExtraInputs(prev => ({
+                                                    ...prev,
+                                                    [s._id]: { ...prev[s._id], reason: e.target.value }
+                                                  }))}
+                                                  disabled={extraInputs[s._id]?.loading}
+                                                />
+                                                <button
+                                                  className="bg-yellow-600 text-white text-xs px-4 py-1.5 rounded-md hover:bg-yellow-700 transition disabled:opacity-60"
+                                                  onClick={() => handleSaveExtra(s._id)}
+                                                  disabled={extraInputs[s._id]?.loading}
+                                                >
+                                                  {extraInputs[s._id]?.loading ? 'Saving...' : 'Save'}
+                                                </button>
+                                              </div>
                                             </div>
                                           );
                                         })()
@@ -510,6 +939,8 @@ export default function DriverPayments() {
                                         <div>{getModeBadge(s.paymentMode)}</div>
                                         <p className="text-xs text-gray-500">Method: {s.paymentMethod || 'N/A'}</p>
                                         <p className="text-xs text-gray-500">Date: {s.paymentDate ? formatDate(s.paymentDate) : 'Not paid yet'}</p>
+                                       
+                                       
                                       </div>
                                     </TableCell>
                                     <TableCell>
@@ -704,14 +1135,35 @@ export default function DriverPayments() {
                         ₹{selectedDetail.paymentBreakdown.accidentalCover.toLocaleString('en-IN')}
                       </span>
                     </div>
-                    <div className="border-t border-blue-200 pt-3 mt-3">
+                    {selectedDetail.paymentBreakdown.extraAmount > 0 && (
                       <div className="flex justify-between items-center">
-                        <span className="text-base font-bold text-gray-900">Calculated Total:</span>
-                        <span className="text-2xl font-bold text-blue-600">
-                          ₹{selectedDetail.paymentBreakdown.totalAmount.toLocaleString('en-IN')}
+                        <span className="text-sm text-gray-600">Extra Amount:</span>
+                        <span className="text-lg font-semibold text-gray-900">
+                          ₹{selectedDetail.paymentBreakdown.extraAmount.toLocaleString('en-IN')}
                         </span>
                       </div>
+                    )}
+                    <div className="border-t border-blue-200 pt-3 mt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-base font-bold text-gray-900">Remaining Due:</span>
+                        <span className="text-2xl font-bold text-blue-600">
+                          ₹{(selectedDetail.paymentBreakdown.totalAmount - (selectedDetail.paidAmount || 0)).toLocaleString('en-IN')}
+                        </span>
+                        <div className="text-xs text-gray-500 mt-2">
+                          <div>Calculation: (Deposit Due + Rent Due + Accidental Cover + Extra Amount) - Paid</div>
+                          <div>Deposit Due: ₹{selectedDetail.paymentBreakdown.securityDeposit.toLocaleString('en-IN')}</div>
+                          <div>Rent Due: ₹{selectedDetail.paymentBreakdown.rent.toLocaleString('en-IN')}</div>
+                          <div>Accidental Cover: ₹{selectedDetail.paymentBreakdown.accidentalCover.toLocaleString('en-IN')}</div>
+                          <div>Extra Amount: ₹{selectedDetail.paymentBreakdown.extraAmount.toLocaleString('en-IN')}</div>
+                          <div>Paid: ₹{(selectedDetail.paidAmount || 0).toLocaleString('en-IN')}</div>
+                        </div>
+                      </div>
                     </div>
+                    {selectedDetail.paymentBreakdown.extraAmount > 0 && selectedDetail.paymentBreakdown.extraReason && (
+                      <div className="mt-2 text-xs text-gray-700">
+                        <span className="font-semibold">Extra Reason:</span> {selectedDetail.paymentBreakdown.extraReason}
+                      </div>
+                    )}
                     {selectedDetail.paidAmount !== null && selectedDetail.paidAmount !== undefined && (
                       <div className="border-t border-green-200 pt-3 mt-3 bg-green-50 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg">
                         <div className="flex justify-between items-center">

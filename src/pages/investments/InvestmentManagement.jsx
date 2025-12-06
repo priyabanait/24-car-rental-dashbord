@@ -31,6 +31,28 @@ import { PERMISSIONS } from '../../utils/permissions';
 import InvestorModal from '../../components/investors/InvestorModal';
 import InvestmentDetailModal from '../../components/investors/InvestmentDetailModal';
 import InvestmentPlanModal from '../../components/investors/InvestmentPlanModal';
+import CarInvestmentModal from '../../components/investors/CarInvestmentModal';
+  // Reload car investments list from database
+  const reloadCarInvestments = async () => {
+    try {
+      setCarInvestmentLoading(true);
+      const response = await fetch(`${API_BASE}/api/car-investment-entries`, { method: 'GET' });
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Reload car investments failed', response.status, text);
+        toast.error('Failed to reload car investments');
+        return;
+      }
+      const data = await response.json();
+      if (Array.isArray(data)) setCarInvestments(data);
+      toast.success('Car investments reloaded');
+    } catch (err) {
+      console.error('Failed to reload car investments:', err);
+      toast.error('Reload error');
+    } finally {
+      setCarInvestmentLoading(false);
+    }
+  };
 
 // Centralized API base (falls back to local backend). Using explicit base + GET for reads for clarity.
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
@@ -48,15 +70,50 @@ export default function InvestmentManagement() {
   const [investments, setInvestments] = useState([]);
   const [investmentPlans, setInvestmentPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Car Investment states
+  const [carInvestments, setCarInvestments] = useState([]);
+  const [carInvestmentLoading, setCarInvestmentLoading] = useState(true);
+  // Car Investment modal state
+  const [showCarInvestmentModal, setShowCarInvestmentModal] = useState(false);
+  const [selectedCarInvestment, setSelectedCarInvestment] = useState(null);
+
+    // Car Investment: Edit handler
+    const handleEditCarInvestment = (carInv) => {
+      setSelectedCarInvestment(carInv);
+      setShowCarInvestmentModal(true);
+    };
+
+    // Car Investment: Delete handler
+    const handleDeleteCarInvestment = async (carInvId) => {
+      if (!window.confirm('Are you sure you want to delete this car investment? This action cannot be undone.')) {
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE}/api/car-investment-entries/${carInvId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error('Failed to delete car investment');
+        }
+        setCarInvestments(prev => prev.filter(inv => inv._id !== carInvId));
+        toast.success('Car investment deleted successfully');
+      } catch (err) {
+        console.error('Failed to delete car investment:', err);
+        toast.error('Failed to delete car investment');
+      }
+    };
 
   useEffect(() => {
     // Initial load using GET from database routes
     const loadData = async () => {
       try {
         setLoading(true);
-        const [invRes, plansRes] = await Promise.all([
+        setCarInvestmentLoading(true);
+        const [invRes, plansRes, carInvRes] = await Promise.all([
           fetch(`${API_BASE}/api/investors`, { method: 'GET' }),
-          fetch(`${API_BASE}/api/investment-plans`, { method: 'GET' })
+          fetch(`${API_BASE}/api/investment-plans`, { method: 'GET' }),
+          fetch(`${API_BASE}/api/car-investment-entries`, { method: 'GET' })
         ]);
 
         if (!invRes.ok) {
@@ -76,11 +133,21 @@ export default function InvestmentManagement() {
           const plans = await plansRes.json();
           if (Array.isArray(plans)) setInvestmentPlans(plans);
         }
+
+        if (!carInvRes.ok) {
+          const text = await carInvRes.text();
+          console.error('Car Investments load failed', carInvRes.status, text);
+          toast.error('Failed to load car investments');
+        } else {
+          const carInv = await carInvRes.json();
+          if (Array.isArray(carInv)) setCarInvestments(carInv);
+        }
       } catch (err) {
-        console.error('Failed to load investments/plans:', err);
+        console.error('Failed to load investments/plans/carInvestments:', err);
         toast.error('Backend connection error');
       } finally {
         setLoading(false);
+        setCarInvestmentLoading(false);
       }
     };
     loadData();
@@ -497,7 +564,17 @@ const handleExportReport = () => {
               className="btn btn-secondary flex items-center"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Plan
+              Add Amount Investment
+            </button>
+            <button 
+              onClick={() => {
+                setSelectedCarInvestment(null);
+                setShowCarInvestmentModal(true);
+              }}
+              className="btn btn-secondary flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Car Investment
             </button>
             <button 
               onClick={handleAddInvestor}
@@ -514,6 +591,7 @@ const handleExportReport = () => {
             </button>
           </PermissionGuard>
         </div>
+        
       </div>
 
       {/* Metrics Cards */}
@@ -566,7 +644,7 @@ const handleExportReport = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Building className="h-5 w-5 mr-2" />
-            Investment Plans
+           Amount Investment
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -633,6 +711,91 @@ const handleExportReport = () => {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+      {/* Car Investments Section - Card UI like Amount Investment */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Building className="h-5 w-5 mr-2" />
+            Car Investments
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {carInvestmentLoading ? (
+            <div className="text-gray-500">Loading car investments...</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {carInvestments.map(carInv => (
+                <div key={carInv._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-semibold text-gray-900">{carInv.name}</h3>
+                    
+                  </div>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Amount:</span>
+                      <span className="font-medium">{formatCurrency(carInv.minAmount)}</span>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Expected ROI:</span>
+                      <span className="font-medium text-green-600">{carInv.expectedROI ? `${carInv.expectedROI}%` : '-'}</span>
+                    </div>
+                   
+                    {/* <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Active:</span>
+                      <span className="font-medium">{carInv.active ? 'Yes' : 'No'}</span>
+                    </div> */}
+                    {/* <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Status:</span>
+                      <span className="font-medium">{carInv.status}</span>
+                    </div> */}
+                  </div>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2">Features:</p>
+                    <ul className="text-xs text-gray-500 space-y-1">
+                      {(carInv.features || []).map((feature, index) => (
+                        <li key={index} className="flex items-center">
+                          <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {carInv.description && (
+                    <div className="mb-2">
+                      <span className="text-xs text-gray-500">Description: </span>
+                      <span className="text-xs text-gray-700">{carInv.description}</span>
+                    </div>
+                  )}
+                  {/* Actions can be added here if needed */}
+                  <PermissionGuard permission={PERMISSIONS.INVESTMENTS_EDIT}>
+                    <div className="flex space-x-2">
+                      {/* Edit Button */}
+                      <button
+                        onClick={() => handleEditCarInvestment(carInv)}
+                        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </button>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteCarInvestment(carInv._id)}
+                        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </button>
+                    </div>
+                  </PermissionGuard>
+                </div>
+                
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -815,6 +978,17 @@ const handleExportReport = () => {
         }}
         onSuccess={handlePlanSuccess}
         plan={selectedPlan}
+      />
+
+      {/* Car Investment Modal */}
+      <CarInvestmentModal
+        isOpen={showCarInvestmentModal}
+        onClose={() => {
+          setShowCarInvestmentModal(false);
+          setSelectedCarInvestment(null);
+        }}
+        onSuccess={() => reloadCarInvestments()}
+        carInvestment={selectedCarInvestment}
       />
     </div>
   );

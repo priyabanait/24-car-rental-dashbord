@@ -1,7 +1,10 @@
+
 import express from 'express';
 import CarPlan from '../models/carPlan.js';
+import { uploadToCloudinary } from '../lib/cloudinary.js';
 
 const router = express.Router();
+
 
 // List all daily rent plans
 router.get('/', async (req, res) => {
@@ -55,14 +58,25 @@ router.post('/', async (req, res) => {
   try {
     const body = req.body;
     console.log('daily-rent-plans POST payload:', JSON.stringify(body).slice(0, 1000));
-    
+
     // Clean dailyRentSlabs - remove accidentalCover and acceptanceRate
     let dailyRentSlabs = Array.isArray(body.dailyRentSlabs) ? body.dailyRentSlabs : [];
     dailyRentSlabs = dailyRentSlabs.map(slab => {
       const { accidentalCover, acceptanceRate, ...cleanSlab } = slab;
       return cleanSlab;
     });
-    
+
+    // Handle photo upload if present
+    let photoUrl = null;
+    if (body.photo && typeof body.photo === 'string' && body.photo.startsWith('data:')) {
+      try {
+        const result = await uploadToCloudinary(body.photo, `car-plans/${Date.now()}`);
+        photoUrl = result.secure_url;
+      } catch (err) {
+        console.error('Failed to upload car plan photo:', err);
+      }
+    }
+
     const payload = {
       name: body.name || 'Daily Rent Plan',
       vehicleType: body.vehicleType || body.category || 'General',
@@ -71,7 +85,8 @@ router.post('/', async (req, res) => {
       dailyRentSlabs,
       status: body.status || 'active',
       category: body.category || 'standard',
-      createdDate: body.createdDate || new Date().toISOString()
+      createdDate: body.createdDate || new Date().toISOString(),
+      photo: photoUrl // Store photo URL if uploaded
     };
 
     const p = new CarPlan(payload);

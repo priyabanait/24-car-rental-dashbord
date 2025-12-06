@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, MapPin, FileText, Upload, Camera, Car, CreditCard, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Razorpay IFSC validation API (public, no key required)
+const RAZORPAY_IFSC_API = 'https://ifsc.razorpay.com';
+
 export default function DriverModal({ isOpen, onClose, driver = null, onSave }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -17,8 +20,11 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     latitude: '',
     longitude: '',
     emergencyContact: '',
+    emergencyRelation: '',
     emergencyPhone: '',
+    emergencyPhoneSecondary: '',
     
+    employeeId: '',
     // License & Documents
     licenseNumber: '',
     licenseExpiryDate: '',
@@ -100,7 +106,10 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
         latitude: driver.latitude || '',
         longitude: driver.longitude || '',
         emergencyContact: driver.emergencyContact || '',
+        emergencyRelation: driver.emergencyRelation || '',
         emergencyPhone: driver.emergencyPhone || '',
+        emergencyPhoneSecondary: driver.emergencyPhoneSecondary || '',
+        employeeId: driver.employeeId || '',
         licenseNumber: driver.licenseNumber || '',
         licenseClass: driver.licenseClass || 'LMV',
         aadharNumber: driver.aadharNumber || '',
@@ -140,7 +149,10 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
         latitude: '',
         longitude: '',
         emergencyContact: '',
+        emergencyRelation: '',
         emergencyPhone: '',
+        emergencyPhoneSecondary: '',
+        employeeId: '',
         licenseNumber: '',
         licenseExpiryDate: '',
         licenseClass: 'LMV',
@@ -172,10 +184,15 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     setErrors({});
   }, [driver, isOpen]);
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = async (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Real-time per-field validation
-    const fieldError = validateField(field, value);
+    // Real-time per-field validation (async for IFSC)
+    let fieldError = '';
+    if (field === 'ifscCode') {
+      fieldError = await validateField(field, value);
+    } else {
+      fieldError = validateField(field, value);
+    }
     if (fieldError) {
       setErrors(prev => ({ ...prev, [field]: fieldError }));
     } else if (errors[field]) {
@@ -309,7 +326,7 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     }
   };
 
-  const validateField = (field, value) => {
+  const validateField = async (field, value) => {
     // return error message string or empty/null if valid
     if (field === 'name') {
       if (!value || !value.trim()) return 'Name is required';
@@ -342,12 +359,12 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
       if (value.trim().length < 10) return 'Please enter complete address (min 10 characters)';
       return '';
     }
-    if (field === 'licenseNumber') {
-      if (!value || !value.trim()) return 'License number is required';
-      // Format: XX[0-9]{13} (2 characters followed by 13 numbers)
-      if (!/^[A-Z]{2}[0-9]{13}$/.test(value.toUpperCase())) return 'Enter valid license number (e.g., DL0120160000000)';
-      return '';
-    }
+    // if (field === 'licenseNumber') {
+    //   if (!value || !value.trim()) return 'License number is required';
+    //   // Format: XX[0-9]{13} (2 characters followed by 13 numbers)
+    //   if (!/^[A-Z]{2}[0-9]{13}$/.test(value.toUpperCase())) return 'Enter valid license number (e.g., DL0120160000000)';
+    //   return '';
+    // }
     if (field === 'licenseExpiryDate') {
       if (!value) return 'License expiry date is required';
       const expiryDate = new Date(value);
@@ -391,6 +408,16 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     if (field === 'ifscCode') {
       if (!value || !value.trim()) return 'IFSC code is required';
       if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.toUpperCase())) return 'Enter valid IFSC code (e.g., SBIN0123456)';
+      // Call Razorpay IFSC API for validation
+      try {
+        const res = await fetch(`${RAZORPAY_IFSC_API}/${encodeURIComponent(value)}`);
+        if (!res.ok) {
+          return 'Invalid IFSC code (not found in bank database)';
+        }
+        // Optionally, you can parse and use the returned bank details here
+      } catch (err) {
+        return 'Could not validate IFSC code (API error)';
+      }
       return '';
     }
     if (field === 'accountHolderName') {
@@ -419,46 +446,41 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     }
   };
 
-  const validateStep = (step) => {
+  const validateStep = async (step) => {
     const newErrors = {};
-
     switch (step) {
       case 1: // Personal Information
-        // Use per-field validation to centralize rules (includes age check)
-        ['name', 'email', 'phone', 'dateOfBirth', 'address'].forEach(f => {
-          const err = validateField(f, formData[f]);
+        await Promise.all(['name', 'email', 'phone', 'dateOfBirth', 'address'].map(async (f) => {
+          const err = await validateField(f, formData[f]);
           if (err) newErrors[f] = err;
-        });
+        }));
         break;
-
       case 2: // Documents
-        ['licenseNumber', 'licenseExpiryDate', 'aadharNumber', 'panNumber'].forEach(f => {
-          const err = validateField(f, formData[f]);
+        await Promise.all(['licenseNumber', 'licenseExpiryDate', 'aadharNumber', 'panNumber'].map(async (f) => {
+          const err = await validateField(f, formData[f]);
           if (err) newErrors[f] = err;
-        });
+        }));
         break;
-
       case 3: // Professional
-        ['experience', 'planType'].forEach(f => {
-          const err = validateField(f, formData[f]);
+        await Promise.all(['experience', 'planType'].map(async (f) => {
+          const err = await validateField(f, formData[f]);
           if (err) newErrors[f] = err;
-        });
+        }));
         break;
-
       case 4: // Banking
-        ['bankName', 'accountNumber', 'ifscCode', 'accountHolderName', 'accountBranchName'].forEach(f => {
-          const err = validateField(f, formData[f]);
+        await Promise.all(['bankName', 'accountNumber', 'ifscCode', 'accountHolderName', 'accountBranchName'].map(async (f) => {
+          const err = await validateField(f, formData[f]);
           if (err) newErrors[f] = err;
-        });
+        }));
         break;
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
+  const handleNext = async () => {
+    const valid = await validateStep(currentStep);
+    if (valid) {
       setCurrentStep(prev => Math.min(prev + 1, 5));
     } else {
       // Scroll to first error
@@ -477,7 +499,7 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
   const handleSubmit = async () => {
     // Validate all steps before final submit
     for (let step = 1; step <= 4; step++) {
-      const ok = validateStep(step);
+      const ok = await validateStep(step);
       if (!ok) {
         setCurrentStep(step);
         return;
@@ -588,6 +610,18 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                 />
                 {errors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>}
               </div>
+               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Employee ID
+                </label>
+                <input
+                  type="text"
+                  value={formData.employeeId}
+                  onChange={(e) => handleInputChange('employeeId', e.target.value)}
+                  className="input"
+                  placeholder="Enter employee ID"
+                />
+              </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -674,15 +708,39 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                   placeholder="Emergency contact name"
                 />
               </div>
-
+             
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Phone
+                  Relation
+                </label>
+                <input
+                  type="text"
+                  value={formData.emergencyRelation}
+                  onChange={(e) => handleInputChange('emergencyRelation', e.target.value)}
+                  className="input"
+                  placeholder="Type of relation (e.g. spouse, parent)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Primary Contact Phone
                 </label>
                 <input
                   type="tel"
                   value={formData.emergencyPhone}
                   onChange={(e) => handleInputChange('emergencyPhone', e.target.value)}
+                  className="input"
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Secondary Contact Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.emergencyPhoneSecondary}
+                  onChange={(e) => handleInputChange('emergencyPhoneSecondary', e.target.value)}
                   className="input"
                   placeholder="+91 98765 43210"
                 />

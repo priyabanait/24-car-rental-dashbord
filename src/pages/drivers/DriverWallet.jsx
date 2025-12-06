@@ -17,7 +17,7 @@ export default function AddWalletAmount() {
     async function fetchDrivers() {
       setLoading(true);
       try {
-        const res = await axios.get('/api/drivers');
+        const res = await axios.get('https://udrive-backend-1igb.vercel.app/api/drivers');
         setDrivers(res.data);
       } catch (err) {
         console.error('Failed to fetch drivers:', err);
@@ -38,7 +38,7 @@ export default function AddWalletAmount() {
       try {
         const driver = drivers.find(drv => drv._id === selectedDriver);
         if (driver) {
-          const res = await axios.get(`/api/driver-wallet/${driver.phone}`);
+          const res = await axios.get(`https://udrive-backend-1igb.vercel.app/api/driver-wallet/${driver.phone}`);
           setWallet(res.data);
         }
       } catch (err) {
@@ -56,7 +56,7 @@ export default function AddWalletAmount() {
     setSubmitLoading(true);
     try {
       const driver = drivers.find(drv => drv._id === selectedDriver);
-      await axios.post('/api/driver-wallet', {
+      await axios.post('https://udrive-backend-1igb.vercel.app/api/driver-wallet', {
         phone: driver.phone,
         amount: Number(amount),
         description,
@@ -65,7 +65,7 @@ export default function AddWalletAmount() {
       setAmount('');
       setDescription('');
       // Refresh wallet data
-      const res = await axios.get(`/api/driver-wallet/${driver.phone}`);
+      const res = await axios.get(`https://udrive-backend-1igb.vercel.app/api/driver-wallet/${driver.phone}`);
       setWallet(res.data);
     } catch (err) {
       alert('Failed to add amount');
@@ -81,7 +81,7 @@ export default function AddWalletAmount() {
     setAdminMsgSuccess('');
     try {
       const driver = drivers.find(drv => drv._id === selectedDriver);
-      await axios.post('/api/driver-wallet-message', {
+      await axios.post('https://udrive-backend-1igb.vercel.app/api/driver-wallet-message', {
         phone: driver.phone,
         message: adminMessage,
       });
@@ -175,7 +175,7 @@ export default function AddWalletAmount() {
               </div>
             </div>
             {/* Admin Message Form */}
-            <div className="mt-8">
+            {/* <div className="mt-8">
               <h2 className="text-lg font-semibold mb-2">Send Message to Admin</h2>
               <form className="space-y-3" onSubmit={handleAdminMessageSubmit}>
                 <textarea
@@ -197,7 +197,7 @@ export default function AddWalletAmount() {
                   <div className={`text-sm mt-2 ${adminMsgSuccess.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>{adminMsgSuccess}</div>
                 )}
               </form>
-            </div>
+            </div> */}
           </div>
         )}
       </div>

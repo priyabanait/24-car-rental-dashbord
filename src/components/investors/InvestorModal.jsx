@@ -38,6 +38,9 @@ export default function InvestorModal({ isOpen, onClose, onSuccess, investor }) 
   const [errors, setErrors] = useState({});
   const [documentPreviews, setDocumentPreviews] = useState({});
 
+  // IFSC validation state
+  const [ifscStatus, setIfscStatus] = useState({ loading: false, error: '', data: null });
+
   const steps = [
     { id: 1, title: 'Personal Info', icon: User },
     { id: 2, title: 'Documents', icon: FileText },
@@ -111,6 +114,32 @@ export default function InvestorModal({ isOpen, onClose, onSuccess, investor }) 
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+    // IFSC validation trigger
+    if (field === 'ifscCode') {
+      setIfscStatus({ loading: false, error: '', data: null });
+      if (value && /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(value.trim())) {
+        validateIFSC(value.trim().toUpperCase());
+      }
+    }
+  };
+
+  // Validate IFSC using Razorpay API
+  const validateIFSC = async (ifsc) => {
+    setIfscStatus({ loading: true, error: '', data: null });
+    try {
+      const res = await fetch(`https://ifsc.razorpay.com/${ifsc}`);
+      if (!res.ok) throw new Error('Invalid IFSC code');
+      const data = await res.json();
+      setIfscStatus({ loading: false, error: '', data });
+      // Auto-fill bank name and branch if not already filled
+      setFormData(prev => ({
+        ...prev,
+        bankName: data.BANK || prev.bankName,
+        accountBranchName: data.BRANCH || prev.accountBranchName
+      }));
+    } catch (err) {
+      setIfscStatus({ loading: false, error: 'Invalid IFSC code', data: null });
     }
   };
 
@@ -508,7 +537,6 @@ export default function InvestorModal({ isOpen, onClose, onSuccess, investor }) 
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Banking Information</h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -520,6 +548,7 @@ export default function InvestorModal({ isOpen, onClose, onSuccess, investor }) 
                   onChange={(e) => handleChange('bankName', e.target.value)}
                   className={`input w-full ${errors.bankName ? 'border-red-300' : ''}`}
                   placeholder="State Bank of India"
+                  readOnly={!!ifscStatus.data && !!formData.ifscCode}
                 />
                 {errors.bankName && <p className="mt-1 text-sm text-red-600">{errors.bankName}</p>}
               </div>
@@ -534,6 +563,7 @@ export default function InvestorModal({ isOpen, onClose, onSuccess, investor }) 
                   onChange={(e) => handleChange('accountBranchName', e.target.value)}
                   className={`input w-full ${errors.accountBranchName ? 'border-red-300' : ''}`}
                   placeholder="Enter branch name"
+                  readOnly={!!ifscStatus.data && !!formData.ifscCode}
                 />
                 {errors.accountBranchName && <p className="mt-1 text-sm text-red-600">{errors.accountBranchName}</p>}
               </div>
@@ -562,7 +592,23 @@ export default function InvestorModal({ isOpen, onClose, onSuccess, investor }) 
                   onChange={(e) => handleChange('ifscCode', e.target.value)}
                   className={`input w-full ${errors.ifscCode ? 'border-red-300' : ''}`}
                   placeholder="SBIN0001234"
+                  style={{ textTransform: 'uppercase' }}
                 />
+                {ifscStatus.loading && (
+                  <p className="mt-1 text-sm text-blue-600">Validating IFSC...</p>
+                )}
+                {ifscStatus.error && (
+                  <p className="mt-1 text-sm text-red-600">{ifscStatus.error}</p>
+                )}
+                {ifscStatus.data && (
+                  <div className="mt-2 text-xs text-green-700 bg-green-50 rounded p-2">
+                    <div><b>Bank:</b> {ifscStatus.data.BANK}</div>
+                    <div><b>Branch:</b> {ifscStatus.data.BRANCH}</div>
+                    <div><b>Address:</b> {ifscStatus.data.ADDRESS}</div>
+                    <div><b>City:</b> {ifscStatus.data.CITY}</div>
+                    <div><b>State:</b> {ifscStatus.data.STATE}</div>
+                  </div>
+                )}
                 {errors.ifscCode && <p className="mt-1 text-sm text-red-600">{errors.ifscCode}</p>}
               </div>
 

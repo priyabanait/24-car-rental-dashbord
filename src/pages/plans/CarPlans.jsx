@@ -163,7 +163,8 @@ export default function CarPlans() {
     // Rent slab fields
     securityDeposit: p.securityDeposit || 0,
     weeklyRentSlabs: p.weeklyRentSlabs || [],
-    dailyRentSlabs: p.dailyRentSlabs || []
+    dailyRentSlabs: p.dailyRentSlabs || [],
+    photo: p.photo || ''
   });
 
   const fetchCarPlans = async () => {
@@ -319,7 +320,8 @@ export default function CarPlans() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           weeklyRentSlabs: formData.rows,
-          securityDeposit: formData.securityDeposit
+          securityDeposit: formData.securityDeposit,
+          photo: formData.photo // send photo for backend update
         })
       });
       
@@ -348,7 +350,8 @@ export default function CarPlans() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           dailyRentSlabs: formData.rows,
-          securityDeposit: formData.securityDeposit
+          securityDeposit: formData.securityDeposit,
+          photo: formData.photo // send photo for backend update
         })
       });
       
@@ -454,6 +457,7 @@ export default function CarPlans() {
           securityDeposit: carPlans.find(p => p.name === selectedVehicle)?.securityDeposit || 0,
           rows: vehicleWeeklySlabs
         }}
+        photo={carPlans.find(p => p.name === selectedVehicle)?.photo}
         onSave={handleVehicleSlabSave}
       />
 
@@ -466,6 +470,7 @@ export default function CarPlans() {
           securityDeposit: carPlans.find(p => p.name === selectedDailyVehicle)?.securityDeposit || 0,
           rows: vehicleDailySlabs
         }}
+        photo={carPlans.find(p => p.name === selectedDailyVehicle)?.photo}
         onSave={handleDailySlabSave}
       />
 
@@ -664,19 +669,24 @@ export default function CarPlans() {
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Plan
                 </button>
-                {/* <button
-                  onClick={() => handleDeletePlan(selectedVehicle, 'weekly')}
-                  className="btn btn-danger flex items-center"
-                  disabled={!selectedVehicle}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </button> */}
               </PermissionGuard>
             </div>
           </div>
         </CardHeader>
         <CardContent>
+          {/* Show plan photo if available (WEEKLY) */}
+          {selectedVehicle && (() => {
+            const plan = weeklyPlans.find(p => p.name === selectedVehicle);
+            if (plan && plan.photo) {
+              return (
+                <div className="mb-4 flex items-center gap-4">
+                  <img src={plan.photo} alt="Plan" className="h-32 rounded shadow border" style={{objectFit:'cover',maxWidth:'200px'}} />
+                  <span className="text-gray-600">Photo</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
           {selectedVehicle && weeklyPlans.find(p => p.name === selectedVehicle) && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <span className="text-sm font-medium text-gray-700">Security Deposit: </span>
@@ -743,20 +753,25 @@ export default function CarPlans() {
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Plan
                 </button>
-                {/* <button
-                  onClick={() => handleDeletePlan(selectedDailyVehicle, 'daily')}
-                  className="btn btn-danger flex items-center"
-                  disabled={!selectedDailyVehicle}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </button> */}
               </PermissionGuard>
             </div>
           </div>
         </CardHeader>
 
         <CardContent>
+          {/* Show plan photo if available (DAILY) */}
+          {selectedDailyVehicle && (() => {
+            const plan = dailyPlans.find(p => p.name === selectedDailyVehicle);
+            if (plan && plan.photo) {
+              return (
+                <div className="mb-4 flex items-center gap-4">
+                  <img src={plan.photo} alt="Plan" className="h-32 rounded shadow border" style={{objectFit:'cover',maxWidth:'200px'}} />
+                  <span className="text-gray-600">Photo</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
           {selectedDailyVehicle && dailyPlans.find(p => p.name === selectedDailyVehicle) && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <span className="text-sm font-medium text-gray-700">Security Deposit: </span>
@@ -773,8 +788,6 @@ export default function CarPlans() {
                     <th className="px-3 py-2 text-left">Daily Trips</th>
                     <th className="px-3 py-2 text-right">Rent / Day</th>
                     <th className="px-3 py-2 text-right">Weekly Rent</th>
-                    {/* <th className="px-3 py-2 text-right">Accidental Cover</th>
-                    <th className="px-3 py-2 text-right">Acceptance Rate</th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -783,8 +796,6 @@ export default function CarPlans() {
                       <td className="px-3 py-2">{r.trips}</td>
                       <td className="px-3 py-2 text-right">₹{r.rentDay}</td>
                       <td className="px-3 py-2 text-right">₹{r.weeklyRent}</td>
-                      {/* <td className="px-3 py-2 text-right">₹{r.accidentalCover || 105}</td>
-                      <td className="px-3 py-2 text-right">{r.acceptanceRate || 60}%</td> */}
                     </tr>
                   ))}
                 </tbody>
@@ -869,7 +880,7 @@ export default function CarPlans() {
                   <PermissionGuard permission={PERMISSIONS.PLANS_EDIT}>
                     <button
   onClick={() => {
-    setSelectedPlan(plan);
+    setSelectedPlan({ ...plan }); // ensure all fields, including photo, are present
     setShowPlanModal(true);
   }}
   className="flex items-center justify-center gap-2 bg-[#10284C] hover:bg-[#1B3A73] text-white text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"

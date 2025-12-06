@@ -4,32 +4,45 @@ import toast from 'react-hot-toast';
 
 import VehicleRentSlabModal from './VehicleRentSlabModal';
 
-export default function PlanModal({ isOpen, onClose, initial = null, onSave, apiPath, slabType = null }) {
-  const [form, setForm] = useState({
-    name: ''
-  });
 
+export default function PlanModal({ isOpen, onClose, initial = null, onSave, apiPath, slabType = null }) {
+  const [form, setForm] = useState({ name: '' });
   const [saving, setSaving] = useState(false);
   const [slabData, setSlabData] = useState({ securityDeposit: 0, rows: [] });
+  const [photo, setPhoto] = useState(null); // base64 string
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   useEffect(() => {
     if (initial) {
-      setForm({
-        name: initial.name || ''
-      });
+      setForm({ name: initial.name || '' });
       setSlabData({
         securityDeposit: initial.securityDeposit || 0,
         rows: (slabType === 'weekly' ? initial.weeklyRentSlabs : initial.dailyRentSlabs) || []
       });
+      setPhoto(null);
+      setPhotoPreview(initial.photo || null);
     } else {
       setForm({ name: '' });
       setSlabData({ securityDeposit: 0, rows: [] });
+      setPhoto(null);
+      setPhotoPreview(null);
     }
   }, [initial, isOpen, slabType]);
 
   if (!isOpen) return null;
 
   const handleChange = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPhoto(ev.target.result);
+      setPhotoPreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return toast.error('Car name is required');
@@ -47,9 +60,12 @@ export default function PlanModal({ isOpen, onClose, initial = null, onSave, api
         dailyRentSlabs: slabType === 'daily' ? slabData.rows : [],
         securityDeposit: slabData.securityDeposit
       };
-      
+      // Add photo for both daily and weekly plans if present
+      if ((slabType === 'daily' || slabType === 'weekly') && photo) {
+        payload.photo = photo;
+      }
       console.log('Submitting plan:', payload);
-      
+
       let res;
       const basePath = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
       if (initial && (initial._id || initial.id)) {
@@ -67,9 +83,9 @@ export default function PlanModal({ isOpen, onClose, initial = null, onSave, api
           body: JSON.stringify(payload)
         });
       }
-      
+
       console.log('Response status:', res.status);
-      
+
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         console.error('Error response:', body);
@@ -109,6 +125,43 @@ export default function PlanModal({ isOpen, onClose, initial = null, onSave, api
               />
             </div>
 
+            {/* Always show the image area at the top, with placeholder if no image */}
+            {(slabType === 'daily' || slabType === 'weekly') && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Photo (optional)</label>
+                <div className="flex items-center gap-4 mb-2">
+                  {(photoPreview || (initial && initial.photo)) ? (
+                    <img
+                      src={photoPreview || initial.photo}
+                      alt="Plan"
+                      className="h-24 w-24 object-cover rounded shadow border cursor-pointer"
+                      title="Click to change image"
+                      onClick={() => document.querySelector('input[type="file"][accept="image/*"]')?.click()}
+                    />
+                  ) : (
+                    <div
+                      className="h-24 w-24 flex items-center justify-center bg-gray-100 text-gray-400 border rounded cursor-pointer"
+                      style={{ fontSize: '0.9rem' }}
+                      onClick={() => document.querySelector('input[type="file"][accept="image/*"]')?.click()}
+                      title="Click to upload image"
+                    >
+                      No Image<br/>Click to Upload
+                    </div>
+                  )}
+                  {(photoPreview || (initial && initial.photo)) && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-xs ml-2"
+                      onClick={() => { setPhoto(null); setPhotoPreview(null); }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input type="file" accept="image/*" onChange={handlePhotoChange} className="input w-full" style={{display: 'block'}} />
+              </div>
+            )}
+
             <div className="border-t pt-6">
               <h4 className="text-sm font-medium text-gray-700 mb-4">
                 {slabType === 'weekly' ? 'Weekly' : 'Daily'} Rent Slabs
@@ -119,9 +172,13 @@ export default function PlanModal({ isOpen, onClose, initial = null, onSave, api
                 vehicleData={slabData}
                 onSave={data => setSlabData(data)}
                 embedded={true}
+                photo={photoPreview || (initial && initial.photo) || null}
+                onEditPhoto={() => {
+                  // Focus the file input for photo upload
+                  document.querySelector('input[type="file"][accept="image/*"]')?.click();
+                }}
               />
             </div>
-            
             <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
               <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
               <button type="button" onClick={handleSubmit} className="btn btn-primary" disabled={saving}>

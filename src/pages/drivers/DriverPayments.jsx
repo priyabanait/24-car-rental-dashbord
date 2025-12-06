@@ -34,6 +34,8 @@ export default function DriverPayments() {
   const [error, setError] = useState(null);
   const [showNewPayment, setShowNewPayment] = useState(false);
   const [drivers, setDrivers] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [selectedManager, setSelectedManager] = useState('');
   const [processingPayment, setProcessingPayment] = useState(null);
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [selectedPaymentForProcessing, setSelectedPaymentForProcessing] = useState(null);
@@ -54,7 +56,7 @@ export default function DriverPayments() {
       setLoading(true);
       setError(null);
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
         // Load drivers for selector
         const dRes = await fetch(`${API_BASE}/api/drivers`);
         if (!dRes.ok) throw new Error(`Failed to load drivers: ${dRes.status}`);
@@ -62,62 +64,48 @@ export default function DriverPayments() {
         if (!mounted) return;
         setDrivers(dList);
 
-        // Load transactions
-        const tRes = await fetch(`${API_BASE}/api/transactions?include=summary`);
-        if (!tRes.ok) throw new Error(`Failed to load payments: ${tRes.status}`);
-        const txData = await tRes.json();
-        if (!mounted) return;
-        
-        // Check if response includes summary
-        const tx = txData.transactions || txData;
-        const backendSummary = txData.summary || null;
-        
-        if (tx && tx.length > 0) {
-          const mapped = tx.map((t) => {
-            const drv = dList.find(dr => dr.id === t.driverId);
-            return {
-              txId: t.id || null,
-              id: t.id ? `PAY${String(1000 + t.id).slice(1)}` : (t.id || t._id),
-              driverId: t.driverId,
-              driverName: drv?.name || 'Unknown',
-              amount: t.amount || 0,
-              type: t.type || 'weekly_payout',
-              status: t.status || 'completed',
-              date: t.date || new Date().toISOString(),
-              method: t.method || 'bank_transfer',
-              accountNumber: t.accountNumber || '****0000',
-              transactionId: t.transactionId || null,
-              trips: drv?.totalTrips || 0,
-              commission: t.commission || 0,
-              bonus: t.bonus || 0,
-              deductions: t.deductions || 0,
-              netAmount: t.netAmount || t.amount || 0,
-              paymentPeriod: t.paymentPeriod || 'N/A'
-            };
-          });
-          setPayments(mapped);
+        // Load managers for dropdown
+        const mRes = await fetch(`${API_BASE}/api/managers`);
+        if (mRes.ok) {
+          const mList = await mRes.json();
+          setManagers(Array.isArray(mList) ? mList : []);
+        }
+
+        // Manager filter logic
+        let paymentsData = [];
+        if (selectedManager) {
+          const pRes = await fetch(`${API_BASE}/api/driver-plan-selections/by-manager/${encodeURIComponent(selectedManager)}`);
+          if (!pRes.ok) throw new Error(`Failed to load payments for manager: ${pRes.status}`);
+          paymentsData = await pRes.json();
         } else {
-          // Fallback derive from drivers if no transactions yet
-          const derived = dList.map((d, idx) => ({
-            id: `PAY${String(1000 + (d.id || idx)).slice(1)}`,
-            driverId: d.id,
-            driverName: d.name,
-            amount: Math.max(0, (d.totalEarnings || 0) / 10),
-            type: 'weekly_payout',
-            status: (d.status === 'active') ? 'completed' : (d.status === 'inactive' ? 'pending' : 'processing'),
-            date: d.lastActive || new Date().toISOString(),
-            method: 'bank_transfer',
-            accountNumber: '****' + String(d.accountNumber || '').slice(-4),
+          // Load all payments if no manager selected
+          const pRes = await fetch(`${API_BASE}/api/driver-plan-selections`);
+          if (!pRes.ok) throw new Error(`Failed to load payments: ${pRes.status}`);
+          paymentsData = await pRes.json();
+        }
+        if (!mounted) return;
+        // Map payments to UI format
+        const mapped = paymentsData.map((t) => {
+          return {
+            id: t._id,
+            driverId: t.driverSignupId,
+            driverName: t.driverUsername || 'Unknown',
+            amount: t.paidAmount || 0,
+            type: t.planType || 'weekly_payout',
+            status: t.paymentStatus || 'pending',
+            date: t.paymentDate || t.selectedDate || new Date().toISOString(),
+            method: t.paymentMode || 'N/A',
+            accountNumber: '****0000',
             transactionId: null,
-            trips: d.totalTrips || 0,
-            commission: Math.round(((d.totalEarnings || 0) * 0.14) / 10),
+            trips: 0,
+            commission: 0,
             bonus: 0,
             deductions: 0,
-            netAmount: Math.max(0, (d.totalEarnings || 0) / 10),
-            paymentPeriod: 'Auto-generated from driver stats'
-          }));
-          setPayments(derived);
-        }
+            netAmount: t.paidAmount || 0,
+            paymentPeriod: t.planName || 'N/A'
+          };
+        });
+        setPayments(mapped);
       } catch (err) {
         if (!mounted) return;
         setError(err.message || 'Failed to load data');
@@ -127,7 +115,7 @@ export default function DriverPayments() {
     };
     fetchData();
     return () => { mounted = false; };
-  }, []);
+  }, [selectedManager]);
 
   // Filter payments
   const filteredPayments = payments.filter(payment => {
@@ -465,6 +453,18 @@ export default function DriverPayments() {
                 <option value="month">This Month</option>
                 <option value="quarter">This Quarter</option>
                 <option value="year">This Year</option>
+              </select>
+
+              <select
+                name="manager"
+                value={selectedManager}
+                onChange={e => setSelectedManager(e.target.value)}
+                className="input-field"
+              >
+                <option value="">All Managers</option>
+                {managers.map(mgr => (
+                  <option key={mgr._id} value={mgr._id}>{mgr.name}</option>
+                ))}
               </select>
             </div>
 

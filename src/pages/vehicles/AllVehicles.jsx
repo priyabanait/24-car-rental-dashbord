@@ -37,6 +37,7 @@ export default function VehiclesList() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [vehiclesData, setVehiclesData] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -78,17 +79,21 @@ export default function VehiclesList() {
       setLoading(true);
       try{
         const API_BASE =  'https://udrive-backend-1igb.vercel.app';
-        const [vehicleRes, driverRes] = await Promise.all([
+        const [vehicleRes, driverRes, managerRes] = await Promise.all([
           fetch(`${API_BASE}/api/vehicles`),
-          fetch(`${API_BASE}/api/drivers`)
+          fetch(`${API_BASE}/api/drivers`),
+          fetch(`${API_BASE}/api/managers`)
         ]);
         if(!vehicleRes.ok) { throw new Error('Failed to load vehicles'); }
         if(!driverRes.ok) { throw new Error('Failed to load drivers'); }
+        if(!managerRes.ok) { throw new Error('Failed to load managers'); }
         const vehicleData = await vehicleRes.json();
         const driverData = await driverRes.json();
+        const managerData = await managerRes.json();
         const normalized = Array.isArray(vehicleData) ? vehicleData.map(normalizeVehicle) : [];
         if(mounted) setVehiclesData(normalized);
         if(mounted) setDrivers(driverData);
+        if(mounted) setManagers(managerData);
       }catch(err){
         console.error(err);
         setError(err.message || 'Failed to load vehicles');
@@ -511,6 +516,7 @@ export default function VehiclesList() {
                   <TableHead>Traffic Fine</TableHead>
                   <TableHead>Fine Date</TableHead>
                   <TableHead>Assigned Driver</TableHead>
+                  <TableHead>Assigned Manager</TableHead>
                   <TableHead>Rent Days</TableHead>
                   <TableHead>KYC Status</TableHead>
                   <TableHead>Status</TableHead>
@@ -552,17 +558,41 @@ export default function VehiclesList() {
                         : <Badge variant="warning">Not Assigned</Badge>
                     }</TableCell>
                     <TableCell>{
-                      v.rentStartDate && v.assignedDriver
+                      v.assignedManager
                         ? (() => {
-                            const start = new Date(v.rentStartDate);
-                            let end = new Date();
-                            if (v.status === 'inactive' && v.rentPausedDate) {
-                              end = new Date(v.rentPausedDate);
-                            }
-                            const diff = Math.max(1, Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1);
-                            return `${diff} days`;
+                            const found = managers.find(m => m._id === v.assignedManager);
+                            return found ? (found.name || found.username || found.email) : v.assignedManager;
                           })()
-                        : '-'
+                        : <Badge variant="warning">Not Assigned</Badge>
+                    }</TableCell>
+                    <TableCell>{
+                      v.rentStartDate
+                        ? (() => {
+                            // Calculate total active days
+                            let totalDays = 0;
+                            const start = new Date(v.rentStartDate);
+                            // If paused, use paused date as end for last active period
+                            if (v.rentPausedDate && v.status === 'inactive') {
+                              const paused = new Date(v.rentPausedDate);
+                              totalDays = Math.max(1, Math.floor((paused - start) / (1000 * 60 * 60 * 24)) + 1);
+                              return <span>{totalDays} days <Badge variant="warning">Paused</Badge></span>;
+                            } else if (v.rentPausedDate && v.status === 'active') {
+                              // If resumed, add previous days to current active period
+                              const paused = new Date(v.rentPausedDate);
+                              const beforePause = Math.max(1, Math.floor((paused - start) / (1000 * 60 * 60 * 24)) + 1);
+                              const afterResume = Math.max(0, Math.floor((new Date() - paused) / (1000 * 60 * 60 * 24)));
+                              totalDays = beforePause + afterResume;
+                              return `${totalDays} days`;
+                            } else if (v.status === 'active') {
+                              // First active period, not paused yet
+                              totalDays = Math.max(1, Math.floor((new Date() - start) / (1000 * 60 * 60 * 24)) + 1);
+                              return `${totalDays} days`;
+                            } else {
+                              // Not started or unknown state
+                              return <Badge variant="warning">Not Started</Badge>;
+                            }
+                          })()
+                        : <Badge variant="warning">Not Started</Badge>
                     }</TableCell>
                     <TableCell>{getKycBadge(v.kycStatus || v.kyc || v.kyc_status)}</TableCell>
                     <TableCell>{getStatusBadge(v.status)}</TableCell>

@@ -1,6 +1,113 @@
+import { PERMISSIONS } from '../../utils/permissions';
+import { PermissionGuard } from '../../components/guards/PermissionGuards';
+
+// --- Edit Modal State ---
+import React from 'react';
+
+function EditCredentialModal({ open, type, user, onClose, onSave }) {
+  const [form, setForm] = React.useState(user || {});
+  React.useEffect(() => { setForm(user || {}); }, [user]);
+  let fields = [];
+  if (type === 'driver') {
+    fields = [
+      { key: 'username', label: 'Username' },
+      { key: 'mobile', label: 'Mobile' },
+      { key: 'password', label: 'Password' },
+      { key: 'status', label: 'Status' },
+      { key: 'kycStatus', label: 'KYC Status' }
+    ];
+  } else {
+    fields = [
+      { key: 'investorName', label: 'Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'password', label: 'Password/OTP' },
+      { key: 'status', label: 'Status' },
+      { key: 'kycStatus', label: 'KYC Status' }
+    ];
+  }
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+        <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={onClose}>&times;</button>
+        <h2 className="text-lg font-bold mb-4">Edit {type === 'driver' ? 'Driver' : 'Investor'} Credentials</h2>
+        <form onSubmit={e => { e.preventDefault(); onSave(form); }} className="space-y-3">
+          {fields.map(f => (
+            <div key={f.key}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}</label>
+              <input
+                className="input w-full"
+                value={form[f.key] || ''}
+                onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                type="text"
+                autoComplete="off"
+              />
+            </div>
+          ))}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+// --- Edit Modal Logic ---
+const [editModal, setEditModal] = typeof window !== 'undefined' && window.__SIGNUP_EDIT_MODAL_STATE__ ? window.__SIGNUP_EDIT_MODAL_STATE__ : [null, () => {}];
+
+function SignupEditModalManager({ children }) {
+  const [modal, setModal] = React.useState({ open: false, type: '', user: null });
+  window.__SIGNUP_EDIT_MODAL_STATE__ = [modal, setModal];
+  return <>{children}<EditCredentialModal open={modal.open} type={modal.type} user={modal.user} onClose={() => setModal({ open: false })} onSave={async (updated) => {
+    try {
+      const id = updated._id || updated.id;
+      if (!id) throw new Error('Missing record ID');
+      const url = modal.type === 'driver'
+        ? `${API_BASE}/api/drivers/signup/credentials/${id}`
+        : `${API_BASE}/api/investors/signup/credentials/${id}`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      toast.success('Updated successfully');
+      setModal({ open: false });
+      window.location.reload();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update');
+    }
+  }} /></>;
+}
+
+function handleEdit(type, user) {
+  if (typeof window !== 'undefined' && window.__SIGNUP_EDIT_MODAL_STATE__) {
+    const [, setModal] = window.__SIGNUP_EDIT_MODAL_STATE__;
+    setModal({ open: true, type, user });
+  }
+}
+
+async function handleDelete(type, user) {
+  if (!window.confirm('Are you sure you want to delete this record?')) return;
+  try {
+    const url = type === 'driver'
+      ? `${API_BASE}/api/drivers/signup/credentials/${user._id || user.id}`
+      : `${API_BASE}/api/investors/signup/credentials/${user._id || user.id}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete');
+    toast.success('Deleted successfully');
+    window.location.reload();
+  } catch (err) {
+    toast.error(err.message || 'Failed to delete');
+  }
+}
 import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import { Search, Users, Shield } from 'lucide-react';
+import { Search, Users, Shield, Edit, Trash2 } from 'lucide-react';
 import { formatDate } from '../../utils';
 import toast from 'react-hot-toast';
 
@@ -61,7 +168,8 @@ export default function SignupCredentials() {
   });
 
   return (
-    <div className="space-y-6">
+    <SignupEditModalManager>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Signup Credentials</h1>
@@ -161,6 +269,24 @@ export default function SignupCredentials() {
                           }`}>{d.kycStatus || '—'}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.signupDate ? formatDate(d.signupDate) : '—'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
+                          <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}>
+                            <button
+                              onClick={() => handleEdit('driver', d)}
+                              className="p-1 text-gray-400 hover:text-green-600"
+                              title="Edit Driver"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          </PermissionGuard>
+                          <button
+                            onClick={() => handleDelete('driver', d)}
+                            className="p-1 text-gray-400 hover:text-red-600"
+                            title="Delete Driver"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
@@ -181,6 +307,22 @@ export default function SignupCredentials() {
                           }`}>{i.kycStatus || '—'}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{i.signupDate ? formatDate(i.signupDate) : '—'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
+                          <button
+                            onClick={() => handleEdit('investor', i)}
+                            className="p-1 text-gray-400 hover:text-green-600"
+                            title="Edit Investor"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete('investor', i)}
+                            className="p-1 text-gray-400 hover:text-red-600"
+                            title="Delete Investor"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -190,6 +332,7 @@ export default function SignupCredentials() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </SignupEditModalManager>
   );
 }

@@ -55,6 +55,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [drivers, setDrivers] = useState([]);
+  const [managers, setManagers] = useState([]);
 
   const loadOptions = async (type, setter) => {
     try {
@@ -76,8 +77,18 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       loadOptions('model', setModels);
       loadOptions('carName', setCarNames);
       fetchDrivers();
+      fetchManagers();
     }
   }, [isOpen]);
+  const fetchManagers = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/managers`);
+      const data = res.ok ? await res.json() : [];
+      setManagers(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setManagers([]);
+    }
+  };
 
   const fetchDrivers = async () => {
     try {
@@ -288,8 +299,8 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     try {
       const payload = {
         registrationNumber: form.registrationNumber,
-  model: form.model,
-  category: form.category,
+        model: form.model,
+        category: form.category,
         carName: form.carName,
         brand: form.brand,
         ownerName: form.ownerName,
@@ -298,7 +309,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
         year: form.manufactureYear ? Number(form.manufactureYear) : undefined,
         manufactureYear: form.manufactureYear ? Number(form.manufactureYear) : undefined,
         registrationDate: form.registrationDate,
-  rcExpiryDate: form.rcExpiryDate,
+        rcExpiryDate: form.rcExpiryDate,
         roadTaxDate: form.roadTaxDate,
         roadTaxNumber: form.roadTaxNumber || undefined,
         insuranceDate: form.insuranceDate,
@@ -309,6 +320,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
         fuelType: form.fuelType,
         color: form.color,
         assignedDriver: form.assignedDriver,
+        assignedManager: form.assignedManager,
         status: form.status,
         remarks: form.remarks,
         // Files (parent should handle uploading e.g., via FormData)
@@ -530,6 +542,21 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                   {drivers.map(driver => (
                     <option key={driver._id} value={driver._id}>
                       {driver.name || driver.username || driver.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Assign Manager</label>
+                <select
+                  className="input"
+                  value={form.assignedManager || ''}
+                  onChange={e => handleChange('assignedManager', e.target.value)}
+                >
+                  <option value="">Select Manager</option>
+                  {managers.map(manager => (
+                    <option key={manager._id} value={manager._id}>
+                      {manager.name || manager.username || manager.email}
                     </option>
                   ))}
                 </select>

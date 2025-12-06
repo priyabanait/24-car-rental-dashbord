@@ -30,7 +30,7 @@ import DriverDetailModal from '../../components/drivers/DriverDetailModal';
 import toast from 'react-hot-toast';
 
 export default function DriversList() {
-  useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -307,15 +307,21 @@ export default function DriversList() {
               Export
             </button>
           </PermissionGuard>
-          <PermissionGuard permission={PERMISSIONS.DRIVERS_CREATE}>
-            <button 
-              onClick={handleCreateDriver}
-              className="btn btn-primary flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Driver
-            </button>
-          </PermissionGuard>
+          {/* Hide Add Driver for manager role */}
+          
+            {/* Only show Add Driver for admin roles, not manager */}
+           
+              <PermissionGuard permission={PERMISSIONS.DRIVERS_CREATE}>
+                <button 
+                  onClick={handleCreateDriver}
+                  className="btn btn-primary flex items-center"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Driver
+                </button>
+              </PermissionGuard>
+       
+        
         </div>
       </div>
 
@@ -468,7 +474,7 @@ export default function DriversList() {
                   {/* <TableHead>Vehicle</TableHead> */}
                   {/* <TableHead>Plan</TableHead> */}
                   <TableHead>KYC Status</TableHead>
-                  <TableHead>Status</TableHead>
+                  {/* <TableHead>Status</TableHead> */}
                   {/* <TableHead>Earnings</TableHead> */}
                   {/* <TableHead>Rating</TableHead> */}
                   <TableHead>Actions</TableHead>
@@ -519,9 +525,9 @@ export default function DriversList() {
                     <TableCell>
                       {getKycBadge(driver.kycStatus)}
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       {getStatusBadge(driver.status)}
-                    </TableCell>
+                    </TableCell> */}
                     {/* <TableCell>
                       <div>
                         <div className="font-medium text-gray-900">{formatCurrency(driver.totalEarnings)}</div>
@@ -582,7 +588,7 @@ export default function DriversList() {
                           </select>
                         </PermissionGuard>
 
-                        <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}>
+                        {/* <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}>
                           <select
                             value={driver.status || 'inactive'}
                             onChange={(e)=>handleChangeDriverStatus(driver.id, e.target.value)}
@@ -593,7 +599,7 @@ export default function DriversList() {
                             <option value="inactive">Inactive</option>
                             <option value="suspended">Suspended</option>
                           </select>
-                        </PermissionGuard>
+                        </PermissionGuard> */}
 
                         <PermissionGuard permission={PERMISSIONS.DRIVERS_DELETE}>
                           <button

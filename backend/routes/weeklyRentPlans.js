@@ -1,5 +1,7 @@
+
 import express from 'express';
 import CarPlan from '../models/carPlan.js';
+import { uploadToCloudinary } from '../lib/cloudinary.js';
 
 const router = express.Router();
 
@@ -35,7 +37,18 @@ router.post('/', async (req, res) => {
   try {
     const body = req.body;
     console.log('weekly-rent-plans POST payload:', JSON.stringify(body).slice(0, 1000));
-    
+
+    // Handle photo upload if present
+    let photoUrl = null;
+    if (body.photo && typeof body.photo === 'string' && body.photo.startsWith('data:')) {
+      try {
+        const result = await uploadToCloudinary(body.photo, `car-plans/${Date.now()}`);
+        photoUrl = result.secure_url;
+      } catch (err) {
+        console.error('Failed to upload car plan photo:', err);
+      }
+    }
+
     const payload = {
       name: body.name || 'Weekly Rent Plan',
       vehicleType: body.vehicleType || body.category || 'General',
@@ -44,7 +57,8 @@ router.post('/', async (req, res) => {
       dailyRentSlabs: [], // Empty for weekly plans
       status: body.status || 'active',
       category: body.category || 'standard',
-      createdDate: body.createdDate || new Date().toISOString()
+      createdDate: body.createdDate || new Date().toISOString(),
+      photo: photoUrl // Store photo URL if uploaded
     };
 
     const p = new CarPlan(payload);
@@ -61,11 +75,21 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const body = req.body;
+    // Handle photo upload if present and is base64
+    let photoUrl = body.photo;
+    if (body.photo && typeof body.photo === 'string' && body.photo.startsWith('data:')) {
+      try {
+        const result = await uploadToCloudinary(body.photo, `car-plans/${Date.now()}`);
+        photoUrl = result.secure_url;
+      } catch (err) {
+        console.error('Failed to upload car plan photo:', err);
+      }
+    }
     const updateData = {
       ...body,
-      weeklyRentSlabs: Array.isArray(body.weeklyRentSlabs) ? body.weeklyRentSlabs : []
+      weeklyRentSlabs: Array.isArray(body.weeklyRentSlabs) ? body.weeklyRentSlabs : [],
+      photo: photoUrl
     };
-    
     const updated = await CarPlan.findByIdAndUpdate(req.params.id, updateData, { new: true }).lean();
     if (!updated) return res.status(404).json({ message: 'Not found' });
     res.json(updated);
