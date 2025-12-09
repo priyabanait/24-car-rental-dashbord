@@ -36,8 +36,9 @@ export default function AddWalletAmount() {
     async function fetchInvestors() {
       setLoading(true);
       try {
-        const res = await axios.get('https://udrive-backend-1igb.vercel.app/api/investors');
-        setInvestors(res.data);
+        const res = await axios.get('https://udrive-backend-1igb.vercel.app/api/investors?limit=1000');
+        const data = res.data.data || res.data;
+        setInvestors(data);
       } catch (err) {
         console.error('Failed to fetch investors:', err);
       } finally {

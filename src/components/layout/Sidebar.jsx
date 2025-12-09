@@ -124,11 +124,11 @@ const navigation = [
       //   href: '/plans/enrollments',
       //   permission: PERMISSIONS.PLANS_VIEW
       // },
-      { 
-        name: 'Driver Plan Selections', 
-        href: '/plans/selections',
-        permission: PERMISSIONS.PLANS_VIEW
-      }
+      // { 
+      //   name: 'Driver Plan Selections', 
+      //   href: '/plans/selections',
+      //   permission: PERMISSIONS.PLANS_VIEW
+      // }
     ]
   },
   {
@@ -144,6 +144,11 @@ const navigation = [
       { 
         name: 'All Investments', 
         href: '/investments',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
+       { 
+        name: 'Investor Details', 
+        href: '/investerDetails',
         permission: PERMISSIONS.INVESTMENTS_VIEW
       },
       { 
@@ -198,11 +203,11 @@ const navigation = [
       //   href: '/drivers/payments',
       //   permission: PERMISSIONS.PAYMENTS_VIEW
       // }
-      { 
-        name: 'Invester FD Payments', 
-        href: '/payments/process',
-        permission: PERMISSIONS.PAYMENTS_PROCESS
-      },
+      // { 
+      //   name: 'Invester FD Payments', 
+      //   href: '/payments/process',
+      //   permission: PERMISSIONS.PAYMENTS_PROCESS
+      // },
         { 
         name: 'Driver Payments', 
         href: '/payments/driverpayments',
@@ -230,55 +235,55 @@ const navigation = [
       //   href: '/expenses/add',
       //   permission: PERMISSIONS.EXPENSES_CREATE
       // },
-      { 
-        name: 'Expense Reports', 
-        href: '/expenses/reports',
-        permission: PERMISSIONS.EXPENSES_VIEW
-      },
-      { 
-        name: 'Categories', 
-        href: '/expenses/categories',
-        permission: PERMISSIONS.EXPENSES_VIEW
-      }
-    ]
-  },
-  {
-    name: 'Analytics & Reports',
-    icon: BarChart3,
-    permission: PERMISSIONS.REPORTS_VIEW,
-    children: [
-      { 
-        name: 'Financial Reports', 
-        href: '/reports/financial',
-        permission: PERMISSIONS.REPORTS_FINANCIAL
-      },
-      { 
-        name: 'Performance Reports', 
-        href: '/reports/performance',
-        permission: PERMISSIONS.REPORTS_PERFORMANCE
-      },
       // { 
-      //   name: 'Export Data', 
-      //   href: '/reports/export',
-      //   permission: PERMISSIONS.REPORTS_EXPORT
+      //   name: 'Expense Reports', 
+      //   href: '/expenses/reports',
+      //   permission: PERMISSIONS.EXPENSES_VIEW
+      // },
+      // { 
+      //   name: 'Categories', 
+      //   href: '/expenses/categories',
+      //   permission: PERMISSIONS.EXPENSES_VIEW
       // }
     ]
   },
+  // {
+  //   name: 'Analytics & Reports',
+  //   icon: BarChart3,
+  //   permission: PERMISSIONS.REPORTS_VIEW,
+  //   children: [
+  //     { 
+  //       name: 'Financial Reports', 
+  //       href: '/reports/financial',
+  //       permission: PERMISSIONS.REPORTS_FINANCIAL
+  //     },
+  //     { 
+  //       name: 'Performance Reports', 
+  //       href: '/reports/performance',
+  //       permission: PERMISSIONS.REPORTS_PERFORMANCE
+  //     },
+  //     // { 
+  //     //   name: 'Export Data', 
+  //     //   href: '/reports/export',
+  //     //   permission: PERMISSIONS.REPORTS_EXPORT
+  //     // }
+  //   ]
+  // },
   {
     name: 'Admin Management',
     icon: Shield,
     permission: PERMISSIONS.ADMIN_VIEW,
     children: [
-      { 
-        name: 'Admin Users', 
-        href: '/admin/users',
-        permission: PERMISSIONS.ADMIN_VIEW
-      },
-      { 
-        name: 'Roles & Permissions', 
-        href: '/admin/roles',
-        permission: PERMISSIONS.ADMIN_ROLES
-      },
+      // { 
+      //   name: 'Admin Users', 
+      //   href: '/admin/users',
+      //   permission: PERMISSIONS.ADMIN_VIEW
+      // },
+      // { 
+      //   name: 'Roles & Permissions', 
+      //   href: '/admin/roles',
+      //   permission: PERMISSIONS.ADMIN_ROLES
+      // },
       {
         name: 'Signup Credentials',
         href: '/admin/signup-credentials',
@@ -373,11 +378,8 @@ export default function Sidebar({ collapsed, onToggle }) {
     'create',
     'delete'
   ];
-  const filteredNavigation = navigation.filter(item => {
-    // Show all sidebar sections and children for all users, regardless of role or permission
-    if (item.children) {
-      item.children = item.children;
-    }
+  const filteredNavigation = navigation.filter((item) => {
+    if (isManager && item.name === 'Manage Manager') return false;
     return true;
   });
 

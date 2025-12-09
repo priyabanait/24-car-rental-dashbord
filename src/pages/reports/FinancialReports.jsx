@@ -51,19 +51,34 @@ export default function FinancialReports() {
         
         // Fetch all financial data in parallel
         const [expensesRes, driversRes, vehiclesRes, investorsRes, transactionsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/expenses`),
-          fetch(`${API_BASE}/api/drivers`),
-          fetch(`${API_BASE}/api/vehicles`),
-          fetch(`${API_BASE}/api/investors`),
-          fetch(`${API_BASE}/api/transactions`)
+          fetch(`${API_BASE}/api/expenses?limit=1000`),
+          fetch(`${API_BASE}/api/drivers?limit=1000`),
+          fetch(`${API_BASE}/api/vehicles?limit=1000`),
+          fetch(`${API_BASE}/api/investors?limit=1000`),
+          fetch(`${API_BASE}/api/transactions?limit=1000`)
         ]);
 
         if (mounted) {
-          if (expensesRes.ok) setExpenses(await expensesRes.json());
-          if (driversRes.ok) setDrivers(await driversRes.json());
-          if (vehiclesRes.ok) setVehicles(await vehiclesRes.json());
-          if (investorsRes.ok) setInvestors(await investorsRes.json());
-          if (transactionsRes.ok) setTransactions(await transactionsRes.json());
+          if (expensesRes.ok) {
+            const result = await expensesRes.json();
+            setExpenses(result.data || result);
+          }
+          if (driversRes.ok) {
+            const result = await driversRes.json();
+            setDrivers(result.data || result);
+          }
+          if (vehiclesRes.ok) {
+            const result = await vehiclesRes.json();
+            setVehicles(result.data || result);
+          }
+          if (investorsRes.ok) {
+            const result = await investorsRes.json();
+            setInvestors(result.data || result);
+          }
+          if (transactionsRes.ok) {
+            const result = await transactionsRes.json();
+            setTransactions(result.data || result);
+          }
         }
       } catch (err) {
         console.error(err);

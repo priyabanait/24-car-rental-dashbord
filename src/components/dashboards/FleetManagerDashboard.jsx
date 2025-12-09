@@ -1,72 +1,378 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  Car, 
   Users, 
-  MapPin, 
+  Car, 
   TrendingUp, 
+  DollarSign, 
   AlertTriangle,
   CheckCircle,
   Clock,
-  DollarSign
+  Activity,
+  FileText,
+  Settings,
+  BarChart3,
+  Wallet,
+  Shield,
+  Database
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { formatCurrency, formatDate } from '../../utils';
+import { useAuth } from '../../contexts/AuthContext';
+import { PERMISSIONS } from '../../utils/permissions';
+import toast from 'react-hot-toast';
 
-export default function FleetManagerDashboard() {
-  const [fleetStats, setFleetStats] = useState({
-    totalDrivers: 324,
-    activeDrivers: 287,
-    pendingKyc: 12,
-    totalVehicles: 298,
-    activeVehicles: 245,
-    maintenanceVehicles: 8,
-    avgRating: 4.6,
-    totalTrips: 15678,
-    todayTrips: 89,
-    totalRevenue: 567890
+export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
+  const { hasPermission, user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalDrivers: 0,
+    activeDrivers: 0,
+    totalVehicles: 0,
+    activeVehicles: 0,
+    totalRevenue: 0,
+    totalExpenses: 0,
+    pendingKyc: 0,
+    totalInvestors: 0,
+    totalInvestment: 0,
+    systemHealth: 0,
+    lastBackup: new Date().toISOString()
   });
 
-  const [recentDrivers, setRecentDrivers] = useState([
-    { id: 1, name: 'Arjun Kumar', status: 'pending', joinDate: '2024-10-25', kycStatus: 'pending' },
-    { id: 2, name: 'Priya Sharma', status: 'active', joinDate: '2024-10-24', kycStatus: 'verified' },
-    { id: 3, name: 'Rakesh Singh', status: 'pending', joinDate: '2024-10-23', kycStatus: 'pending' },
-    { id: 4, name: 'Meera Gupta', status: 'active', joinDate: '2024-10-22', kycStatus: 'verified' },
-  ]);
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [investors, setInvestors] = useState([]);
+  const [investmentFDs, setInvestmentFDs] = useState([]);
+  const [investorSignups, setInvestorSignups] = useState([]);
 
-  const [vehicleAlerts, setVehicleAlerts] = useState([
-    { id: 1, vehicle: 'KA-05-AB-1234', issue: 'Maintenance Due', priority: 'medium', dueDate: '2024-10-28' },
-    { id: 2, vehicle: 'KA-05-CD-5678', issue: 'Insurance Expiring', priority: 'high', dueDate: '2024-10-26' },
-    { id: 3, vehicle: 'KA-05-EF-9012', issue: 'PUC Renewal', priority: 'medium', dueDate: '2024-10-30' },
-  ]);
+  const [recentActivities, setRecentActivities] = useState([]);
+    const [systemAlerts, setSystemAlerts] = useState([]);
 
-  const [topPerformers, setTopPerformers] = useState([
-    { id: 1, name: 'Suresh Kumar', trips: 45, rating: 4.9, earnings: 12500 },
-    { id: 2, name: 'Ramesh Gupta', trips: 42, rating: 4.8, earnings: 11800 },
-    { id: 3, name: 'Vikash Singh', trips: 38, rating: 4.7, earnings: 10900 },
-    { id: 4, name: 'Amit Sharma', trips: 35, rating: 4.6, earnings: 10200 },
-  ]);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        
+        // Fetch all data in parallel
+        const [
+          driversRes,
+          vehiclesRes,
+          expensesRes,
+          transactionsRes,
+          ticketsRes,
+          employeesRes,
+          investorsRes,
+          investorSignupRes,
+          investmentFDRes
+        ] = await Promise.all([
+          fetch(`${API_BASE}/api/drivers?limit=1000`),
+          fetch(`${API_BASE}/api/vehicles?limit=1000`),
+          fetch(`${API_BASE}/api/expenses?limit=1000`),
+          fetch(`${API_BASE}/api/transactions?limit=1000`),
+          fetch(`${API_BASE}/api/tickets?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/employees?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/investors?limit=1000`),
+          fetch(`${API_BASE}/api/investors/signup/credentials?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/investment-fds?limit=1000`).catch(() => ({ ok: false }))
+        ]);
+
+        if (!mounted) return;
+
+        let driversData = [];
+        let vehiclesData = [];
+        let expensesData = [];
+        let transactionsData = [];
+        let ticketsData = [];
+        let employeesData = [];
+        let investorsData = [];
+        let investorSignupData = [];
+        let investmentFDData = [];
+
+        if (driversRes.ok) {
+          const result = await driversRes.json();
+          driversData = result.data || result;
+        }
+        if (vehiclesRes.ok) {
+          const result = await vehiclesRes.json();
+          vehiclesData = result.data || result;
+        }
+        if (expensesRes.ok) {
+          const result = await expensesRes.json();
+          expensesData = result.data || result;
+        }
+        if (transactionsRes.ok) {
+          const result = await transactionsRes.json();
+          transactionsData = result.data || result;
+        }
+        if (ticketsRes.ok) {
+          const result = await ticketsRes.json();
+          ticketsData = result.data || result;
+        }
+        if (employeesRes.ok) {
+          const result = await employeesRes.json();
+          employeesData = result.data || result;
+        }
+        if (investorsRes.ok) {
+          const result = await investorsRes.json();
+          investorsData = result.data || result;
+        }
+        if (investorSignupRes.ok) {
+          const result = await investorSignupRes.json();
+          investorSignupData = result.data || result;
+        }
+        if (investmentFDRes.ok) {
+          const result = await investmentFDRes.json();
+          investmentFDData = result.data || result;
+        }
+
+        setDrivers(driversData);
+        setVehicles(vehiclesData);
+        setExpenses(expensesData);
+        setTransactions(transactionsData);
+        setTickets(ticketsData);
+        setEmployees(employeesData);
+        setInvestors(investorsData);
+        setInvestorSignups(investorSignupData);
+        setInvestmentFDs(investmentFDData);
+
+        // Calculate stats
+        const activeDriversCount = driversData.filter(d => d.status === 'active').length;
+        const activeVehiclesCount = vehiclesData.filter(v => v.status === 'active').length;
+        const pendingKycCount = driversData.filter(d => d.kycStatus === 'pending').length;
+        
+        const totalRevenue = transactionsData
+          .filter(t => t.type === 'revenue' || t.type === 'income')
+          .reduce((sum, t) => sum + (t.amount || 0), 0);
+        
+        const totalExpenses = expensesData
+          .filter(e => e.status === 'approved')
+          .reduce((sum, e) => sum + (e.amount || 0), 0);
+
+        const totalInvestmentFromInvestors = investorsData.reduce((sum, inv) => sum + (inv.totalInvestment || 0), 0);
+        const totalInvestmentFromFDs = investmentFDData.reduce((sum, inv) => sum + (inv.investmentAmount || 0), 0);
+        const totalInvestment = totalInvestmentFromInvestors + totalInvestmentFromFDs;
+        const activeInvestors = investorsData.filter(inv => (inv.kycStatus || '').toLowerCase() === 'verified').length;
+        const pendingInvestorKyc = investorsData.filter(inv => (inv.kycStatus || '').toLowerCase() === 'pending').length;
+        const signupCount = investorSignupData.length;
+
+        // Calculate system health score
+        const vehicleHealth = vehiclesData.length > 0 
+          ? (activeVehiclesCount / vehiclesData.length) * 100 
+          : 100;
+        const driverHealth = driversData.length > 0 
+          ? (activeDriversCount / driversData.length) * 100 
+          : 100;
+        const ticketHealth = ticketsData.length > 0
+          ? ((ticketsData.filter(t => t.status === 'resolved' || t.status === 'closed').length) / ticketsData.length) * 100
+          : 100;
+        const systemHealth = (vehicleHealth * 0.4 + driverHealth * 0.4 + ticketHealth * 0.2);
+
+        setStats({
+          totalUsers: employeesData.length,
+          totalDrivers: driversData.length,
+          activeDrivers: activeDriversCount,
+          totalVehicles: vehiclesData.length,
+          activeVehicles: activeVehiclesCount,
+          totalRevenue,
+          totalExpenses,
+          pendingKyc: pendingKycCount,
+          totalInvestors: investorsData.length,
+          activeInvestors,
+          pendingInvestorKyc,
+          investorSignups: signupCount,
+          totalInvestment,
+          systemHealth: systemHealth.toFixed(1),
+          lastBackup: new Date().toISOString()
+        });
+
+        // Generate system alerts
+        const alerts = [];
+        if (pendingKycCount > 0) {
+          alerts.push({
+            id: 1,
+            type: 'info',
+            message: `${pendingKycCount} driver${pendingKycCount > 1 ? 's' : ''} pending KYC verification`,
+            priority: pendingKycCount > 20 ? 'high' : 'medium'
+          });
+        }
+
+        const maintenanceVehicles = vehiclesData.filter(v => v.status === 'maintenance').length;
+        if (maintenanceVehicles > 0) {
+          alerts.push({
+            id: 2,
+            type: 'warning',
+            message: `${maintenanceVehicles} vehicle${maintenanceVehicles > 1 ? 's' : ''} currently under maintenance`,
+            priority: maintenanceVehicles > 10 ? 'high' : 'medium'
+          });
+        }
+
+        const openTickets = ticketsData.filter(t => t.status === 'open' || t.status === 'pending').length;
+        if (openTickets > 0) {
+          alerts.push({
+            id: 3,
+            type: 'warning',
+            message: `${openTickets} open ticket${openTickets > 1 ? 's' : ''} require attention`,
+            priority: openTickets > 15 ? 'high' : 'medium'
+          });
+        }
+
+        if (systemHealth >= 95) {
+          alerts.push({
+            id: 4,
+            type: 'success',
+            message: 'All systems operational - Excellent health',
+            priority: 'low'
+          });
+        }
+
+        const idleVehicles = vehiclesData.filter(v => v.status === 'idle').length;
+        if (idleVehicles > 5) {
+          alerts.push({
+            id: 5,
+            type: 'info',
+            message: `${idleVehicles} idle vehicles available for assignment`,
+            priority: 'low'
+          });
+        }
+
+        setSystemAlerts(alerts.slice(0, 5));
+
+        // Generate recent activities
+        const activities = [];
+        
+        // Recent drivers
+        const recentDrivers = [...driversData]
+          .filter(d => d.createdAt)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(0, 2);
+        
+        recentDrivers.forEach((d, idx) => {
+          const timeAgo = getTimeAgo(d.createdAt);
+          activities.push({
+            id: `driver-${idx}`,
+            type: 'driver_approved',
+            message: `New driver registered: ${d.name}`,
+            time: timeAgo
+          });
+        });
+
+        // Recent expenses
+        const recentExpenses = [...expensesData]
+          .filter(e => e.date)
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 2);
+        
+        recentExpenses.forEach((e, idx) => {
+          const timeAgo = getTimeAgo(e.date);
+          activities.push({
+            id: `expense-${idx}`,
+            type: 'payment_processed',
+            message: `Expense processed: ${e.title} - ${formatCurrency(e.amount)}`,
+            time: timeAgo
+          });
+        });
+
+        // Recent transactions
+        const recentTransactions = [...transactionsData]
+          .filter(t => t.date)
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 2);
+        
+        recentTransactions.forEach((t, idx) => {
+          const timeAgo = getTimeAgo(t.date);
+          activities.push({
+            id: `transaction-${idx}`,
+            type: 'payment_processed',
+            message: `Transaction: ${t.type} - ${formatCurrency(t.amount)}`,
+            time: timeAgo
+          });
+        });
+
+        setRecentActivities(activities.slice(0, 6));
+
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    if (seconds < 2592000) return `${Math.floor(seconds / 86400)} days ago`;
+    return formatDate(dateString);
+  };
+
+  const calculateGrowth = (current, total) => {
+    // Mock growth calculation - in real app, compare with previous period
+    const growth = Math.random() * 20 - 5; // Random between -5% and 15%
+    return growth;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Fleet Manager Dashboard</h1>
+        <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg p-6 text-white">
+        <h1 className="text-2xl font-bold mb-2">Welcome, {user?.name || 'Manager'}</h1>
         <p className="text-green-100">Manage drivers, vehicles, and fleet operations</p>
       </div>
 
-      {/* Fleet Stats */}
+      {/* System Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="h-6 w-6 text-blue-600" />
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Drivers</p>
-                <p className="text-2xl font-bold text-gray-900">{fleetStats.totalDrivers}</p>
-                <p className="text-xs text-green-600">{fleetStats.activeDrivers} active</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalDrivers}</p>
+      
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Drivers</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeDrivers}</p>
+                
               </div>
             </div>
           </CardContent>
@@ -80,270 +386,203 @@ export default function FleetManagerDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Vehicles</p>
-                <p className="text-2xl font-bold text-gray-900">{fleetStats.totalVehicles}</p>
-                <p className="text-xs text-green-600">{fleetStats.activeVehicles} active</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalVehicles}</p>
+        
               </div>
             </div>
           </CardContent>
+          
         </Card>
 
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Trips</p>
-                <p className="text-2xl font-bold text-gray-900">{fleetStats.totalTrips}</p>
-                <p className="text-xs text-green-600">{fleetStats.todayTrips} today</p>
+                <p className="text-sm font-medium text-gray-600">Active Vehicles</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeVehicles}</p>
+    
               </div>
             </div>
           </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Fleet Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(fleetStats.totalRevenue)}</p>
-                <p className="text-xs text-green-600">This month</p>
-              </div>
-            </div>
-          </CardContent>
+          
         </Card>
       </div>
 
-      {/* Recent Drivers & Vehicle Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center">
-                <Users className="h-5 w-5 mr-2 text-blue-500" />
-                Recent Driver Applications
-              </span>
-              <Badge variant="info">{fleetStats.pendingKyc} pending KYC</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentDrivers.map((driver) => (
-                <div key={driver.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{driver.name}</p>
-                    <p className="text-sm text-gray-600">Applied: {formatDate(driver.joinDate)}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge 
-                      variant={driver.kycStatus === 'verified' ? 'success' : 'warning'}
-                    >
-                      {driver.kycStatus}
-                    </Badge>
-                    <Badge 
-                      variant={driver.status === 'active' ? 'success' : 'warning'}
-                    >
-                      {driver.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="w-full mt-3 btn btn-outline btn-sm">
-              View All Applications
-            </button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2 text-orange-500" />
-                Vehicle Alerts
-              </span>
-              <Badge variant="warning">{vehicleAlerts.length} alerts</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {vehicleAlerts.map((alert) => (
-                <div key={alert.id} className={`p-3 rounded-lg border-l-4 ${
-                  alert.priority === 'high' ? 'border-red-500 bg-red-50' :
-                  'border-yellow-500 bg-yellow-50'
-                }`}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-gray-900">{alert.vehicle}</p>
-                      <p className="text-sm text-gray-600">{alert.issue}</p>
-                      <p className="text-xs text-gray-500">Due: {formatDate(alert.dueDate)}</p>
-                    </div>
-                    <Badge 
-                      variant={alert.priority === 'high' ? 'danger' : 'warning'}
-                    >
-                      {alert.priority}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="w-full mt-3 btn btn-outline btn-sm">
-              View All Alerts
-            </button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Performers */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
-            Top Performing Drivers This Month
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-4 font-medium text-gray-700">Driver</th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-700">Trips</th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-700">Rating</th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-700">Earnings</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topPerformers.map((driver, index) => (
-                  <tr key={driver.id} className="border-b border-gray-100">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
-                          index === 0 ? 'bg-yellow-100 text-yellow-800' :
-                          index === 1 ? 'bg-gray-100 text-gray-800' :
-                          index === 2 ? 'bg-orange-100 text-orange-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        {driver.name}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">{driver.trips}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        <span className="text-yellow-400 mr-1">★</span>
-                        {driver.rating}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-medium">{formatCurrency(driver.earnings)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+     
 
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Fleet Actions</CardTitle>
+          <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button className="btn btn-primary flex flex-col items-center p-4">
-              <Users className="h-6 w-6 mb-2" />
-              <span className="text-sm">Add New Driver</span>
-            </button>
-            <button className="btn btn-outline flex flex-col items-center p-4">
-              <Car className="h-6 w-6 mb-2" />
-              <span className="text-sm">Vehicle Assignment</span>
-            </button>
-            <button className="btn btn-outline flex flex-col items-center p-4">
-              <CheckCircle className="h-6 w-6 mb-2" />
-              <span className="text-sm">KYC Verification</span>
-            </button>
-            <button className="btn btn-outline flex flex-col items-center p-4">
-              <MapPin className="h-6 w-6 mb-2" />
-              <span className="text-sm">Fleet Tracking</span>
-            </button>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {/* Manage Users/Admin */}
+            {/* {hasPermission(PERMISSIONS.ADMIN_VIEW) && (
+              <button 
+                onClick={() => navigate('/admin/users')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-blue-50 transition-colors"
+              >
+                <Users className="h-6 w-6 mb-2 text-blue-600" />
+                <span className="text-sm font-medium">Manage Users</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalUsers} users</span>
+              </button>
+            )} */}
+
+            {/* Drivers */}
+            {hasPermission(PERMISSIONS.DRIVERS_VIEW) && (
+              <button 
+                onClick={() => navigate('/drivers')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-green-50 transition-colors"
+              >
+                <Car className="h-6 w-6 mb-2 text-green-600" />
+                <span className="text-sm font-medium">All Drivers</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalDrivers} drivers</span>
+              </button>
+            )}
+
+            {/* Vehicles */}
+            {hasPermission(PERMISSIONS.VEHICLES_VIEW) && (
+              <button 
+                onClick={() => navigate('/vehicles/allvehicles')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-purple-50 transition-colors"
+              >
+                <Car className="h-6 w-6 mb-2 text-purple-600" />
+                <span className="text-sm font-medium">All Vehicles</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalVehicles} vehicles</span>
+              </button>
+            )}
+
+            {/* Financial Reports */}
+            {/* {hasPermission(PERMISSIONS.REPORTS_FINANCIAL) && (
+              <button 
+                onClick={() => navigate('/reports/financial')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-indigo-50 transition-colors"
+              >
+                <DollarSign className="h-6 w-6 mb-2 text-indigo-600" />
+                <span className="text-sm font-medium">Financial Reports</span>
+                <span className="text-xs text-gray-500 mt-1">View analytics</span>
+              </button>
+            )} */}
+
+            {/* Performance Reports */}
+            {/* {hasPermission(PERMISSIONS.REPORTS_PERFORMANCE) && (
+              <button 
+                onClick={() => navigate('/reports/performance')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-orange-50 transition-colors"
+              >
+                <BarChart3 className="h-6 w-6 mb-2 text-orange-600" />
+                <span className="text-sm font-medium">Performance</span>
+                <span className="text-xs text-gray-500 mt-1">KPI dashboard</span>
+              </button>
+            )} */}
+
+            {/* Expenses */}
+            
+
+            {/* Investments */}
+            {hasPermission(PERMISSIONS.INVESTMENTS_VIEW) && (
+              <button 
+                onClick={() => navigate('/investerDetails')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-teal-50 transition-colors"
+              >
+                <Wallet className="h-6 w-6 mb-2 text-teal-600" />
+                <span className="text-sm font-medium">Investments</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalInvestors} investors</span>
+              </button>
+            )}
+
+            {/* Tickets */}
+            {/* {hasPermission(PERMISSIONS.TICKETS_VIEW) && (
+              <button 
+                onClick={() => navigate('/tickets')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-yellow-50 transition-colors"
+              >
+                <AlertTriangle className="h-6 w-6 mb-2 text-yellow-600" />
+                <span className="text-sm font-medium">Tickets</span>
+                <span className="text-xs text-gray-500 mt-1">
+                  {tickets.filter(t => t.status === 'open' || t.status === 'pending').length} open
+                </span>
+              </button>
+            )} */}
+
+            {/* Driver KYC */}
+            {/* {hasPermission(PERMISSIONS.DRIVERS_KYC) && stats.pendingKyc > 0 && (
+              <button 
+                onClick={() => navigate('/drivers/status')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-pink-50 transition-colors border-pink-300"
+              >
+                <Shield className="h-6 w-6 mb-2 text-pink-600" />
+                <span className="text-sm font-medium">Pending KYC</span>
+                <span className="text-xs text-pink-600 mt-1 font-semibold">{stats.pendingKyc} pending</span>
+              </button>
+            )} */}
+
+            {/* Roles Management */}
+            {/* {hasPermission(PERMISSIONS.ADMIN_ROLES) && (
+              <button 
+                onClick={() => navigate('/admin/roles')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-gray-50 transition-colors"
+              >
+                <Settings className="h-6 w-6 mb-2 text-gray-600" />
+                <span className="text-sm font-medium">Manage Roles</span>
+                <span className="text-xs text-gray-500 mt-1">Permissions</span>
+              </button>
+            )} */}
+ {/* Plans */}
+            {hasPermission(PERMISSIONS.PLANS_VIEW) && (
+              <button 
+                onClick={() => navigate('/plans')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-cyan-50 transition-colors"
+              >
+                <Database className="h-6 w-6 mb-2 text-cyan-600" />
+                <span className="text-sm font-medium">Car Plans</span>
+                <span className="text-xs text-gray-500 mt-1">Manage plans</span>
+              </button>
+            )}
+            {/* Payments */}
+            {hasPermission(PERMISSIONS.PAYMENTS_VIEW) && (
+              <button 
+                onClick={() => navigate('/payments/drivers')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-emerald-50 transition-colors"
+              >
+                <DollarSign className="h-6 w-6 mb-2 text-emerald-600" />
+                <span className="text-sm font-medium">Payments</span>
+                <span className="text-xs text-gray-500 mt-1">Process payments</span>
+              </button>
+            )}
+
+           
+            {hasPermission(PERMISSIONS.EXPENSES_VIEW) && (
+              <button 
+                onClick={() => navigate('/expenses')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-red-50 transition-colors"
+              >
+                <FileText className="h-6 w-6 mb-2 text-red-600" />
+                <span className="text-sm font-medium">Expenses</span>
+                <span className="text-xs text-gray-500 mt-1">{formatCurrency(stats.totalExpenses)}</span>
+              </button>
+            )}
           </div>
+           {/* System Alerts & Recent Activities */}
+      
+
+          {/* No actions available message */}
+          {!hasPermission(PERMISSIONS.ADMIN_VIEW) && 
+           !hasPermission(PERMISSIONS.DRIVERS_VIEW) && 
+           !hasPermission(PERMISSIONS.VEHICLES_VIEW) && 
+           !hasPermission(PERMISSIONS.REPORTS_VIEW) && (
+            <div className="text-center py-8 text-gray-500">
+              <Activity className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm">No quick actions available with your current permissions</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Performance Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Driver Metrics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Average Rating</span>
-                <span className="font-medium">{fleetStats.avgRating}/5</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Active Drivers</span>
-                <span className="font-medium text-green-600">{fleetStats.activeDrivers}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Pending KYC</span>
-                <span className="font-medium text-orange-600">{fleetStats.pendingKyc}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Vehicle Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Active Vehicles</span>
-                <span className="font-medium text-green-600">{fleetStats.activeVehicles}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Under Maintenance</span>
-                <span className="font-medium text-orange-600">{fleetStats.maintenanceVehicles}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Fleet Utilization</span>
-                <span className="font-medium">82%</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Today's Operations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Trips Completed</span>
-                <span className="font-medium">{fleetStats.todayTrips}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Active Trips</span>
-                <span className="font-medium text-blue-600">23</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Drivers Online</span>
-                <span className="font-medium text-green-600">156</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

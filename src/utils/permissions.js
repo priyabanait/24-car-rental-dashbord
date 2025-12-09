@@ -95,8 +95,8 @@ export const ROLES = {
   
   FLEET_MANAGER: {
     id: 'fleet_manager',
-    name: 'Fleet Manager',
-    description: 'Manage drivers, vehicles, and fleet operations',
+    name: 'Manager',
+    description: 'Manage drivers, vehicles, fleet operations, and investments',
     permissions: [
       PERMISSIONS.DASHBOARD_VIEW,
       PERMISSIONS.DASHBOARD_ANALYTICS,
@@ -121,6 +121,17 @@ export const ROLES = {
       PERMISSIONS.TICKETS_VIEW,
       PERMISSIONS.TICKETS_CREATE,
       PERMISSIONS.TICKETS_EDIT,
+      // Investment permissions added for manager
+      PERMISSIONS.INVESTMENTS_VIEW,
+      PERMISSIONS.INVESTMENTS_CREATE,
+      PERMISSIONS.INVESTMENTS_EDIT,
+      PERMISSIONS.INVESTMENTS_DELETE,
+      PERMISSIONS.INVESTMENTS_ANALYTICS,
+      // Payment permissions added for manager
+      PERMISSIONS.PAYMENTS_VIEW,
+      PERMISSIONS.PAYMENTS_CREATE,
+      PERMISSIONS.PAYMENTS_EDIT,
+      PERMISSIONS.PAYMENTS_PROCESS,
     ],
     color: 'blue'
   },

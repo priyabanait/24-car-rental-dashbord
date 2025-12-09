@@ -133,32 +133,66 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     setLoading(true);
-    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Check mock users first
       const foundUser = MOCK_USERS.find(
         u => u.email === email && u.password === password
       );
-      
       if (foundUser) {
         const userWithoutPassword = { ...foundUser };
         delete userWithoutPassword.password;
-        
-        // Update last login
         userWithoutPassword.lastLogin = new Date().toISOString();
-        
         setUser(userWithoutPassword);
         localStorage.setItem('udriver_user', JSON.stringify(userWithoutPassword));
         toast.success(`Welcome back, ${userWithoutPassword.name}!`);
         setLoading(false);
         return { success: true };
-      } else {
-        setLoading(false);
-        toast.error('Invalid email or password');
-        return { success: false, message: 'Invalid credentials' };
       }
+      // If not a mock user, try backend manager login
+      const response = await fetch('/api/managers/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        setLoading(false);
+        toast.error(data.message || 'Invalid credentials');
+        return { success: false, message: data.message || 'Invalid credentials' };
+      }
+      const data = await response.json();
+      let userWithoutPassword = { ...data.user, token: data.token };
+
+      // Enrich with manager details when available
+      try {
+        const detailRes = await fetch(`/api/managers/${data.user.id}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${data.token}`
+          }
+        });
+
+        if (detailRes.ok) {
+          const detail = await detailRes.json();
+          userWithoutPassword = {
+            ...userWithoutPassword,
+            ...detail,
+            phone: detail.mobile || userWithoutPassword.phone,
+            department: detail.department || userWithoutPassword.department,
+            status: detail.status || userWithoutPassword.status,
+            joinDate: detail.createdAt || userWithoutPassword.joinDate
+          };
+        }
+      } catch (err) {
+        // If detail fetch fails, continue with basic user data
+      }
+
+      userWithoutPassword.lastLogin = new Date().toISOString();
+      setUser(userWithoutPassword);
+      localStorage.setItem('udriver_user', JSON.stringify(userWithoutPassword));
+      toast.success(`Welcome back, ${userWithoutPassword.name}!`);
+      setLoading(false);
+      return { success: true };
     } catch (error) {
       setLoading(false);
       toast.error('Login failed. Please try again.');

@@ -112,7 +112,7 @@ const AddManagerModal = ({ isOpen, onClose, onAddManager, initialData }) => {
           <input name="salary" value={form.salary} onChange={handleChange} placeholder="Salary per month" className="border p-2 rounded" />
          
           <select name="serviceCategory" value={form.serviceCategory} onChange={handleChange} className="border p-2 rounded">
-            <option value="">Select Category</option>
+            <option value="">Select Department</option>
             <option value="Admin">Admin</option>
             <option value="Manager">Manager</option>
             <option value="Finance">Finance</option>

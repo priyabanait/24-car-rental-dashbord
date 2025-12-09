@@ -80,16 +80,19 @@ export default function VehiclesList() {
       try{
         const API_BASE =  'https://udrive-backend-1igb.vercel.app';
         const [vehicleRes, driverRes, managerRes] = await Promise.all([
-          fetch(`${API_BASE}/api/vehicles`),
-          fetch(`${API_BASE}/api/drivers`),
-          fetch(`${API_BASE}/api/managers`)
+          fetch(`${API_BASE}/api/vehicles?limit=1000`),
+          fetch(`${API_BASE}/api/drivers?limit=1000`),
+          fetch(`${API_BASE}/api/managers?limit=1000`)
         ]);
         if(!vehicleRes.ok) { throw new Error('Failed to load vehicles'); }
         if(!driverRes.ok) { throw new Error('Failed to load drivers'); }
         if(!managerRes.ok) { throw new Error('Failed to load managers'); }
-        const vehicleData = await vehicleRes.json();
-        const driverData = await driverRes.json();
-        const managerData = await managerRes.json();
+        const vehicleResult = await vehicleRes.json();
+        const driverResult = await driverRes.json();
+        const managerResult = await managerRes.json();
+        const vehicleData = vehicleResult.data || vehicleResult;
+        const driverData = driverResult.data || driverResult;
+        const managerData = managerResult.data || managerResult;
         const normalized = Array.isArray(vehicleData) ? vehicleData.map(normalizeVehicle) : [];
         if(mounted) setVehiclesData(normalized);
         if(mounted) setDrivers(driverData);
@@ -314,14 +317,62 @@ export default function VehiclesList() {
 
   const handleExport = () => {
     try{
-      const headers = ['Registration','Make','Model','Year','Color','Fuel','Status','AssignedDriver','PurchaseDate','PurchasePrice','CurrentValue','InsuranceExpiry','RCExpiry','FitnessExpiry','Mileage','LastService','NextService'];
+      const headers = [
+        'Registration Number', 'Category', 'Brand', 'Model', 'Car Name',
+        'Owner Name', 'Owner Phone', 'Investor ID', 'Investor Name',
+        'Manufacture Year', 'Color', 'Fuel Type',
+        'Registration Date', 'RC Expiry Date', 'Road Tax Date', 'Road Tax Number',
+        'Insurance Date', 'Permit Date', 'Emission Date', 'PUC Number',
+        'Traffic Fine', 'Traffic Fine Date',
+        'Assigned Driver', 'Assigned Manager',
+        'KYC Status', 'Status', 'Remarks',
+        'Registration Card Photo', 'Road Tax Photo', 'PUC Photo', 'Permit Photo',
+        'Car Front Photo', 'Car Left Photo', 'Car Right Photo', 'Car Back Photo', 'Car Full Photo'
+      ];
       const escape = v => v==null? '': `"${String(v).replace(/"/g,'""')}"`;
-      const rows = vehiclesData.map(v => [v.registrationNumber, v.make, v.model, v.year, v.color, v.fuelType, v.status, v.assignedDriver, formatDate(v.purchaseDate), v.purchasePrice, v.currentValue, formatDate(v.insuranceExpiry), formatDate(v.rcExpiry), formatDate(v.fitnessExpiry), v.mileage, formatDate(v.lastService), formatDate(v.nextService)].map(escape));
+      const rows = vehiclesData.map(v => [
+        v.registrationNumber || '',
+        v.category || '',
+        v.brand || v.make || '',
+        v.model || '',
+        v.carName || '',
+        v.ownerName || '',
+        v.ownerPhone || '',
+        v.investorId?._id || v.investorId || '',
+        v.investorId?.investorName || v.investorId?.name || '',
+        v.year || '',
+        v.color || '',
+        v.fuelType || '',
+        formatDate(v.registrationDate) || '',
+        formatDate(v.rcExpiryDate) || '',
+        formatDate(v.roadTaxDate) || '',
+        v.roadTaxNumber || '',
+        formatDate(v.insuranceDate) || '',
+        formatDate(v.permitDate) || '',
+        formatDate(v.emissionDate) || '',
+        v.pucNumber || '',
+        v.trafficFine || '',
+        formatDate(v.trafficFineDate) || '',
+        v.assignedDriver || '',
+        v.assignedManager || '',
+        v.kycStatus || '',
+        v.status || '',
+        v.remarks || '',
+        v.registrationCardPhoto || '',
+        v.roadTaxPhoto || '',
+        v.pucPhoto || '',
+        v.permitPhoto || '',
+        v.carFrontPhoto || '',
+        v.carLeftPhoto || '',
+        v.carRightPhoto || '',
+        v.carBackPhoto || '',
+        v.carFullPhoto || ''
+      ].map(escape));
       const csv = [headers.map(escape).join(','), ...rows.map(r=>r.join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `vehicles_${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-      toast.success('Vehicles exported');
+      const a = document.createElement('a'); a.href = url; a.download = `vehicles_complete_${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast.success(`Exported ${vehiclesData.length} vehicles with complete details`);
     }catch(err){ console.error(err); toast.error('Failed to export vehicles'); }
   };
 
@@ -458,7 +509,8 @@ export default function VehiclesList() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="input"
+                className="border border-gray-300 rounded-md text-sm py-2 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                style={{ minWidth: '130px' }}
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -466,7 +518,7 @@ export default function VehiclesList() {
                 <option value="suspended">Suspended</option>
               </select>
 
-              <select value={kycFilter} onChange={e=>setKycFilter(e.target.value)} className="input">
+              <select value={kycFilter} onChange={e=>setKycFilter(e.target.value)} className="border border-gray-300 rounded-md text-sm py-2 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" style={{ minWidth: '150px' }}>
                 <option value="all">All KYC Status</option>
                 <option value="verified">Verified</option>
                 <option value="pending">Pending</option>
@@ -499,27 +551,27 @@ export default function VehiclesList() {
                   <TableHead>Brand</TableHead>
                   <TableHead>Vehicle Model</TableHead>
                   <TableHead>Car Name</TableHead>
-                  <TableHead>Color</TableHead>
+                  {/* <TableHead>Color</TableHead> */}
                   <TableHead>Fuel Type</TableHead>
                   <TableHead>Vehicle No.</TableHead>
                   <TableHead>Owner Name</TableHead>
                   <TableHead>Owner Phone</TableHead>
                   <TableHead>Manufacture Year</TableHead>
                   <TableHead>Registration Date</TableHead>
-                  <TableHead>RC Expiry</TableHead>
+                  {/* <TableHead>RC Expiry</TableHead> */}
                   <TableHead>Road Tax Date</TableHead>
-                  <TableHead>Road Tax No.</TableHead>
+                  {/* <TableHead>Road Tax No.</TableHead> */}
                   <TableHead>Insurance Date</TableHead>
                   <TableHead>Permit Date</TableHead>
-                  <TableHead>Emission Date</TableHead>
+                  <TableHead>Car Submit Date</TableHead>
                   <TableHead>PUC No.</TableHead>
-                  <TableHead>Traffic Fine</TableHead>
-                  <TableHead>Fine Date</TableHead>
+                  {/* <TableHead>Traffic Fine</TableHead>
+                  <TableHead>Fine Date</TableHead> */}
                   <TableHead>Assigned Driver</TableHead>
                   <TableHead>Assigned Manager</TableHead>
-                  <TableHead>Rent Days</TableHead>
+                  <TableHead>Driver Rent Days</TableHead>
                   <TableHead>KYC Status</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Car Status</TableHead>
                   <TableHead>Remarks</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -531,7 +583,7 @@ export default function VehiclesList() {
                     <TableCell>{v.brand || v.make || '-'}</TableCell>
                     <TableCell>{v.model}</TableCell>
                     <TableCell>{v.carName || '-'}</TableCell>
-                    <TableCell>{v.color || '-'}</TableCell>
+                    {/* <TableCell>{v.color || '-'}</TableCell> */}
                     <TableCell>{v.fuelType || '-'}</TableCell>
                     <TableCell>
                       <div className="font-medium text-gray-900">{v.registrationNumber}</div>
@@ -540,15 +592,15 @@ export default function VehiclesList() {
                     <TableCell>{v.ownerPhone}</TableCell>
                     <TableCell>{v.year || '-'}</TableCell>
                     <TableCell>{formatDate(v.registrationDate)}</TableCell>
-                    <TableCell>{formatDate(v.rcExpiryDate || v.rcExpiry)}</TableCell>
-                    <TableCell>{formatDate(v.roadTaxDate)}</TableCell>
+                    {/* <TableCell>{formatDate(v.rcExpiryDate || v.rcExpiry)}</TableCell> */}
+                    {/* <TableCell>{formatDate(v.roadTaxDate)}</TableCell> */}
                     <TableCell>{v.roadTaxNumber || '-'}</TableCell>
                     <TableCell>{formatDate(v.insuranceDate || v.insuranceExpiry)}</TableCell>
                     <TableCell>{formatDate(v.permitDate)}</TableCell>
                     <TableCell>{formatDate(v.emissionDate)}</TableCell>
                     <TableCell>{v.pucNumber || '-'}</TableCell>
-                    <TableCell>{v.trafficFine ?? '-'}</TableCell>
-                    <TableCell>{formatDate(v.trafficFineDate)}</TableCell>
+                    {/* <TableCell>{v.trafficFine ?? '-'}</TableCell>
+                    <TableCell>{formatDate(v.trafficFineDate)}</TableCell> */}
                     <TableCell>{
                       v.assignedDriver
                         ? (() => {
@@ -602,13 +654,13 @@ export default function VehiclesList() {
                         <button title="View" className="p-1 text-gray-400 hover:text-blue-600" onClick={()=>handleViewVehicle(v)}><Eye className="h-4 w-4"/></button>
                         <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}><button title="Edit" className="p-1 text-gray-400 hover:text-green-600" onClick={()=>handleEditVehicle(v)}><Edit className="h-4 w-4"/></button></PermissionGuard>
                         <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}>
-                          <select value={v.kycStatus || v.kyc || 'incomplete'} onChange={e=>handleChangeKyc(v.vehicleId, e.target.value)} className="input text-sm h-8 leading-6 text-center">
+                          <select value={v.kycStatus || v.kyc || 'incomplete'} onChange={e=>handleChangeKyc(v.vehicleId, e.target.value)} className="border border-gray-300 rounded-md text-sm h-8 py-1 px-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" style={{ minWidth: '120px' }}>
                             <option value="verified">Verified</option>
                             <option value="pending">Pending</option>
                             <option value="rejected">Rejected</option>
                             <option value="incomplete">Incomplete</option>
                           </select>
-                          <select value={v.status || 'inactive'} onChange={e=>handleChangeStatus(v.vehicleId, e.target.value)} className="input text-sm h-8 leading-6 text-center">
+                          <select value={v.status || 'inactive'} onChange={e=>handleChangeStatus(v.vehicleId, e.target.value)} className="border border-gray-300 rounded-md text-sm h-8 py-1 px-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" style={{ minWidth: '110px' }}>
                             <option value="active">Active</option>
                             <option value="pending">Pending</option>
                             <option value="inactive">Inactive</option>
@@ -627,7 +679,7 @@ export default function VehiclesList() {
       </Card>
 
       <VehicleModal isOpen={showVehicleModal} onClose={()=>{setShowVehicleModal(false); setSelectedVehicle(null);}} vehicle={selectedVehicle} onSave={handleSaveVehicle} />
-      <VehicleDetailModal isOpen={showDetailModal} onClose={()=>setShowDetailModal(false)} vehicle={selectedVehicle} />
+      <VehicleDetailModal isOpen={showDetailModal} onClose={()=>setShowDetailModal(false)} vehicle={selectedVehicle} drivers={drivers} managers={managers} />
     </div>
   );
 }

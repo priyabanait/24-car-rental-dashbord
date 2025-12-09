@@ -56,19 +56,34 @@ export default function PerformanceReports() {
         
         // Fetch all performance-related data in parallel
         const [driversRes, vehiclesRes, expensesRes, transactionsRes, ticketsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/drivers`),
-          fetch(`${API_BASE}/api/vehicles`),
-          fetch(`${API_BASE}/api/expenses`),
-          fetch(`${API_BASE}/api/transactions`),
-          fetch(`${API_BASE}/api/tickets`).catch(() => ({ ok: false }))
+          fetch(`${API_BASE}/api/drivers?limit=1000`),
+          fetch(`${API_BASE}/api/vehicles?limit=1000`),
+          fetch(`${API_BASE}/api/expenses?limit=1000`),
+          fetch(`${API_BASE}/api/transactions?limit=1000`),
+          fetch(`${API_BASE}/api/tickets?limit=1000`).catch(() => ({ ok: false }))
         ]);
 
         if (mounted) {
-          if (driversRes.ok) setDrivers(await driversRes.json());
-          if (vehiclesRes.ok) setVehicles(await vehiclesRes.json());
-          if (expensesRes.ok) setExpenses(await expensesRes.json());
-          if (transactionsRes.ok) setTransactions(await transactionsRes.json());
-          if (ticketsRes.ok) setTickets(await ticketsRes.json());
+          if (driversRes.ok) {
+            const result = await driversRes.json();
+            setDrivers(result.data || result);
+          }
+          if (vehiclesRes.ok) {
+            const result = await vehiclesRes.json();
+            setVehicles(result.data || result);
+          }
+          if (expensesRes.ok) {
+            const result = await expensesRes.json();
+            setExpenses(result.data || result);
+          }
+          if (transactionsRes.ok) {
+            const result = await transactionsRes.json();
+            setTransactions(result.data || result);
+          }
+          if (ticketsRes.ok) {
+            const result = await ticketsRes.json();
+            setTickets(result.data || result);
+          }
         }
       } catch (err) {
         console.error(err);

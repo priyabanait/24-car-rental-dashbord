@@ -69,13 +69,13 @@ export default function SuperAdminDashboard() {
           employeesRes,
           investorsRes
         ] = await Promise.all([
-          fetch(`${API_BASE}/api/drivers`),
-          fetch(`${API_BASE}/api/vehicles`),
-          fetch(`${API_BASE}/api/expenses`),
-          fetch(`${API_BASE}/api/transactions`),
-          fetch(`${API_BASE}/api/tickets`).catch(() => ({ ok: false })),
-          fetch(`${API_BASE}/api/employees`).catch(() => ({ ok: false })),
-          fetch(`${API_BASE}/api/investors`)
+          fetch(`${API_BASE}/api/drivers?limit=1000`),
+          fetch(`${API_BASE}/api/vehicles?limit=1000`),
+          fetch(`${API_BASE}/api/expenses?limit=1000`),
+          fetch(`${API_BASE}/api/transactions?limit=1000`),
+          fetch(`${API_BASE}/api/tickets?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/employees?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/investors?limit=1000`)
         ]);
 
         if (!mounted) return;
@@ -88,13 +88,34 @@ export default function SuperAdminDashboard() {
         let employeesData = [];
         let investorsData = [];
 
-        if (driversRes.ok) driversData = await driversRes.json();
-        if (vehiclesRes.ok) vehiclesData = await vehiclesRes.json();
-        if (expensesRes.ok) expensesData = await expensesRes.json();
-        if (transactionsRes.ok) transactionsData = await transactionsRes.json();
-        if (ticketsRes.ok) ticketsData = await ticketsRes.json();
-        if (employeesRes.ok) employeesData = await employeesRes.json();
-        if (investorsRes.ok) investorsData = await investorsRes.json();
+        if (driversRes.ok) {
+          const result = await driversRes.json();
+          driversData = result.data || result;
+        }
+        if (vehiclesRes.ok) {
+          const result = await vehiclesRes.json();
+          vehiclesData = result.data || result;
+        }
+        if (expensesRes.ok) {
+          const result = await expensesRes.json();
+          expensesData = result.data || result;
+        }
+        if (transactionsRes.ok) {
+          const result = await transactionsRes.json();
+          transactionsData = result.data || result;
+        }
+        if (ticketsRes.ok) {
+          const result = await ticketsRes.json();
+          ticketsData = result.data || result;
+        }
+        if (employeesRes.ok) {
+          const result = await employeesRes.json();
+          employeesData = result.data || result;
+        }
+        if (investorsRes.ok) {
+          const result = await investorsRes.json();
+          investorsData = result.data || result;
+        }
 
         setDrivers(driversData);
         setVehicles(vehiclesData);
@@ -328,21 +349,36 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
           </CardContent>
+           <Card>
+                    <CardContent className="p-6">
+                      <div className="flex items-center">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Users className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-gray-600">Active Drivers</p>
+                          <p className="text-2xl font-bold text-gray-900">{fleetStats.totalDrivers}</p>
+                          <p className="text-xs text-green-600">{fleetStats.activeDrivers} active</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
         </Card>
 
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-                <p className="text-xs text-gray-500">All-time revenue</p>
+                <p className="text-sm font-medium text-gray-600">Total Vehicles</p>
+                <p className="text-2xl font-bold text-gray-900">{fleetStats.totalVehicles}</p>
+                <p className="text-xs text-green-600">{fleetStats.activeVehicles} active</p>
               </div>
             </div>
           </CardContent>
+          
         </Card>
 
         <Card>

@@ -32,6 +32,28 @@ import InvestorModal from '../../components/investors/InvestorModal';
 import InvestmentDetailModal from '../../components/investors/InvestmentDetailModal';
 import InvestmentPlanModal from '../../components/investors/InvestmentPlanModal';
 import CarInvestmentModal from '../../components/investors/CarInvestmentModal';
+  // Reload car investments list from database
+  const reloadCarInvestments = async () => {
+    try {
+      setCarInvestmentLoading(true);
+      const response = await fetch(`${API_BASE}/api/car-investment-entries?limit=1000`, { method: 'GET' });
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Reload car investments failed', response.status, text);
+        toast.error('Failed to reload car investments');
+        return;
+      }
+      const result = await response.json();
+      const data = result.data || result;
+      if (Array.isArray(data)) setCarInvestments(data);
+      toast.success('Car investments reloaded');
+    } catch (err) {
+      console.error('Failed to reload car investments:', err);
+      toast.error('Reload error');
+    } finally {
+      setCarInvestmentLoading(false);
+    }
+  };
 
 // Centralized API base (falls back to local backend). Using explicit base + GET for reads for clarity.
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
@@ -55,60 +77,33 @@ export default function InvestmentManagement() {
   // Car Investment modal state
   const [showCarInvestmentModal, setShowCarInvestmentModal] = useState(false);
   const [selectedCarInvestment, setSelectedCarInvestment] = useState(null);
-  // Investor search for each car investment
-  const [investorSearchTerms, setInvestorSearchTerms] = useState({});
-  const [showInvestorDropdown, setShowInvestorDropdown] = useState({});
-  const [selectedInvestors, setSelectedInvestors] = useState({});
-  const [savingInvestor, setSavingInvestor] = useState({});
 
-  // Reload car investments list from database
-  const reloadCarInvestments = async () => {
-    try {
-      setCarInvestmentLoading(true);
-      const response = await fetch(`${API_BASE}/api/car-investment-entries`, { method: 'GET' });
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('Reload car investments failed', response.status, text);
-        toast.error('Failed to reload car investments');
+    // Car Investment: Edit handler
+    const handleEditCarInvestment = (carInv) => {
+      setSelectedCarInvestment(carInv);
+      setShowCarInvestmentModal(true);
+    };
+
+    // Car Investment: Delete handler
+    const handleDeleteCarInvestment = async (carInvId) => {
+      if (!window.confirm('Are you sure you want to delete this car investment? This action cannot be undone.')) {
         return;
       }
-      const data = await response.json();
-      if (Array.isArray(data)) setCarInvestments(data);
-      toast.success('Car investments reloaded');
-    } catch (err) {
-      console.error('Failed to reload car investments:', err);
-      toast.error('Reload error');
-    } finally {
-      setCarInvestmentLoading(false);
-    }
-  };
-
-  // Car Investment: Edit handler
-  const handleEditCarInvestment = (carInv) => {
-    setSelectedCarInvestment(carInv);
-    setShowCarInvestmentModal(true);
-  };
-
-  // Car Investment: Delete handler
-  const handleDeleteCarInvestment = async (carInvId) => {
-    if (!window.confirm('Are you sure you want to delete this car investment? This action cannot be undone.')) {
-      return;
-    }
-    try {
-      const response = await fetch(`${API_BASE}/api/car-investment-entries/${carInvId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete car investment');
+      try {
+        const response = await fetch(`${API_BASE}/api/car-investment-entries/${carInvId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error('Failed to delete car investment');
+        }
+        setCarInvestments(prev => prev.filter(inv => inv._id !== carInvId));
+        toast.success('Car investment deleted successfully');
+      } catch (err) {
+        console.error('Failed to delete car investment:', err);
+        toast.error('Failed to delete car investment');
       }
-      setCarInvestments(prev => prev.filter(inv => inv._id !== carInvId));
-      toast.success('Car investment deleted successfully');
-    } catch (err) {
-      console.error('Failed to delete car investment:', err);
-      toast.error('Failed to delete car investment');
-    }
-  };
+    };
 
   useEffect(() => {
     // Initial load using GET from database routes
@@ -354,14 +349,15 @@ export default function InvestmentManagement() {
   // Reload investments list from database
   const reloadInvestments = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/investors`, { method: 'GET' });
+      const response = await fetch(`${API_BASE}/api/investors?limit=1000`, { method: 'GET' });
       if (!response.ok) {
         const text = await response.text();
         console.error('Reload investments failed', response.status, text);
         toast.error('Failed to reload investments');
         return;
       }
-      const data = await response.json();
+      const result = await response.json();
+      const data = result.data || result;
       if (Array.isArray(data)) setInvestments(data);
       toast.success('Investments reloaded');
     } catch (err) {
@@ -472,7 +468,7 @@ const handleExportReport = () => {
     // 🔹 Format currency and numbers safely
     const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
 
-    // 🔹 Build Excel data (Array of Arrays)
+    // 🔹 Build Excel data (Array of Arrays) with ALL fields from InvestorModal
     const summarySheet = [
       ["Investor Report", new Date().toLocaleString()],
       [],
@@ -488,12 +484,20 @@ const handleExportReport = () => {
         "Address",
         "City",
         "State",
+        "Pincode",
         "Aadhar Number",
         "PAN Number",
         "Bank Name",
+        "Branch Name",
         "Account Number",
         "IFSC Code",
+        "Account Holder Name",
         "KYC Status",
+        "Profile Photo URL",
+        "Aadhar Front URL",
+        "Aadhar Back URL",
+        "PAN Document URL",
+        "Bank Document URL"
       ],
       ...list.map((inv) => [
         inv.investorName || "",
@@ -503,12 +507,20 @@ const handleExportReport = () => {
         inv.address || "",
         inv.city || "",
         inv.state || "",
+        inv.pincode || "",
         inv.aadharNumber || "",
         inv.panNumber || "",
         inv.bankName || "",
+        inv.accountBranchName || "",
         inv.accountNumber || "",
         inv.ifscCode || "",
+        inv.accountHolderName || "",
         inv.kycStatus || "pending",
+        inv.profilePhoto || "",
+        inv.aadharDocument || "",
+        inv.aadharDocumentBack || "",
+        inv.panDocument || "",
+        inv.bankDocument || ""
       ]),
     ];
 
@@ -568,33 +580,24 @@ const handleExportReport = () => {
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <PermissionGuard permission={PERMISSIONS.INVESTMENTS_CREATE}>
-            <button 
-              onClick={handleAddPlan}
-              className="btn btn-secondary flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Amount Investment
-            </button>
-            <button 
-              onClick={() => {
-                setSelectedCarInvestment(null);
-                setShowCarInvestmentModal(true);
-              }}
-              className="btn btn-secondary flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Car Investment
-            </button>
+        
+           
             
            
           </PermissionGuard>
-         
-          {/* <PermissionGuard permission={PERMISSIONS.REPORTS_EXPORT}>
+           <button 
+              onClick={handleAddInvestor}
+              className="btn btn-primary flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Investor
+            </button>
+          <PermissionGuard permission={PERMISSIONS.REPORTS_EXPORT}>
             <button onClick={handleExportReport} className="btn btn-outline flex items-center">
               <Download className="h-4 w-4 mr-2" />
               Export Report
             </button>
-          </PermissionGuard> */}
+          </PermissionGuard>
         </div>
         
       </div>
@@ -644,284 +647,157 @@ const handleExportReport = () => {
         </Card>
       </div>
 
-      {/* Investment Plans */}
+     
+
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Building className="h-5 w-5 mr-2" />
-           Amount Investment
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {investmentPlans.map(plan => (
-              <div key={plan.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-gray-900">{plan.name}</h3>
-                  {getRiskBadge(plan.riskLevel)}
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Min Amount:</span>
-                    <span className="font-medium">{formatCurrency(plan.minAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Max Amount:</span>
-                    <span className="font-medium">{formatCurrency(plan.maxAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium">{plan.duration} months</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Expected ROI:</span>
-                    <span className="font-medium text-green-600">{plan.expectedROI}%</span>
-                  </div>
-                </div>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Search
+      </label>
 
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2">Features:</p>
-                  <ul className="text-xs text-gray-500 space-y-1">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-center">
-                        <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+      <div className="relative">
+        {/* Search Icon */}
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
 
-                <PermissionGuard permission={PERMISSIONS.INVESTMENTS_EDIT}>
-                  <div className="flex space-x-2">
-      {/* Edit Button */}
-      <button
-        onClick={() => handleEditPlan(plan)}
-        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
-      >
-        <Edit className="h-4 w-4 mr-1" />
-        Edit
-      </button>
-
-      {/* Delete Button */}
-      <button
-        onClick={() => handleDeletePlan(plan.id)}
-        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors"
-      >
-        <Trash2 className="h-4 w-4 mr-1" />
-        Delete
-      </button>
+        {/* Search Input */}
+        <input
+          type="text"
+          placeholder="Search investors..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full border border-gray-300 rounded-md py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+      </div>
     </div>
-                </PermissionGuard>
-              </div>
-            ))}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input"
+              >
+                <option value="all">All Status</option>
+                <option value="verified">Verified</option>
+                <option value="pending">Pending</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>
-      {/* Car Investments Section - Card UI like Amount Investment */}
+
+      {/* Investments Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Building className="h-5 w-5 mr-2" />
-            Car Investments
-          </CardTitle>
+          <CardTitle>Registered Investor Details({filteredInvestments.length})</CardTitle>
         </CardHeader>
-        <CardContent>
-          {carInvestmentLoading ? (
-            <div className="text-gray-500">Loading car investments...</div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {carInvestments.map(carInv => (
-                <div key={carInv._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold text-gray-900">{carInv.carname || 'Unnamed'}</h3>
-                  </div>
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Car Value:</span>
-                      <span className="font-medium">{formatCurrency(carInv.carvalue || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Monthly Payout:</span>
-                      <span className="font-medium text-green-600">{formatCurrency(carInv.MonthlyPayout || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Deduction TDS:</span>
-                      <span className="font-medium">{carInv.deductionTDS || 0}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Final Monthly Payout:</span>
-                      <span className="font-medium text-blue-600">{formatCurrency(carInv.finalMonthlyPayout || 0)}</span>
-                    </div>
-                    
-                    {/* <div className="mt-3 pt-3 border-t border-gray-200">
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Investor:</label>
-                      <div className="relative">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="Type to search investor..."
-                            className="w-full text-sm border border-gray-300 rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            value={investorSearchTerms[carInv._id] || ''}
-                            onFocus={() => setShowInvestorDropdown({ ...showInvestorDropdown, [carInv._id]: true })}
-                            onBlur={() => {
-                              // Delay to allow click event on dropdown item to fire first
-                              setTimeout(() => {
-                                setShowInvestorDropdown({ ...showInvestorDropdown, [carInv._id]: false });
-                              }, 200);
-                            }}
-                            onChange={(e) => {
-                              setInvestorSearchTerms({ ...investorSearchTerms, [carInv._id]: e.target.value });
-                              setShowInvestorDropdown({ ...showInvestorDropdown, [carInv._id]: true });
-                            }}
-                          />
-                          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+        <CardContent className="p-0">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-400px)]">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                    Investor Details
+                  </th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                    Contact
+                  </th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                    Identity
+                  </th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                    Bank Details
+                  </th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                    KYC Status
+                  </th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredInvestments.map((investment) => (
+                  <tr key={investment.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Users className="h-5 w-5 text-blue-600" />
                         </div>
-                        {showInvestorDropdown[carInv._id] && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                            {investments
-                              .filter(investor => {
-                                const searchTerm = (investorSearchTerms[carInv._id] || '').toLowerCase();
-                                if (!searchTerm) return true;
-                                return (
-                                  (investor.investorName || '').toLowerCase().includes(searchTerm) ||
-                                  (investor.email || '').toLowerCase().includes(searchTerm) ||
-                                  (investor.phone || '').toLowerCase().includes(searchTerm)
-                                );
-                              })
-                              .map(investor => (
-                                <div
-                                  key={investor.id}
-                                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                                  onMouseDown={(e) => {
-                                    // Prevent input blur before click
-                                    e.preventDefault();
-                                  }}
-                                  onClick={() => {
-                                    setSelectedInvestors({ ...selectedInvestors, [carInv._id]: investor });
-                                    setInvestorSearchTerms({ ...investorSearchTerms, [carInv._id]: investor.investorName });
-                                    setShowInvestorDropdown({ ...showInvestorDropdown, [carInv._id]: false });
-                                  }}
-                                >
-                                  <div className="font-medium text-gray-900">{investor.investorName}</div>
-                                  <div className="text-xs text-gray-500">
-                                    {investor.phone && <span>{investor.phone}</span>}
-                                    {investor.email && <span className="ml-2">({investor.email})</span>}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        )}
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{investment.investorName}</div>
+                          <div className="text-sm text-gray-500">{investment.city}, {investment.state}</div>
+                        </div>
                       </div>
-                      {selectedInvestors[carInv._id] && (
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{investment.phone}</div>
+                      <div className="text-sm text-gray-500">{investment.email || 'No email'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">PAN: {investment.panNumber || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">Aadhar: {investment.aadharNumber || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{investment.bankName || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">{investment.accountNumber || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getKycBadge(investment.kycStatus)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2">
                         <button
-                          onClick={async () => {
-                            const investor = selectedInvestors[carInv._id];
-                            setSavingInvestor({ ...savingInvestor, [carInv._id]: true });
-                            try {
-                              // Update car investment with investor ID
-                              const updateResponse = await fetch(`${API_BASE}/api/car-investment-entries/${carInv._id}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ investorId: investor.id })
-                              });
-                              
-                              if (!updateResponse.ok) {
-                                throw new Error('Failed to assign investor');
-                              }
-
-                              // Add Final Monthly Payout to investor wallet
-                              const walletResponse = await fetch(`${API_BASE}/api/investor-wallet`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  investorId: investor.id,
-                                  amount: carInv.finalMonthlyPayout || 0,
-                                  type: 'credit',
-                                  description: `Monthly payout from ${carInv.carname} car investment`,
-                                  date: new Date().toISOString()
-                                })
-                              });
-
-                              if (!walletResponse.ok) {
-                                throw new Error('Failed to add payout to wallet');
-                              }
-
-                              toast.success(`Investor assigned and ₹${(carInv.finalMonthlyPayout || 0).toLocaleString('en-IN')} added to wallet`);
-                              await reloadCarInvestments();
-                            } catch (err) {
-                              console.error('Failed to save investor assignment:', err);
-                              toast.error(err.message || 'Failed to save investor assignment');
-                            } finally {
-                              setSavingInvestor({ ...savingInvestor, [carInv._id]: false });
-                            }
-                          }}
-                          disabled={savingInvestor[carInv._id]}
-                          className="mt-2 w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                          onClick={() => handleViewInvestment(investment)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                          title="View Details"
                         >
-                          {savingInvestor[carInv._id] ? 'Saving...' : 'Save & Add Payout to Wallet'}
+                          <Eye className="h-4 w-4" />
                         </button>
-                      )}
-                    </div> */}
-                   
-                    {/* <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Active:</span>
-                      <span className="font-medium">{carInv.active ? 'Yes' : 'No'}</span>
-                    </div> */}
-                    {/* <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Status:</span>
-                      <span className="font-medium">{carInv.status}</span>
-                    </div> */}
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-2">Features:</p>
-                    <ul className="text-xs text-gray-500 space-y-1">
-                      {(carInv.features || []).map((feature, index) => (
-                        <li key={index} className="flex items-center">
-                          <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  {carInv.description && (
-                    <div className="mb-2">
-                      <span className="text-xs text-gray-500">Description: </span>
-                      <span className="text-xs text-gray-700">{carInv.description}</span>
-                    </div>
-                  )}
-                  {/* Actions can be added here if needed */}
-                  <PermissionGuard permission={PERMISSIONS.INVESTMENTS_EDIT}>
-                    <div className="flex space-x-2">
-                      {/* Edit Button */}
-                      <button
-                        onClick={() => handleEditCarInvestment(carInv)}
-                        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </button>
-
-                      {/* Delete Button */}
-                      <button
-                        onClick={() => handleDeleteCarInvestment(carInv._id)}
-                        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </button>
-                    </div>
-                  </PermissionGuard>
-                </div>
-                
-              ))}
-            </div>
-          )}
+                        <PermissionGuard permission={PERMISSIONS.INVESTMENTS_EDIT}>
+                          <button
+                            onClick={() => handleEditInvestment(investment)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Edit Investor"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        </PermissionGuard>
+                        <PermissionGuard permission={PERMISSIONS.INVESTMENTS_EDIT}>
+                          <select
+                            value={investment.kycStatus || 'pending'}
+                            onChange={(e) => handleStatusChange(investment.id, e.target.value)}
+                            className="border border-gray-300 rounded-md text-sm h-8 py-1 px-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            style={{ minWidth: '110px' }}
+                            title="Change KYC Status"
+                          >
+                            <option value="verified">Verified</option>
+                            <option value="pending">Pending</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </PermissionGuard>
+                        <PermissionGuard permission={PERMISSIONS.INVESTMENTS_DELETE}>
+                          <button
+                            onClick={() => handleDeleteInvestment(investment.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete Investor"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </PermissionGuard>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
-
-
-      
 
       {/* Investor Modal */}
       <InvestorModal

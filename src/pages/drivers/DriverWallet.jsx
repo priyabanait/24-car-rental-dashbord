@@ -17,8 +17,9 @@ export default function AddWalletAmount() {
     async function fetchDrivers() {
       setLoading(true);
       try {
-        const res = await axios.get('https://udrive-backend-1igb.vercel.app/api/drivers');
-        setDrivers(res.data);
+        const res = await axios.get('https://udrive-backend-1igb.vercel.app/api/drivers?limit=1000');
+        const data = res.data.data || res.data;
+        setDrivers(data);
       } catch (err) {
         console.error('Failed to fetch drivers:', err);
       } finally {

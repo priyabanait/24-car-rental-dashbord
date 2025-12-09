@@ -126,18 +126,24 @@ export default function SignupCredentials() {
       try {
         setLoading(true);
         const [dRes, iRes] = await Promise.all([
-          fetch(`${API_BASE}/api/drivers/signup/credentials`),
-          fetch(`${API_BASE}/api/investors/signup/credentials`)
+          fetch(`${API_BASE}/api/drivers/signup/credentials?limit=1000`),
+          fetch(`${API_BASE}/api/investors/signup/credentials?limit=1000`)
         ]);
         if (!dRes.ok) throw new Error('Failed to load driver signups');
         if (!iRes.ok) throw new Error('Failed to load investor signups');
-        const [dData, iData] = await Promise.all([dRes.json(), iRes.json()]);
+        const [dResult, iResult] = await Promise.all([dRes.json(), iRes.json()]);
         if (!mounted) return;
+        const dData = dResult.data || dResult;
+        const iData = iResult.data || iResult;
         setDrivers(Array.isArray(dData) ? dData : []);
         setInvestors(Array.isArray(iData) ? iData : []);
       } catch (err) {
         console.error(err);
         toast.error(err.message || 'Failed to load signup credentials');
+        if (mounted) {
+          setDrivers([]);
+          setInvestors([]);
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -235,9 +241,10 @@ export default function SignupCredentials() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mobile</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Password</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">KYC Status</th>
+                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">KYC Status</th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Signup Date</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   ) : (
                     <tr>
@@ -245,9 +252,10 @@ export default function SignupCredentials() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Password/OTP</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">KYC Status</th>
+                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">KYC Status</th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Signup Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   )}
                 </thead>
@@ -258,7 +266,7 @@ export default function SignupCredentials() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.username || '—'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.mobile}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700">{d.password}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             d.status === 'active' ? 'bg-green-100 text-green-700' : d.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
                           }`}>{d.status || '—'}</span>
@@ -267,7 +275,7 @@ export default function SignupCredentials() {
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             d.kycStatus === 'verified' ? 'bg-green-100 text-green-700' : d.kycStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : d.kycStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                           }`}>{d.kycStatus || '—'}</span>
-                        </td>
+                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.signupDate ? formatDate(d.signupDate) : '—'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
                           <PermissionGuard permission={PERMISSIONS.DRIVERS_EDIT}>
@@ -296,7 +304,7 @@ export default function SignupCredentials() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{i.email || '—'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{i.phone}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700">{i.password}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             i.status === 'active' ? 'bg-green-100 text-green-700' : i.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
                           }`}>{i.status || '—'}</span>
@@ -305,7 +313,7 @@ export default function SignupCredentials() {
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             i.kycStatus === 'verified' ? 'bg-green-100 text-green-700' : i.kycStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : i.kycStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                           }`}>{i.kycStatus || '—'}</span>
-                        </td>
+                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{i.signupDate ? formatDate(i.signupDate) : '—'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
                           <button

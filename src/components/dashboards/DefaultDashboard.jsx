@@ -1,115 +1,378 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Car, 
   TrendingUp, 
   DollarSign, 
-  ArrowUpRight,
-  MessageSquare,
-  FileText,
+  AlertTriangle,
+  CheckCircle,
   Clock,
-  CheckCircle
+  Activity,
+  FileText,
+  Settings,
+  BarChart3,
+  Wallet,
+  Shield,
+  Database
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { formatCurrency, formatDate } from '../../utils';
 import { useAuth } from '../../contexts/AuthContext';
+import { PERMISSIONS } from '../../utils/permissions';
+import toast from 'react-hot-toast';
 
-export default function DefaultDashboard() {
-  const { user } = useAuth();
-  
-  const [stats] = useState({
-    totalDrivers: 1243,
-    activeDrivers: 987,
-    totalRevenue: 2456780,
-    totalTrips: 15678,
-    pendingKyc: 45,
-    monthlyGrowth: 15.3,
-    openTickets: 23,
-    resolvedTickets: 89
+export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalDrivers: 0,
+    activeDrivers: 0,
+    totalVehicles: 0,
+    activeVehicles: 0,
+    totalRevenue: 0,
+    totalExpenses: 0,
+    pendingKyc: 0,
+    totalInvestors: 0,
+    totalInvestment: 0,
+    systemHealth: 0,
+    lastBackup: new Date().toISOString()
   });
 
-  const [recentActivities] = useState([
-    { id: 1, type: 'driver', message: 'New driver registered: Rajesh Kumar', time: '5 minutes ago' },
-    { id: 2, type: 'payment', message: 'Payment processed: ₹12,500', time: '15 minutes ago' },
-    { id: 3, type: 'ticket', message: 'Support ticket resolved: #TKT-456', time: '30 minutes ago' },
-    { id: 4, type: 'kyc', message: 'KYC approved for: Priya Sharma', time: '1 hour ago' },
-    { id: 5, type: 'vehicle', message: 'Vehicle assigned: KA-05-AB-1234', time: '2 hours ago' }
-  ]);
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [investors, setInvestors] = useState([]);
+  const [investmentFDs, setInvestmentFDs] = useState([]);
+  const [investorSignups, setInvestorSignups] = useState([]);
 
-  // Role-specific greeting
-  const getRoleGreeting = (role) => {
-    const greetings = {
-      'hr_manager': 'Human Resources Dashboard',
-      'operations_manager': 'Operations Management Center',
-      'support_agent': 'Customer Support Dashboard',
-      'auditor': 'Audit & Compliance Center'
-    };
-    return greetings[role] || 'Admin Dashboard';
+  const [recentActivities, setRecentActivities] = useState([]);
+    const [systemAlerts, setSystemAlerts] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        
+        // Fetch all data in parallel
+        const [
+          driversRes,
+          vehiclesRes,
+          expensesRes,
+          transactionsRes,
+          ticketsRes,
+          employeesRes,
+          investorsRes,
+          investorSignupRes,
+          investmentFDRes
+        ] = await Promise.all([
+          fetch(`${API_BASE}/api/drivers?limit=1000`),
+          fetch(`${API_BASE}/api/vehicles?limit=1000`),
+          fetch(`${API_BASE}/api/expenses?limit=1000`),
+          fetch(`${API_BASE}/api/transactions?limit=1000`),
+          fetch(`${API_BASE}/api/tickets?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/employees?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/investors?limit=1000`),
+          fetch(`${API_BASE}/api/investors/signup/credentials?limit=1000`).catch(() => ({ ok: false })),
+          fetch(`${API_BASE}/api/investment-fds?limit=1000`).catch(() => ({ ok: false }))
+        ]);
+
+        if (!mounted) return;
+
+        let driversData = [];
+        let vehiclesData = [];
+        let expensesData = [];
+        let transactionsData = [];
+        let ticketsData = [];
+        let employeesData = [];
+        let investorsData = [];
+        let investorSignupData = [];
+        let investmentFDData = [];
+
+        if (driversRes.ok) {
+          const result = await driversRes.json();
+          driversData = result.data || result;
+        }
+        if (vehiclesRes.ok) {
+          const result = await vehiclesRes.json();
+          vehiclesData = result.data || result;
+        }
+        if (expensesRes.ok) {
+          const result = await expensesRes.json();
+          expensesData = result.data || result;
+        }
+        if (transactionsRes.ok) {
+          const result = await transactionsRes.json();
+          transactionsData = result.data || result;
+        }
+        if (ticketsRes.ok) {
+          const result = await ticketsRes.json();
+          ticketsData = result.data || result;
+        }
+        if (employeesRes.ok) {
+          const result = await employeesRes.json();
+          employeesData = result.data || result;
+        }
+        if (investorsRes.ok) {
+          const result = await investorsRes.json();
+          investorsData = result.data || result;
+        }
+        if (investorSignupRes.ok) {
+          const result = await investorSignupRes.json();
+          investorSignupData = result.data || result;
+        }
+        if (investmentFDRes.ok) {
+          const result = await investmentFDRes.json();
+          investmentFDData = result.data || result;
+        }
+
+        setDrivers(driversData);
+        setVehicles(vehiclesData);
+        setExpenses(expensesData);
+        setTransactions(transactionsData);
+        setTickets(ticketsData);
+        setEmployees(employeesData);
+        setInvestors(investorsData);
+        setInvestorSignups(investorSignupData);
+        setInvestmentFDs(investmentFDData);
+
+        // Calculate stats
+        const activeDriversCount = driversData.filter(d => d.status === 'active').length;
+        const activeVehiclesCount = vehiclesData.filter(v => v.status === 'active').length;
+        const pendingKycCount = driversData.filter(d => d.kycStatus === 'pending').length;
+        
+        const totalRevenue = transactionsData
+          .filter(t => t.type === 'revenue' || t.type === 'income')
+          .reduce((sum, t) => sum + (t.amount || 0), 0);
+        
+        const totalExpenses = expensesData
+          .filter(e => e.status === 'approved')
+          .reduce((sum, e) => sum + (e.amount || 0), 0);
+
+        const totalInvestmentFromInvestors = investorsData.reduce((sum, inv) => sum + (inv.totalInvestment || 0), 0);
+        const totalInvestmentFromFDs = investmentFDData.reduce((sum, inv) => sum + (inv.investmentAmount || 0), 0);
+        const totalInvestment = totalInvestmentFromInvestors + totalInvestmentFromFDs;
+        const activeInvestors = investorsData.filter(inv => (inv.kycStatus || '').toLowerCase() === 'verified').length;
+        const pendingInvestorKyc = investorsData.filter(inv => (inv.kycStatus || '').toLowerCase() === 'pending').length;
+        const signupCount = investorSignupData.length;
+
+        // Calculate system health score
+        const vehicleHealth = vehiclesData.length > 0 
+          ? (activeVehiclesCount / vehiclesData.length) * 100 
+          : 100;
+        const driverHealth = driversData.length > 0 
+          ? (activeDriversCount / driversData.length) * 100 
+          : 100;
+        const ticketHealth = ticketsData.length > 0
+          ? ((ticketsData.filter(t => t.status === 'resolved' || t.status === 'closed').length) / ticketsData.length) * 100
+          : 100;
+        const systemHealth = (vehicleHealth * 0.4 + driverHealth * 0.4 + ticketHealth * 0.2);
+
+        setStats({
+          totalUsers: employeesData.length,
+          totalDrivers: driversData.length,
+          activeDrivers: activeDriversCount,
+          totalVehicles: vehiclesData.length,
+          activeVehicles: activeVehiclesCount,
+          totalRevenue,
+          totalExpenses,
+          pendingKyc: pendingKycCount,
+          totalInvestors: investorsData.length,
+          activeInvestors,
+          pendingInvestorKyc,
+          investorSignups: signupCount,
+          totalInvestment,
+          systemHealth: systemHealth.toFixed(1),
+          lastBackup: new Date().toISOString()
+        });
+
+        // Generate system alerts
+        const alerts = [];
+        if (pendingKycCount > 0) {
+          alerts.push({
+            id: 1,
+            type: 'info',
+            message: `${pendingKycCount} driver${pendingKycCount > 1 ? 's' : ''} pending KYC verification`,
+            priority: pendingKycCount > 20 ? 'high' : 'medium'
+          });
+        }
+
+        const maintenanceVehicles = vehiclesData.filter(v => v.status === 'maintenance').length;
+        if (maintenanceVehicles > 0) {
+          alerts.push({
+            id: 2,
+            type: 'warning',
+            message: `${maintenanceVehicles} vehicle${maintenanceVehicles > 1 ? 's' : ''} currently under maintenance`,
+            priority: maintenanceVehicles > 10 ? 'high' : 'medium'
+          });
+        }
+
+        const openTickets = ticketsData.filter(t => t.status === 'open' || t.status === 'pending').length;
+        if (openTickets > 0) {
+          alerts.push({
+            id: 3,
+            type: 'warning',
+            message: `${openTickets} open ticket${openTickets > 1 ? 's' : ''} require attention`,
+            priority: openTickets > 15 ? 'high' : 'medium'
+          });
+        }
+
+        if (systemHealth >= 95) {
+          alerts.push({
+            id: 4,
+            type: 'success',
+            message: 'All systems operational - Excellent health',
+            priority: 'low'
+          });
+        }
+
+        const idleVehicles = vehiclesData.filter(v => v.status === 'idle').length;
+        if (idleVehicles > 5) {
+          alerts.push({
+            id: 5,
+            type: 'info',
+            message: `${idleVehicles} idle vehicles available for assignment`,
+            priority: 'low'
+          });
+        }
+
+        setSystemAlerts(alerts.slice(0, 5));
+
+        // Generate recent activities
+        const activities = [];
+        
+        // Recent drivers
+        const recentDrivers = [...driversData]
+          .filter(d => d.createdAt)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(0, 2);
+        
+        recentDrivers.forEach((d, idx) => {
+          const timeAgo = getTimeAgo(d.createdAt);
+          activities.push({
+            id: `driver-${idx}`,
+            type: 'driver_approved',
+            message: `New driver registered: ${d.name}`,
+            time: timeAgo
+          });
+        });
+
+        // Recent expenses
+        const recentExpenses = [...expensesData]
+          .filter(e => e.date)
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 2);
+        
+        recentExpenses.forEach((e, idx) => {
+          const timeAgo = getTimeAgo(e.date);
+          activities.push({
+            id: `expense-${idx}`,
+            type: 'payment_processed',
+            message: `Expense processed: ${e.title} - ${formatCurrency(e.amount)}`,
+            time: timeAgo
+          });
+        });
+
+        // Recent transactions
+        const recentTransactions = [...transactionsData]
+          .filter(t => t.date)
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 2);
+        
+        recentTransactions.forEach((t, idx) => {
+          const timeAgo = getTimeAgo(t.date);
+          activities.push({
+            id: `transaction-${idx}`,
+            type: 'payment_processed',
+            message: `Transaction: ${t.type} - ${formatCurrency(t.amount)}`,
+            time: timeAgo
+          });
+        });
+
+        setRecentActivities(activities.slice(0, 6));
+
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    if (seconds < 2592000) return `${Math.floor(seconds / 86400)} days ago`;
+    return formatDate(dateString);
   };
 
-  // Role-specific quick actions
-  const getQuickActions = (role) => {
-    const actions = {
-      'hr_manager': [
-        { title: 'Add Driver', description: 'Register new driver', icon: Users, color: 'bg-blue-50 hover:bg-blue-100 text-blue-600' },
-        { title: 'KYC Review', description: 'Review pending KYC', icon: FileText, color: 'bg-yellow-50 hover:bg-yellow-100 text-yellow-600' },
-        { title: 'Employee Reports', description: 'Generate HR reports', icon: TrendingUp, color: 'bg-green-50 hover:bg-green-100 text-green-600' },
-        { title: 'Attendance', description: 'Track attendance', icon: Clock, color: 'bg-purple-50 hover:bg-purple-100 text-purple-600' }
-      ],
-      'operations_manager': [
-        { title: 'Vehicle Status', description: 'Check vehicle status', icon: Car, color: 'bg-blue-50 hover:bg-blue-100 text-blue-600' },
-        { title: 'Trip Monitor', description: 'Monitor active trips', icon: TrendingUp, color: 'bg-green-50 hover:bg-green-100 text-green-600' },
-        { title: 'Driver Support', description: 'Handle driver issues', icon: MessageSquare, color: 'bg-orange-50 hover:bg-orange-100 text-orange-600' },
-        { title: 'Performance', description: 'View performance', icon: CheckCircle, color: 'bg-purple-50 hover:bg-purple-100 text-purple-600' }
-      ],
-      'support_agent': [
-        { title: 'Open Tickets', description: 'View support tickets', icon: MessageSquare, color: 'bg-red-50 hover:bg-red-100 text-red-600' },
-        { title: 'Driver Help', description: 'Assist drivers', icon: Users, color: 'bg-blue-50 hover:bg-blue-100 text-blue-600' },
-        { title: 'FAQ Update', description: 'Update knowledge base', icon: FileText, color: 'bg-green-50 hover:bg-green-100 text-green-600' },
-        { title: 'Escalate Issues', description: 'Escalate to management', icon: ArrowUpRight, color: 'bg-orange-50 hover:bg-orange-100 text-orange-600' }
-      ],
-      'auditor': [
-        { title: 'Audit Reports', description: 'Generate audit reports', icon: FileText, color: 'bg-blue-50 hover:bg-blue-100 text-blue-600' },
-        { title: 'Compliance Check', description: 'Check compliance status', icon: CheckCircle, color: 'bg-green-50 hover:bg-green-100 text-green-600' },
-        { title: 'Risk Analysis', description: 'Analyze risk factors', icon: TrendingUp, color: 'bg-orange-50 hover:bg-orange-100 text-orange-600' },
-        { title: 'Data Export', description: 'Export audit data', icon: ArrowUpRight, color: 'bg-purple-50 hover:bg-purple-100 text-purple-600' }
-      ]
-    };
-
-    return actions[role] || [
-      { title: 'Dashboard', description: 'View overview', icon: TrendingUp, color: 'bg-blue-50 hover:bg-blue-100 text-blue-600' },
-      { title: 'Reports', description: 'Generate reports', icon: FileText, color: 'bg-green-50 hover:bg-green-100 text-green-600' },
-      { title: 'Settings', description: 'Manage settings', icon: CheckCircle, color: 'bg-purple-50 hover:bg-purple-100 text-purple-600' },
-      { title: 'Help', description: 'Get support', icon: MessageSquare, color: 'bg-orange-50 hover:bg-orange-100 text-orange-600' }
-    ];
+  const calculateGrowth = (current, total) => {
+    // Mock growth calculation - in real app, compare with previous period
+    const growth = Math.random() * 20 - 5; // Random between -5% and 15%
+    return growth;
   };
 
-  const quickActions = getQuickActions(user?.role);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">{getRoleGreeting(user?.role)}</h1>
-        <p className="text-indigo-100">Welcome back, {user?.name}</p>
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
+        <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
+        <p className="text-blue-100">Complete system overview and administrative controls</p>
       </div>
 
-      {/* General Stats */}
+      {/* System Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="h-6 w-6 text-blue-600" />
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Drivers</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.totalDrivers}</p>
-                <div className="flex items-center mt-1">
-                  <ArrowUpRight className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-green-600 ml-1">+12% from last month</span>
-                </div>
+      
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Drivers</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeDrivers}</p>
+                
               </div>
             </div>
           </CardContent>
@@ -119,200 +382,207 @@ export default function DefaultDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+                <Car className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Drivers</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.activeDrivers}</p>
-                <div className="flex items-center mt-1">
-                  <ArrowUpRight className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-green-600 ml-1">+8% from last month</span>
-                </div>
+                <p className="text-sm font-medium text-gray-600">Total Vehicles</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalVehicles}</p>
+        
               </div>
             </div>
           </CardContent>
+          
         </Card>
 
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-                <div className="flex items-center mt-1">
-                  <ArrowUpRight className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-green-600 ml-1">+{stats.monthlyGrowth}% growth</span>
-                </div>
+                <p className="text-sm font-medium text-gray-600">Active Vehicles</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeVehicles}</p>
+    
               </div>
             </div>
           </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Trips</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalTrips.toLocaleString()}</p>
-                <div className="flex items-center mt-1">
-                  <ArrowUpRight className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-green-600 ml-1">+156 today</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
+          
         </Card>
       </div>
 
-      {/* Recent Activities and Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Clock className="h-5 w-5 mr-2 text-blue-500" />
-              Recent Activities
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className={`p-1 rounded-full ${
-                    activity.type === 'driver' ? 'bg-blue-100' :
-                    activity.type === 'payment' ? 'bg-green-100' :
-                    activity.type === 'ticket' ? 'bg-red-100' :
-                    activity.type === 'kyc' ? 'bg-yellow-100' :
-                    'bg-purple-100'
-                  }`}>
-                    <div className="w-2 h-2 rounded-full bg-current"></div>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{activity.message}</p>
-                    <p className="text-xs text-gray-500">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+     
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {quickActions.map((action, index) => {
-                const Icon = action.icon;
-                return (
-                  <button
-                    key={index}
-                    className={`p-4 text-left rounded-lg transition-colors ${action.color}`}
-                  >
-                    <Icon className="h-6 w-6 mb-2" />
-                    <p className="font-medium text-gray-900">{action.title}</p>
-                    <p className="text-sm text-gray-600">{action.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {/* Manage Users/Admin */}
+            {/* {hasPermission(PERMISSIONS.ADMIN_VIEW) && (
+              <button 
+                onClick={() => navigate('/admin/users')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-blue-50 transition-colors"
+              >
+                <Users className="h-6 w-6 mb-2 text-blue-600" />
+                <span className="text-sm font-medium">Manage Users</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalUsers} users</span>
+              </button>
+            )} */}
 
-      {/* Role-specific Information Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Key Metrics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {user?.role === 'support_agent' ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Open Tickets</span>
-                    <span className="font-medium text-red-600">{stats.openTickets}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Resolved Today</span>
-                    <span className="font-medium text-green-600">{stats.resolvedTickets}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Response Time</span>
-                    <span className="font-medium">4.2 min</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Active</span>
-                    <span className="font-medium text-green-600">{stats.activeDrivers}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Pending KYC</span>
-                    <span className="font-medium text-orange-600">{stats.pendingKyc}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">This Month</span>
-                    <span className="font-medium">+{stats.monthlyGrowth}%</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            {/* Drivers */}
+            {hasPermission(PERMISSIONS.DRIVERS_VIEW) && (
+              <button 
+                onClick={() => navigate('/drivers')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-green-50 transition-colors"
+              >
+                <Car className="h-6 w-6 mb-2 text-green-600" />
+                <span className="text-sm font-medium">All Drivers</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalDrivers} drivers</span>
+              </button>
+            )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Today's Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">New Registrations</span>
-                <span className="font-medium">12</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Completed Trips</span>
-                <span className="font-medium">156</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Revenue Generated</span>
-                <span className="font-medium">{formatCurrency(87650)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Vehicles */}
+            {hasPermission(PERMISSIONS.VEHICLES_VIEW) && (
+              <button 
+                onClick={() => navigate('/vehicles/allvehicles')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-purple-50 transition-colors"
+              >
+                <Car className="h-6 w-6 mb-2 text-purple-600" />
+                <span className="text-sm font-medium">All Vehicles</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalVehicles} vehicles</span>
+              </button>
+            )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">System Health</span>
-                <Badge variant="success">Operational</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Last Backup</span>
-                <span className="text-sm font-medium">{formatDate(new Date())}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Uptime</span>
-                <span className="text-sm font-medium text-green-600">99.9%</span>
-              </div>
+            {/* Financial Reports */}
+            {/* {hasPermission(PERMISSIONS.REPORTS_FINANCIAL) && (
+              <button 
+                onClick={() => navigate('/reports/financial')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-indigo-50 transition-colors"
+              >
+                <DollarSign className="h-6 w-6 mb-2 text-indigo-600" />
+                <span className="text-sm font-medium">Financial Reports</span>
+                <span className="text-xs text-gray-500 mt-1">View analytics</span>
+              </button>
+            )} */}
+
+            {/* Performance Reports */}
+            {/* {hasPermission(PERMISSIONS.REPORTS_PERFORMANCE) && (
+              <button 
+                onClick={() => navigate('/reports/performance')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-orange-50 transition-colors"
+              >
+                <BarChart3 className="h-6 w-6 mb-2 text-orange-600" />
+                <span className="text-sm font-medium">Performance</span>
+                <span className="text-xs text-gray-500 mt-1">KPI dashboard</span>
+              </button>
+            )} */}
+
+            {/* Expenses */}
+            
+
+            {/* Investments */}
+            {hasPermission(PERMISSIONS.INVESTMENTS_VIEW) && (
+              <button 
+                onClick={() => navigate('/investerDetails')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-teal-50 transition-colors"
+              >
+                <Wallet className="h-6 w-6 mb-2 text-teal-600" />
+                <span className="text-sm font-medium">Investments</span>
+                <span className="text-xs text-gray-500 mt-1">{stats.totalInvestors} investors</span>
+              </button>
+            )}
+
+            {/* Tickets */}
+            {/* {hasPermission(PERMISSIONS.TICKETS_VIEW) && (
+              <button 
+                onClick={() => navigate('/tickets')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-yellow-50 transition-colors"
+              >
+                <AlertTriangle className="h-6 w-6 mb-2 text-yellow-600" />
+                <span className="text-sm font-medium">Tickets</span>
+                <span className="text-xs text-gray-500 mt-1">
+                  {tickets.filter(t => t.status === 'open' || t.status === 'pending').length} open
+                </span>
+              </button>
+            )} */}
+
+            {/* Driver KYC */}
+            {/* {hasPermission(PERMISSIONS.DRIVERS_KYC) && stats.pendingKyc > 0 && (
+              <button 
+                onClick={() => navigate('/drivers/status')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-pink-50 transition-colors border-pink-300"
+              >
+                <Shield className="h-6 w-6 mb-2 text-pink-600" />
+                <span className="text-sm font-medium">Pending KYC</span>
+                <span className="text-xs text-pink-600 mt-1 font-semibold">{stats.pendingKyc} pending</span>
+              </button>
+            )} */}
+
+            {/* Roles Management */}
+            {/* {hasPermission(PERMISSIONS.ADMIN_ROLES) && (
+              <button 
+                onClick={() => navigate('/admin/roles')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:bg-gray-50 transition-colors"
+              >
+                <Settings className="h-6 w-6 mb-2 text-gray-600" />
+                <span className="text-sm font-medium">Manage Roles</span>
+                <span className="text-xs text-gray-500 mt-1">Permissions</span>
+              </button>
+            )} */}
+ {/* Plans */}
+            {hasPermission(PERMISSIONS.PLANS_VIEW) && (
+              <button 
+                onClick={() => navigate('/plans')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-cyan-50 transition-colors"
+              >
+                <Database className="h-6 w-6 mb-2 text-cyan-600" />
+                <span className="text-sm font-medium">Car Plans</span>
+                <span className="text-xs text-gray-500 mt-1">Manage plans</span>
+              </button>
+            )}
+            {/* Payments */}
+            {hasPermission(PERMISSIONS.PAYMENTS_VIEW) && (
+              <button 
+                onClick={() => navigate('/payments/drivers')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-emerald-50 transition-colors"
+              >
+                <DollarSign className="h-6 w-6 mb-2 text-emerald-600" />
+                <span className="text-sm font-medium">Payments</span>
+                <span className="text-xs text-gray-500 mt-1">Process payments</span>
+              </button>
+            )}
+
+           
+            {hasPermission(PERMISSIONS.EXPENSES_VIEW) && (
+              <button 
+                onClick={() => navigate('/expenses')}
+                className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-red-50 transition-colors"
+              >
+                <FileText className="h-6 w-6 mb-2 text-red-600" />
+                <span className="text-sm font-medium">Expenses</span>
+                <span className="text-xs text-gray-500 mt-1">{formatCurrency(stats.totalExpenses)}</span>
+              </button>
+            )}
+          </div>
+           {/* System Alerts & Recent Activities */}
+      
+
+          {/* No actions available message */}
+          {!hasPermission(PERMISSIONS.ADMIN_VIEW) && 
+           !hasPermission(PERMISSIONS.DRIVERS_VIEW) && 
+           !hasPermission(PERMISSIONS.VEHICLES_VIEW) && 
+           !hasPermission(PERMISSIONS.REPORTS_VIEW) && (
+            <div className="text-center py-8 text-gray-500">
+              <Activity className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm">No quick actions available with your current permissions</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }

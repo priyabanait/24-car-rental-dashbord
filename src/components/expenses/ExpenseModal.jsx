@@ -108,10 +108,10 @@ export default function ExpenseModal({ isOpen, onClose, onSave, expense = null, 
             <input type="date" className={`input ${errors.date ? 'border-red-300' : ''}`} value={form.date} onChange={(e)=>setField('date', e.target.value)} />
             {errors.date && <p className="mt-1 text-xs text-red-600">{errors.date}</p>}
           </div>
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
             <input className="input" value={form.vendor} onChange={(e)=>setField('vendor', e.target.value)} placeholder="Vendor name" />
-          </div>
+          </div> */}
           {/* <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
             <select className="input" value={form.paymentMethod} onChange={(e)=>setField('paymentMethod', e.target.value)}>

@@ -14,6 +14,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
   const [carNames, setCarNames] = useState([]);
+  const [investors, setInvestors] = useState([]);
 
   const [form, setForm] = useState({
     registrationNumber: '',
@@ -21,6 +22,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     carName: '',
     brand: '',
   category: '',
+    investorId: '',
     ownerName: '',
     ownerPhone: '',
     kycStatus: '',
@@ -56,6 +58,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
   const [errors, setErrors] = useState({});
   const [drivers, setDrivers] = useState([]);
   const [managers, setManagers] = useState([]);
+  const [previews, setPreviews] = useState({});
 
   const loadOptions = async (type, setter) => {
     try {
@@ -78,22 +81,48 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       loadOptions('carName', setCarNames);
       fetchDrivers();
       fetchManagers();
+      fetchInvestors();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    // clear previews when switching vehicle or reopening
+    setPreviews({});
+  }, [vehicle, isOpen]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(previews).forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
+  }, [previews]);
   const fetchManagers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/managers`);
-      const data = res.ok ? await res.json() : [];
+      const res = await fetch(`${API_BASE}/api/managers?limit=1000`);
+      const result = res.ok ? await res.json() : [];
+      const data = result.data || result;
       setManagers(Array.isArray(data) ? data : []);
     } catch (e) {
       setManagers([]);
     }
   };
 
+  const fetchInvestors = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/investors`);
+      const data = res.ok ? await res.json() : [];
+      setInvestors(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setInvestors([]);
+    }
+  };
+
   const fetchDrivers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/drivers`);
-      const data = res.ok ? await res.json() : [];
+      const res = await fetch(`${API_BASE}/api/drivers?limit=1000`);
+      const result = res.ok ? await res.json() : [];
+      const data = result.data || result;
       setDrivers(Array.isArray(data) ? data : []);
     } catch (e) {
       setDrivers([]);
@@ -108,6 +137,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
         carName: vehicle.carName || vehicle.name || '',
   brand: vehicle.brand || '',
   category: vehicle.category || '',
+        investorId: vehicle.investorId?._id || vehicle.investorId || '',
         ownerName: vehicle.ownerName || vehicle.owner || '',
         ownerPhone: vehicle.ownerPhone || '',
         kycStatus: vehicle.kycStatus || vehicle.kyc || vehicle.kyc_status || '',
@@ -140,7 +170,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       });
     } else {
       setForm({
-  registrationNumber: '', model: '', carName: '', brand: '', category: '', ownerName: '', ownerPhone: '', kycStatus: '', manufactureYear: '',
+  registrationNumber: '', model: '', carName: '', brand: '', category: '', investorId: '', ownerName: '', ownerPhone: '', kycStatus: '', manufactureYear: '',
         registrationDate: '', rcExpiryDate: '', roadTaxDate: '', roadTaxNumber: '', insuranceDate: '', permitDate: '', emissionDate: '',
         trafficFine: '', trafficFineDate: '', fuelType: '', color: '', assignedDriver: '', status: 'active', remarks: '',
         registrationCardPhoto: null, roadTaxPhoto: null, pucNumber: '', pucPhoto: null, permitPhoto: null,
@@ -252,7 +282,9 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
   };
 
   const handleFileChange = (field, file) => {
+    if (previews[field]) URL.revokeObjectURL(previews[field]);
     setForm(prev => ({ ...prev, [field]: file }));
+    setPreviews(prev => ({ ...prev, [field]: file ? URL.createObjectURL(file) : undefined }));
   };
 
   const addNewOption = async (type) => {
@@ -303,6 +335,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
         category: form.category,
         carName: form.carName,
         brand: form.brand,
+        investorId: form.investorId || undefined,
         ownerName: form.ownerName,
         ownerPhone: form.ownerPhone,
         kycStatus: form.kycStatus || undefined,
@@ -347,6 +380,46 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       toast.error(err.message || 'Failed to save vehicle');
       setLoading(false);
     }
+  };
+
+  const renderUpload = (label, field) => {
+    const previewUrl = previews[field];
+    const existingUrl = vehicle?.[field];
+
+    return (
+      <div>
+        <label className="block text-sm font-medium">{label}</label>
+        <input
+          type="file"
+          accept="image/*"
+          className="input"
+          onChange={(e) => handleFileChange(field, e.target.files?.[0] || null)}
+        />
+        <div className="mt-2 flex items-start gap-3">
+          {(previewUrl || existingUrl) ? (
+            <div className="w-28 h-28 rounded-lg border bg-gray-50 overflow-hidden flex items-center justify-center">
+              <img
+                src={previewUrl || existingUrl}
+                alt={label}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">Preview appears after selecting a file</p>
+          )}
+          {existingUrl && (
+            <a
+              href={existingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-blue-600 underline mt-1 inline-block"
+            >
+              View current
+            </a>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -470,6 +543,18 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
               </div>
 
               <div>
+                <label className="block text-sm font-medium">Select Investor</label>
+                <select className="input" value={form.investorId} onChange={(e)=>handleChange('investorId', e.target.value)}>
+                  <option value="">Select Investor</option>
+                  {investors.map((investor) => (
+                    <option key={investor._id || investor.id} value={investor._id || investor.id}>
+                      {investor.investorName || investor.name} {investor.phone ? `(${investor.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium">Owner Name</label>
                 <input className="input" value={form.ownerName} onChange={(e)=>handleChange('ownerName', e.target.value)} />
               </div>
@@ -512,7 +597,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
               </div>
 
               <div>
-                <label className="block text-sm font-medium">Emission Date</label>
+                <label className="block text-sm font-medium">Car Submit Date</label>
                 <input type="date" className="input" value={form.emissionDate} onChange={(e)=>handleChange('emissionDate', e.target.value)} />
               </div>
 
@@ -598,22 +683,14 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                   <input className="input" value={form.roadTaxNumber} onChange={(e)=>handleChange('roadTaxNumber', e.target.value)} placeholder="Enter road tax number" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Road Tax Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('roadTaxPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.roadTaxPhoto && (
-                    <a href={vehicle.roadTaxPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Road Tax Photo', 'roadTaxPhoto')}
                 </div>
                 <div>
                   <label className="block text-sm font-medium">PUC Certificate No.</label>
                   <input className="input" value={form.pucNumber} onChange={(e)=>handleChange('pucNumber', e.target.value)} placeholder="Enter PUC certificate number" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">PUC Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('pucPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.pucPhoto && (
-                    <a href={vehicle.pucPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('PUC Photo', 'pucPhoto')}
                 </div>
               </div>
             </div>
@@ -622,18 +699,10 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
               <h4 className="text-sm font-semibold mb-2">Registration & Permit</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium">Registration Card Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('registrationCardPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.registrationCardPhoto && (
-                    <a href={vehicle.registrationCardPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Registration Card Photo', 'registrationCardPhoto')}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Permit Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('permitPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.permitPhoto && (
-                    <a href={vehicle.permitPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Permit Photo', 'permitPhoto')}
                 </div>
               </div>
             </div>
@@ -642,39 +711,19 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
               <h4 className="text-sm font-semibold mb-2">Vehicle Photos</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium">Front Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carFrontPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.carFrontPhoto && (
-                    <a href={vehicle.carFrontPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Front Photo', 'carFrontPhoto')}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Left Side Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carLeftPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.carLeftPhoto && (
-                    <a href={vehicle.carLeftPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Left Side Photo', 'carLeftPhoto')}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Right Side Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carRightPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.carRightPhoto && (
-                    <a href={vehicle.carRightPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Right Side Photo', 'carRightPhoto')}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Back Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carBackPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.carBackPhoto && (
-                    <a href={vehicle.carBackPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Back Photo', 'carBackPhoto')}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium">Full Vehicle Photo</label>
-                  <input type="file" accept="image/*" className="input" onChange={(e)=>handleFileChange('carFullPhoto', e.target.files?.[0] || null)} />
-                  {vehicle?.carFullPhoto && (
-                    <a href={vehicle.carFullPhoto} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">View current</a>
-                  )}
+                  {renderUpload('Full Vehicle Photo', 'carFullPhoto')}
                 </div>
               </div>
             </div>

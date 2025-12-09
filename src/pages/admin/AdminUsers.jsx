@@ -325,10 +325,7 @@ export default function AdminUsers() {
                         <Phone className="h-4 w-4 mr-2" />
                         {user.phone}
                       </div>
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Joined {formatDate(user.joinDate)}
-                      </div>
+                      
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

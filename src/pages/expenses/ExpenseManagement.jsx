@@ -51,12 +51,14 @@ export default function ExpenseManagement() {
       setLoading(true); setError(null);
       try {
         const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
-        const res = await fetch(`${API_BASE}/api/expenses`);
+        const res = await fetch(`${API_BASE}/api/expenses?limit=1000`);
         if (!res.ok) throw new Error(`Failed to load expenses: ${res.status}`);
-        const data = await res.json();
-        if (mounted) setExpenses(data);
+        const result = await res.json();
+        const data = result.data || result;
+        if (mounted) setExpenses(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err); setError(err.message || 'Failed to load expenses');
+        if (mounted) setExpenses([]);
       } finally { if (mounted) setLoading(false); }
     })();
     return () => { mounted = false; };
@@ -509,9 +511,9 @@ export default function ExpenseManagement() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vendor
-                  </th>
+                  </th> */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vehicle/Driver
                   </th>
@@ -551,9 +553,9 @@ export default function ExpenseManagement() {
                       <div className="text-sm font-medium text-gray-900">{formatCurrency(expense.amount)}</div>
                       <div className="text-sm text-gray-500 capitalize">{expense.paymentMethod}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {expense.vendor}
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {expense.vehicleId && expense.vehicleId !== 'Multiple' && expense.vehicleId !== 'Fleet' 

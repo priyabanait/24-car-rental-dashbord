@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 
 export default function VehicleDocuments() {
   const { hasPermission } = useAuth();
+  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [documentTypeFilter, setDocumentTypeFilter] = useState('all');
@@ -33,20 +34,23 @@ export default function VehicleDocuments() {
 
   const [vehicleDocuments, setVehicleDocuments] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [editingDoc, setEditingDoc] = useState(null);
+  const [viewDoc, setViewDoc] = useState(null);
 
   useEffect(() => {
     let mounted = true;
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
     (async function fetchAll() {
       try {
         const [vehicleRes, driverRes] = await Promise.all([
-          fetch(`${API_BASE}/api/vehicles`),
-          fetch(`${API_BASE}/api/drivers`)
+          fetch(`${API_BASE}/api/vehicles?limit=1000`),
+          fetch(`${API_BASE}/api/drivers?limit=1000`)
         ]);
         if (!vehicleRes.ok) throw new Error(`Failed to load vehicles: ${vehicleRes.status}`);
         if (!driverRes.ok) throw new Error(`Failed to load drivers: ${driverRes.status}`);
-        const vehicles = await vehicleRes.json();
-        const driversData = await driverRes.json();
+        const vResult = await vehicleRes.json();
+        const dResult = await driverRes.json();
+        const vehicles = vResult.data || vResult;
+        const driversData = dResult.data || dResult;
         if (mounted) setDrivers(driversData);
 
         // Map vehicles to the document-centric shape expected by this page
@@ -108,6 +112,67 @@ export default function VehicleDocuments() {
     { key: 'permit', label: 'Commercial Permit', required: true },
     // { key: 'fitness', label: 'Fitness Certificate', required: true }
   ];
+
+  const documentFieldMap = {
+    registration: 'registrationDate',
+    insurance: 'insuranceDate',
+    puc: 'emissionDate',
+    permit: 'permitDate'
+  };
+
+  const openEdit = (vehicle, docKey) => {
+    setEditingDoc({
+      vehicleId: vehicle.id,
+      vehicleNumber: vehicle.vehicleNumber,
+      docKey,
+      currentDate: vehicle.documents[docKey]?.expiryDate || ''
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editingDoc) return;
+    const field = documentFieldMap[editingDoc.docKey];
+    if (!field) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/vehicles/${editingDoc.vehicleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: editingDoc.currentDate })
+      });
+      if (!res.ok) throw new Error(`Failed to update ${editingDoc.docKey}`);
+      const updated = await res.json();
+      setVehicleDocuments(prev => prev.map(v => {
+        if (v.id === editingDoc.vehicleId) {
+          return {
+            ...v,
+            documents: {
+              ...v.documents,
+              [editingDoc.docKey]: {
+                ...v.documents[editingDoc.docKey],
+                expiryDate: updated[field] || editingDoc.currentDate,
+                status: 'verified'
+              }
+            }
+          };
+        }
+        return v;
+      }));
+      toast.success('Date updated');
+      setEditingDoc(null);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Failed to update');
+    }
+  };
+
+  const openView = (vehicle, docKey) => {
+    setViewDoc({
+      vehicleNumber: vehicle.vehicleNumber,
+      driverName: vehicle.driverName,
+      docKey,
+      doc: vehicle.documents[docKey]
+    });
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -395,6 +460,24 @@ export default function VehicleDocuments() {
                           <div className="text-xs text-gray-500">
                             Expires: {formatDate(vehicle.documents[docType.key].expiryDate)}
                           </div>
+                          <div className="flex items-center gap-2 text-xs text-blue-600">
+                            <button
+                              type="button"
+                              className="hover:text-blue-800 flex items-center gap-1"
+                              onClick={() => openView(vehicle, docType.key)}
+                            >
+                              <Eye className="h-4 w-4" /> View
+                            </button>
+                            {hasPermission(PERMISSIONS.VEHICLES_EDIT) && (
+                              <button
+                                type="button"
+                                className="hover:text-blue-800 flex items-center gap-1"
+                                onClick={() => openEdit(vehicle, docType.key)}
+                              >
+                                <Upload className="h-4 w-4" /> Edit Date
+                              </button>
+                            )}
+                          </div>
                           {hasPermission(PERMISSIONS.VEHICLES_EDIT) && 
                            vehicle.documents[docType.key].status === 'pending' && (
                             <div className="flex space-x-1">
@@ -495,6 +578,53 @@ export default function VehicleDocuments() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View modal */}
+      {viewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={() => setViewDoc(null)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-semibold">{documentTypes.find(d => d.key === viewDoc.docKey)?.label}</h3>
+              <p className="text-sm text-gray-600">Vehicle: {viewDoc.vehicleNumber}</p>
+              <p className="text-sm text-gray-600">Driver: {viewDoc.driverName}</p>
+            </div>
+            <div className="p-4 space-y-2">
+              <p className="text-sm text-gray-700">Expiry: {formatDate(viewDoc.doc?.expiryDate)}</p>
+              <p className="text-sm text-gray-700">Uploaded: {formatDate(viewDoc.doc?.uploadDate)}</p>
+              <p className="text-sm text-gray-700">Status: {getDocumentStatus(viewDoc.doc)}</p>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <button className="btn btn-secondary" onClick={() => setViewDoc(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit date modal */}
+      {editingDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={() => setEditingDoc(null)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-semibold">Edit Date</h3>
+              <p className="text-sm text-gray-600">{documentTypes.find(d => d.key === editingDoc.docKey)?.label}</p>
+              <p className="text-sm text-gray-600">Vehicle: {editingDoc.vehicleNumber}</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="block text-sm font-medium">Expiry Date</label>
+              <input
+                type="date"
+                className="input"
+                value={editingDoc.currentDate ? editingDoc.currentDate.slice(0,10) : ''}
+                onChange={(e) => setEditingDoc(prev => ({ ...prev, currentDate: e.target.value }))}
+              />
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button className="btn btn-secondary" onClick={() => setEditingDoc(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveEdit}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

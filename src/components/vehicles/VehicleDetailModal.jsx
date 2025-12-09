@@ -1,10 +1,22 @@
 import { X } from 'lucide-react';
 import { formatDate, formatCurrency } from '../../utils';
 
-export default function VehicleDetailModal({ isOpen, onClose, vehicle = null }) {
+export default function VehicleDetailModal({ isOpen, onClose, vehicle = null, drivers = [], managers = [] }) {
   if (!isOpen) return null;
 
   const v = vehicle || {};
+
+  const getDriverName = () => {
+    if (!v.assignedDriver) return '-';
+    const found = drivers.find(d => d._id === v.assignedDriver);
+    return found ? (found.name || found.username || found.phone) : v.assignedDriver;
+  };
+
+  const getManagerName = () => {
+    if (!v.assignedManager) return '-';
+    const found = managers.find(m => m._id === v.assignedManager);
+    return found ? (found.name || found.username || found.email) : v.assignedManager;
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -102,7 +114,7 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null }) 
                 <p className="font-medium">{formatDate(v.permitDate)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Emission Date</p>
+                <p className="text-sm text-gray-500">Car Submit Date</p>
                 <p className="font-medium">{formatDate(v.emissionDate)}</p>
               </div>
 
@@ -112,7 +124,12 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null }) 
               </div>
               <div>
                 <p className="text-sm text-gray-500">Assigned Driver</p>
-                <p className="font-medium">{v.assignedDriver || '-'}</p>
+                <p className="font-medium">{getDriverName()}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Assigned Manager</p>
+                <p className="font-medium">{getManagerName()}</p>
               </div>
 
               <div>
@@ -120,7 +137,7 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null }) 
                 <p className="font-medium">{(v.kycStatus || v.kyc || 'pending')}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Status</p>
+                <p className="text-sm text-gray-500">Car Status</p>
                 <p className="font-medium">{v.status || 'inactive'}</p>
               </div>
 

@@ -96,12 +96,12 @@ export default function Login() {
                 </label>
               </div>
 
-              <Link
+              {/* <Link
                 to="/forgot-password"
                 className="text-sm text-primary-600 hover:text-primary-500"
               >
                 Forgot password?
-              </Link>
+              </Link> */}
             </div>
 
             <button
@@ -120,7 +120,7 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 border-t border-gray-200 pt-6">
+          {/* <div className="mt-6 border-t border-gray-200 pt-6">
             <div className="text-sm text-gray-600">
               <p className="font-medium mb-2">Demo Accounts:</p>
               <div className="space-y-1 text-xs">
@@ -129,7 +129,7 @@ export default function Login() {
                 <p><strong>Finance:</strong> finance@udrive.com / finance123</p>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

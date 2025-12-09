@@ -58,7 +58,7 @@ const Investors = () => {
   const loadInvestments = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/investment-fds`, {
+      const response = await fetch(`${API_BASE}/api/investment-fds?limit=1000`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -67,7 +67,8 @@ const Investors = () => {
         throw new Error('Failed to load investments');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      const data = result.data || result;
       setInvestments(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load investments:', err);
@@ -85,7 +86,8 @@ const Investors = () => {
         headers: { 'Content-Type': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to load plans');
-      const data = await response.json();
+      const result = await response.json();
+      const data = result.data || result;
       setPlans(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load plans:', err);
@@ -300,24 +302,63 @@ const Investors = () => {
   const handleExport = () => {
     try {
       const data = filteredInvestments.map(inv => ({
-        'Investor Name': inv.investorName,
-        'Email': inv.email,
-        'Phone': inv.phone,
-        'Address': inv.address,
+        'Investor Name': inv.investorName || '',
+        'Email': inv.email || '',
+        'Phone': inv.phone ? `'${inv.phone}'` : '',
+        'Address': inv.address || '',
         'Investment Date': formatDate(inv.investmentDate),
-        'Payment Method': inv.paymentMethod,
-        'Investment Rate (%)': inv.investmentRate,
-        'Investment Amount': inv.investmentAmount
+        'Payment Method': inv.paymentMethod || '',
+        'Investment Rate (%)': inv.investmentRate || '',
+        'Investment Amount': inv.investmentAmount || '',
+        'Plan Name': inv.planName || '',
+        'FD Type': inv.fdType || '',
+        'Term Months': inv.termMonths || '',
+        'Term Years': inv.termYears || '',
+        'Maturity Date': inv.maturityDate ? formatDate(inv.maturityDate) : '',
+        'Maturity Amount': inv.maturityAmount || '',
+        'Status': inv.status || '',
+        'Payment Status': inv.paymentStatus || '',
+        'Payment Date': inv.paymentDate ? formatDate(inv.paymentDate) : '',
+        'Payment Mode': inv.paymentMode || '',
+        'Notes': inv.notes || '',
+        'Created At': inv.createdAt ? formatDate(inv.createdAt) : '',
+        'Updated At': inv.updatedAt ? formatDate(inv.updatedAt) : ''
       }));
 
       const ws = XLSX.utils.json_to_sheet(data);
+      
+      // Set column widths for better readability
+      ws['!cols'] = [
+        { wch: 20 }, // Investor Name
+        { wch: 30 }, // Email
+        { wch: 15 }, // Phone
+        { wch: 30 }, // Address
+        { wch: 15 }, // Investment Date
+        { wch: 15 }, // Payment Method
+        { wch: 10 }, // Rate
+        { wch: 15 }, // Amount
+        { wch: 20 }, // Plan Name
+        { wch: 10 }, // FD Type
+        { wch: 10 }, // Term Months
+        { wch: 10 }, // Term Years
+        { wch: 15 }, // Maturity Date
+        { wch: 15 }, // Maturity Amount
+        { wch: 12 }, // Status
+        { wch: 15 }, // Payment Status
+        { wch: 15 }, // Payment Date
+        { wch: 12 }, // Payment Mode
+        { wch: 30 }, // Notes
+        { wch: 18 }, // Created At
+        { wch: 18 }  // Updated At
+      ];
+      
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Investments');
+      XLSX.utils.book_append_sheet(wb, ws, 'Investment FDs');
 
       const date = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `investments_${date}.xlsx`);
+      XLSX.writeFile(wb, `investment_fds_${date}.xlsx`);
 
-      toast.success('Report exported successfully');
+      toast.success(`Exported ${filteredInvestments.length} investment FD records successfully`);
     } catch (err) {
       console.error('Export failed:', err);
       toast.error('Failed to export report');
@@ -446,20 +487,20 @@ const Investors = () => {
           <CardTitle>Investers FD Records ({filteredInvestments.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-400px)]">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Investor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Investment Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">FD Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Maturity Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate (%)</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Principal</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Maturity Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Investor</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Contact</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Investment Date</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">FD Type</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Maturity Date</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Rate (%)</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Principal</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Maturity Amount</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Status</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase bg-gray-50">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -815,10 +856,13 @@ const Investors = () => {
                           {(() => {
                             const principal = parseFloat(formData.investmentAmount);
                             const rate = parseFloat(formData.investmentRate) / 100;
-                            const time = formData.fdType === 'monthly' 
-                              ? parseFloat(formData.termMonths) / 12 
+                            const n = formData.fdType === 'monthly' ? 12 : 1; // compounding frequency
+                            const time = formData.fdType === 'monthly'
+                              ? parseFloat(formData.termMonths) / 12
                               : parseFloat(formData.termYears);
-                            const interest = principal * rate * time;
+                            if (Number.isNaN(principal) || Number.isNaN(rate) || Number.isNaN(time)) return '0';
+                            const amount = principal * Math.pow(1 + rate / n, n * time);
+                            const interest = amount - principal;
                             return interest.toLocaleString('en-IN', { maximumFractionDigits: 2 });
                           })()}
                         </p>
@@ -830,20 +874,22 @@ const Investors = () => {
                           {(() => {
                             const principal = parseFloat(formData.investmentAmount);
                             const rate = parseFloat(formData.investmentRate) / 100;
-                            const time = formData.fdType === 'monthly' 
-                              ? parseFloat(formData.termMonths) / 12 
+                            const n = formData.fdType === 'monthly' ? 12 : 1; // compounding frequency
+                            const time = formData.fdType === 'monthly'
+                              ? parseFloat(formData.termMonths) / 12
                               : parseFloat(formData.termYears);
-                            const maturity = principal + (principal * rate * time);
+                            if (Number.isNaN(principal) || Number.isNaN(rate) || Number.isNaN(time)) return '0';
+                            const maturity = principal * Math.pow(1 + rate / n, n * time);
                             return maturity.toLocaleString('en-IN', { maximumFractionDigits: 2 });
                           })()}
                         </p>
                       </div>
                     </div>
                     <div className="mt-4 text-sm text-gray-600 bg-white rounded p-3">
-                      <p className="font-medium">Calculation: Simple Interest</p>
+                      <p className="font-medium">Calculation: Compound Interest</p>
                       <p className="text-xs mt-1">
-                        Maturity Amount = Principal + (Principal × Rate × Time)
-                        {formData.fdType === 'monthly' && ` | Time = ${formData.termMonths} months = ${(parseFloat(formData.termMonths) / 12).toFixed(2)} years`}
+                        Maturity = Principal × (1 + r/n)<sup>n×t</sup>{formData.fdType === 'monthly' ? ' (monthly compounding)' : ' (yearly compounding)'}
+                        {formData.fdType === 'monthly' && ` | t = ${formData.termMonths} months = ${(parseFloat(formData.termMonths) / 12).toFixed(2)} years`}
                       </p>
                     </div>
                   </div>

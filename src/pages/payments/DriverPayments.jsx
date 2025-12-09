@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 // Helper to get initial extra state for all selections
 
 import { CreditCard, Users, Download, Search, Check, Clock, AlertTriangle, Wallet, User, Phone, IndianRupee, Eye, ChevronDown, CheckCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/Table';
@@ -11,6 +12,8 @@ import { PERMISSIONS } from '../../utils/permissions';
 import toast from 'react-hot-toast';
 
 export default function DriverPayments() {
+  const { user } = useAuth(); // Get logged-in user
+  const isManager = user?.role === 'fleet_manager';
   // Manager dropdown state
   const [managers, setManagers] = useState([]);
   const [selectedManagers, setSelectedManagers] = useState({}); // { selectionId: managerId }
@@ -38,51 +41,83 @@ export default function DriverPayments() {
 }
   // State for editing extra amount/reason per row
   const [extraInputs, setExtraInputs] = useState({});
-  // State for adjustment amount per row
+  // State for adjustment amount and reason per row
   const [adjustmentInputs, setAdjustmentInputs] = useState({});
   // Sync extraInputs state when selections change
   useEffect(() => {
     setExtraInputs(getInitialExtraState(selections));
-    // Initialize adjustmentInputs state
+    // Initialize adjustmentInputs state - keep amount empty for new input
     const adjState = {};
     selections.flat().forEach(s => {
-      adjState[s._id] = s.adjustmentAmount || '';
+      adjState[s._id] = {
+        amount: '', // Keep empty for new adjustment input
+        reason: '', // Keep empty for new reason input
+        loading: false
+      };
     });
     setAdjustmentInputs(adjState);
   }, [selections]);
   // Save handler for extra amount/reason
-    // Save handler for adjustment amount
-    const handleSaveAdjustment = (selectionId) => {
-      const value = Number(adjustmentInputs[selectionId]) || 0;
-      setSelections(prev => prev.map(group =>
-        group.map(s =>
-          s._id === selectionId
-            ? { ...s, adjustmentAmount: value }
-            : s
-        )
-      ));
-      // Persist to backend
-      (async () => {
-        try {
-          const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
-          const token = localStorage.getItem('token');
-          const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({ adjustmentAmount: value })
-          });
-          if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.message || 'Failed to update adjustment amount');
-          }
-          toast.success('Adjustment amount updated');
-        } catch (e) {
-          toast.error(e.message || 'Failed to update adjustment amount');
+    // Save handler for adjustment amount and reason
+    const handleSaveAdjustment = async (selectionId) => {
+      const { amount, reason } = adjustmentInputs[selectionId] || {};
+      
+      if (!amount || Number(amount) <= 0) {
+        toast.error('Please enter a valid adjustment amount');
+        return;
+      }
+      
+      setAdjustmentInputs(prev => ({
+        ...prev,
+        [selectionId]: { ...prev[selectionId], loading: true }
+      }));
+      
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        const token = localStorage.getItem('token');
+        
+        const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ adjustmentAmount: Number(amount) || 0, adjustmentReason: reason || 'Adjustment' })
+        });
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Failed to update adjustment amount');
         }
-      })();
+        
+        const result = await res.json();
+        
+        // Update local state with cumulative adjustment
+        setSelections(prev => prev.map(group =>
+          group.map(s =>
+            s._id === selectionId
+              ? { 
+                  ...s, 
+                  adjustmentAmount: result.selection.adjustmentAmount,
+                  adjustmentReason: result.selection.adjustmentReason
+                }
+              : s
+          )
+        ));
+        
+        // Clear input fields after successful save
+        setAdjustmentInputs(prev => ({
+          ...prev,
+          [selectionId]: { amount: '', reason: '', loading: false }
+        }));
+        
+        toast.success(`Added ₹${Number(amount).toLocaleString('en-IN')} to adjustments. Total: ₹${result.selection.adjustmentAmount.toLocaleString('en-IN')}`);
+      } catch (e) {
+        toast.error(e.message || 'Failed to update adjustment amount');
+        setAdjustmentInputs(prev => ({
+          ...prev,
+          [selectionId]: { ...prev[selectionId], loading: false }
+        }));
+      }
     };
   const handleSaveExtra = async (selectionId) => {
     setExtraInputs(prev => ({
@@ -147,28 +182,32 @@ export default function DriverPayments() {
 
   useEffect(() => {
     const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
-    const managerFilter = selectedManagers?.filter || '';
+    // If logged-in user is a manager, use their email/ID, otherwise use selected manager filter
+    const managerFilter = isManager ? (user?.email || user?.id) : (selectedManagers?.filter || '');
     
-    // Fetch managers for dropdown
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/managers`);
-        if (!res.ok) throw new Error(`Failed to load managers: ${res.status}`);
-        const data = await res.json();
-        setManagers(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error loading managers:', err);
-        setManagers([]);
-      }
-    })();
+    // Fetch managers for dropdown (only if not a manager user)
+    if (!isManager) {
+      (async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/managers?limit=1000`);
+          if (!res.ok) throw new Error(`Failed to load managers: ${res.status}`);
+          const result = await res.json();
+          const data = result.data || result;
+          setManagers(Array.isArray(data) ? data : []);
+        } catch (err) {
+          console.error('Error loading managers:', err);
+          setManagers([]);
+        }
+      })();
+    }
 
     // Fetch payments by manager if selected, else fetch all
     const fetchPayments = async () => {
       setLoading(true);
       try {
-        let url = `${API_BASE}/api/driver-plan-selections`;
+        let url = `${API_BASE}/api/driver-plan-selections?limit=1000`;
         if (managerFilter) {
-          url = `${API_BASE}/api/driver-plan-selections/by-manager/${encodeURIComponent(managerFilter)}`;
+          url = `${API_BASE}/api/driver-plan-selections/by-manager/${encodeURIComponent(managerFilter)}?limit=1000`;
           console.log('Fetching payments for manager:', managerFilter, 'URL:', url);
         } else {
           console.log('Fetching all payments');
@@ -178,8 +217,9 @@ export default function DriverPayments() {
           const errorData = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
           throw new Error(errorData.message || `Failed to load payments: ${res.status}`);
         }
-        const data = await res.json();
-        console.log('Payments data received:', data.length || 0, 'records');
+        const result = await res.json();
+        const data = result.data || result;
+        console.log('Payments data received:', Array.isArray(data) ? data.length : 0, 'records');
         // Group by driverMobile or driverUsername
         const grouped = {};
         (Array.isArray(data) ? data : []).forEach(s => {
@@ -197,7 +237,7 @@ export default function DriverPayments() {
       }
     };
     fetchPayments();
-  }, [selectedManagers?.filter]);
+  }, [selectedManagers?.filter, isManager, user?.email, user?.id]);
 
   // Debug: log selections after fetch
  useEffect(() => {
@@ -221,9 +261,10 @@ export default function DriverPayments() {
     setLoading(true);
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
-      const res = await fetch(`${API_BASE}/api/driver-plan-selections`);
+      const res = await fetch(`${API_BASE}/api/driver-plan-selections?limit=1000`);
       if (!res.ok) throw new Error('Failed to load driver payments');
-      const data = await res.json();
+      const result = await res.json();
+      const data = result.data || result;
       // Only consider selections that have a payment status recorded
       const withPayments = data.filter(s => s.paymentStatus === 'completed' || s.paymentStatus === 'pending');
       // Group by driverMobile
@@ -395,45 +436,139 @@ export default function DriverPayments() {
       toast.error('No records to export');
       return;
     }
-    const rows = filtered.map(s => {
-      const deposit = s.calculatedDeposit || s.securityDeposit || 0;
-      const rent = s.calculatedRent || (() => {
+    
+    // Flatten grouped records for export
+    const allRecords = filtered.flat();
+    
+    const escape = (value) => {
+      if (value == null) return '';
+      const str = String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+    
+    const rows = allRecords.map(s => {
+      // Calculate days for rent
+      let days = 0;
+      if (s.rentStartDate) {
+        const start = new Date(s.rentStartDate);
+        let end = new Date();
+        if (s.status === 'inactive' && s.rentPausedDate) {
+          end = new Date(s.rentPausedDate);
+        }
+        const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
+        days = Math.max(1, days);
+      }
+      
+      // Calculate amounts
+      const rentPerDay = s.calculatedRent || (() => {
         const slab = s.selectedRentSlab || {};
         return s.planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
       })();
-      const cover = s.calculatedCover || (() => {
-        const slab = s.selectedRentSlab || {};
-        return s.planType === 'weekly' ? (slab.accidentalCover || 105) : 0;
-      })();
-      const total = s.calculatedTotal || (deposit + rent + cover);
       
-      return {
-        'Driver Name': s.driverUsername || 'N/A',
-        'Driver Mobile': s.driverMobile || 'N/A',
-        'Plan Name': s.planName,
-        'Plan Type': s.planType,
-        'Security Deposit': deposit,
-        'Rent Amount': rent,
-        'Accidental Cover': cover,
-        'Total Amount': total,
-        'Payment Mode': s.paymentMode || 'N/A',
-        'Payment Status': s.paymentStatus,
-        'Payment Date': s.paymentDate ? formatDate(s.paymentDate) : 'N/A',
-        'Selected Date': s.selectedDate ? formatDate(s.selectedDate) : 'N/A',
-        'ID': s._id,
-      };
+      const accidentalCover = s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)) : 0;
+      const adjustment = s.adjustmentAmount || 0;
+      const adjustedPaid = (s.paidAmount || 0) - adjustment;
+      
+      // Calculate deposit due
+      let depositDue = 0;
+      if (s.paymentType === 'security') {
+        depositDue = Math.max(0, (s.securityDeposit || 0) - adjustedPaid);
+      } else {
+        depositDue = s.securityDeposit || 0;
+      }
+      
+      // Calculate rent due
+      let rentDue = 0;
+      if (s.paidAmount && s.paymentType === 'rent') {
+        rentDue = Math.max(0, (days * rentPerDay) - adjustedPaid);
+      } else {
+        rentDue = Math.max(0, (days * rentPerDay) - adjustment);
+      }
+      
+      const extraAmount = s.extraAmount || 0;
+      const totalPayable = depositDue + rentDue + accidentalCover + extraAmount;
+      
+      return [
+        s.driverUsername || 'N/A',
+        s.driverMobile ? `'${s.driverMobile}'` : 'N/A',
+        s.planName || 'N/A',
+        s.planType || 'N/A',
+       
+        s.securityDeposit || 0,
+        depositDue,
+        adjustedPaid || 0,
+        days,
+        rentPerDay,
+        rentDue,
+        accidentalCover,
+        extraAmount,
+        s.extraReason || '',
+        adjustment,
+        s.adjustmentReason || '',
+        totalPayable,
+        s.paymentMode || 'N/A',
+        s.paymentMethod || 'N/A',
+        s.paymentStatus || 'N/A',
+        s.paymentType || 'N/A',
+        s.paymentDate ? formatDate(s.paymentDate) : 'N/A',
+        s.selectedDate ? formatDate(s.selectedDate) : 'N/A',
+        s.rentStartDate ? formatDate(s.rentStartDate) : 'N/A',
+        s.rentPausedDate ? formatDate(s.rentPausedDate) : 'N/A',
+       
+        s.createdAt ? formatDate(s.createdAt) : 'N/A',
+        s.updatedAt ? formatDate(s.updatedAt) : 'N/A',
+        s._id || 'N/A'
+      ].map(escape);
     });
-    const header = Object.keys(rows[0]).join(',');
-    const body = rows.map(r => Object.values(r).join(',')).join('\n');
-    const csv = `${header}\n${body}`;
-    const blob = new Blob([csv], { type: 'text/csv' });
+    
+    const headers = [
+      'Driver Name',
+      'Driver Mobile',
+      'Plan Name',
+      'Plan Type',
+      
+      'Security Deposit',
+      'Deposit Due',
+      'Deposit Paid',
+      'Rent Days',
+      'Rent Per Day',
+      'Rent Due',
+      'Accidental Cover',
+      'Extra Amount',
+      'Extra Reason',
+      'Adjustment Amount',
+      'Adjustment Reason',
+      'Total Payable',
+      'Payment Mode',
+      'Payment Method',
+      'Payment Status',
+      'Payment Type',
+      'Payment Date',
+      'Selected Date',
+      'Rent Start Date',
+      'Rent Paused Date',
+     
+      'Created At',
+      'Updated At',
+      'Selection ID'
+    ].map(escape);
+    
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `driver-payments-${new Date().toISOString().split('T')[0]}.csv`;
+    const date = new Date().toISOString().split('T')[0];
+    a.download = `driver-payments-${date}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Exported driver payments');
+    toast.success(`Exported ${allRecords.length} payment records successfully`);
   };
 
   const handleViewDetails = async (selectionId) => {
@@ -506,8 +641,14 @@ export default function DriverPayments() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Driver Payments</h1>
-          <p className="text-gray-600">See who paid for driver plan selections</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isManager ? 'My Drivers Payment Records' : 'Driver Payments'}
+          </h1>
+          <p className="text-gray-600">
+            {isManager 
+              ? `Viewing payment records for drivers assigned to you (${user?.name})` 
+              : 'See who paid for driver plan selections'}
+          </p>
         </div>
         <PermissionGuard permission={PERMISSIONS.REPORTS_EXPORT}>
           <button onClick={handleExport} className="btn btn-secondary mt-4 sm:mt-0 flex items-center gap-2">
@@ -649,23 +790,25 @@ export default function DriverPayments() {
                 <option value="cash">Cash</option>
               </select>
             </div>
-            {/* Manager Filter Dropdown */}
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Manager</label>
-              <select
-                className="input w-full"
-                value={selectedManagers['filter'] || ''}
-                onChange={e => {
-                  const value = e.target.value;
-                  setSelectedManagers(prev => ({ ...prev, filter: value }));
-                }}
-              >
-                <option value="">All Managers</option>
-                {managers.map(mgr => (
-                  <option key={mgr._id} value={mgr._id}>{mgr.name}</option>
-                ))}
-              </select>
-            </div>
+            {/* Manager Filter Dropdown - Only shown for non-manager users */}
+            {!isManager && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Manager</label>
+                <select
+                  className="input w-full"
+                  value={selectedManagers['filter'] || ''}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setSelectedManagers(prev => ({ ...prev, filter: value }));
+                  }}
+                >
+                  <option value="">All Managers</option>
+                  {managers.map(mgr => (
+                    <option key={mgr._id} value={mgr._id}>{mgr.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {/* Clear Filters Button */}
             <div>
               <button
@@ -694,19 +837,6 @@ export default function DriverPayments() {
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Security Deposit</TableHead>
-                  <TableHead>Total Payment</TableHead>
-                  <TableHead>Daily Rent</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Payment Status</TableHead>
-                  <TableHead>Plan Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
@@ -736,12 +866,13 @@ export default function DriverPayments() {
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>Plan</TableHead>
-                                  <TableHead>Security Deposit</TableHead>
-                                  <TableHead>Total Payment</TableHead>
+                                  <TableHead>Total Paid Amount</TableHead>
+                                  <TableHead>Total Payable Amount</TableHead>
+                                
                                   <TableHead>Daily Rent</TableHead>
                                   <TableHead>Payment</TableHead>
                                   <TableHead>Payment Status</TableHead>
-                                  <TableHead>Plan Status</TableHead>
+                                 
                                   <TableHead>Actions</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -756,26 +887,63 @@ export default function DriverPayments() {
                                       </div>
                                     </TableCell>
                                     <TableCell>
-                                      <p className="font-semibold">₹{(s.securityDeposit||0).toLocaleString('en-IN')}</p>
+                                      <p className='text-xs'>Deposite Amount: ₹{(s.securityDeposit||0).toLocaleString('en-IN')}</p>
+                                      {/* <p className="font-semibold">₹{(s.securityDeposit||0).toLocaleString('en-IN')}</p> */}
                                       {/* Show deposit paid if available */}
                                       {s.paymentType === 'security' && s.paidAmount !== null && s.paidAmount !== undefined && (
                                         <div className="mt-1 pt-1 border-t border-gray-200">
-                                          <p className="text-xs font-semibold text-green-600">Deposit Paid: ₹{s.paidAmount.toLocaleString('en-IN')}</p>
+                                          <p className="text-xs font-semibold text-green-600">Deposit Paid: ₹{((s.paidAmount || 0) - (s.adjustmentAmount || 0)).toLocaleString('en-IN')}</p>
+                                          {s.adjustmentAmount > 0 && (
+                                            <p className="text-xs font-semibold text-yellow-600">Adjustment Deducted: ₹{s.adjustmentAmount.toLocaleString('en-IN')}</p>
+                                          )}
                                         </div>
                                       )}
                                     </TableCell>
                                     <TableCell>
                                         <div className="space-y-1">
                                           <p className="font-bold text-blue-600">
-                                            ₹{(computeTotal(s)).toLocaleString('en-IN')}
+                                            ₹{(
+                                              (() => {
+                                                // Remove Deposit Due from total calculation
+                                                const adjustment = s.adjustmentAmount || 0;
+                                                const adjustedPaid = (s.paidAmount || 0) - adjustment;
+                                                const rentDue = (() => {
+                                                  let days = 0;
+                                                  if (s.rentStartDate) {
+                                                    const start = new Date(s.rentStartDate);
+                                                    let end = new Date();
+                                                    if (s.status === 'inactive' && s.rentPausedDate) {
+                                                      end = new Date(s.rentPausedDate);
+                                                    }
+                                                    const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+                                                    const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+                                                    days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
+                                                    days = Math.max(1, days);
+                                                  }
+                                                  const rentPerDay = s.calculatedRent || (() => {
+                                                    const slab = s.selectedRentSlab || {};
+                                                    return s.planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
+                                                  })();
+                                                  let rentDue = Math.max(0, (days * rentPerDay) - adjustment);
+                                                  if (s.paidAmount && s.paymentType === 'rent') {
+                                                    rentDue = Math.max(0, (days * rentPerDay) - adjustedPaid);
+                                                  }
+                                                  return rentDue;
+                                                })();
+                                                const accidentalCover = s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)) : 0;
+                                                const extraAmount = s.extraAmount || 0;
+                                                // Total = Rent Due + Accidental Cover + Extra Amount (Deposit Due removed)
+                                                return (rentDue + accidentalCover + extraAmount).toLocaleString('en-IN');
+                                              })()
+                                            )}
                                           </p>
                                           <p className="text-[11px] text-gray-500">
-                                            Remaining Due = (Deposit Due + Rent Due + Accidental Cover + Extra Amount) 
+                                            Remaining Due = (Rent Due + Accidental Cover + Extra Amount)
                                           </p>
                                           <div className="text-[10px] text-gray-500 mt-1">
                                             <div>Deposit Due: ₹{(() => {
                                               const adjustment = s.adjustmentAmount || 0;
-                                              const depositPaid = (s.paidAmount || 0) + adjustment;
+                                              const depositPaid = (s.paidAmount || 0) - adjustment;
                                               if (s.paymentType === 'security') {
                                                 return Math.max(0, (s.securityDeposit || 0) - depositPaid).toLocaleString('en-IN');
                                               } else {
@@ -802,13 +970,13 @@ export default function DriverPayments() {
                                               const adjustment = s.adjustmentAmount || 0;
                                               let rentDue = Math.max(0, (days * rentPerDay) - adjustment);
                                               if (s.paidAmount && s.paymentType === 'rent') {
-                                                rentDue = Math.max(0, (days * rentPerDay) - (s.paidAmount || 0) - adjustment);
+                                                rentDue = Math.max(0, (days * rentPerDay) - ((s.paidAmount || 0) - adjustment));
                                               }
                                               return rentDue.toLocaleString('en-IN');
                                             })()}</div>
                                             <div>Accidental Cover: ₹{s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)).toLocaleString('en-IN') : '0'}</div>
                                             <div>Extra Amount: ₹{(s.extraAmount || 0).toLocaleString('en-IN')}</div>
-                                            <div>Paid: ₹{(s.paidAmount || 0).toLocaleString('en-IN')}</div>
+                                            <div>Paid: ₹{((s.paidAmount || 0) - (s.adjustmentAmount || 0)).toLocaleString('en-IN')}</div>
                                           </div>
                                           {/* Show all due calculated amounts below */}
                                           <div className="mt-1">
@@ -820,11 +988,18 @@ export default function DriverPayments() {
                                             {s.extraAmount > 0 && s.extraReason && (
                                               <p className="text-xs text-gray-700">Reason: {s.extraReason}</p>
                                             )}
+                                            {/* Adjustment Amount and Reason */}
+                                            {s.adjustmentAmount > 0 && (
+                                              <p className="text-xs text-yellow-700 mt-1">Adjustment Amount: ₹{s.adjustmentAmount.toLocaleString('en-IN')}</p>
+                                            )}
+                                            {s.adjustmentAmount > 0 && s.adjustmentReason && (
+                                              <p className="text-xs text-gray-700">Reason: {s.adjustmentReason}</p>
+                                            )}
                                           </div>
                                           {/* Show rent paid if available */}
                                           {s.paymentType === 'rent' && s.paidAmount !== null && s.paidAmount !== undefined && (
                                             <div className="mt-1 pt-1 border-t border-gray-200">
-                                              <p className="text-xs font-semibold text-green-600">Rent Paid: ₹{s.paidAmount.toLocaleString('en-IN')}</p>
+                                              <p className="text-xs font-semibold text-green-600">Rent Paid: ₹{((s.paidAmount || 0) - (s.adjustmentAmount || 0)).toLocaleString('en-IN')}</p>
                                             </div>
                                           )}
                                           {/* Show all due amounts, extra amount, and reason */}
@@ -857,7 +1032,13 @@ export default function DriverPayments() {
                                                 <span className="font-semibold">Days:</span> {days}
                                               </p>
                                               <p className="text-xs text-gray-600">
-                                                <span className="font-semibold">Rent/Day:</span> ₹{rentPerDay.toLocaleString('en-IN')}
+                                                <span className="font-semibold">Rent/Day:</span> ₹{
+                                                  (
+                                                    s.rentPerDay
+                                                    ?? s.calculatedRent
+                                                    ?? (s.selectedRentSlab?.rentDay ?? 0)
+                                                  ).toLocaleString('en-IN')
+                                                }
                                               </p>
                                               {/* Deposit paid/due status */}
                                               {((s.securityDeposit || 0) > 0) && (
@@ -871,31 +1052,44 @@ export default function DriverPayments() {
                                                 </p>
                                               )}
                                               {/* Rent due status */}
-                                              <p className="text-xs font-semibold text-orange-600">
+                                              {/* <p className="text-xs font-semibold text-orange-600">
                                                 Rent Due: ₹{rentDue.toLocaleString('en-IN')}
-                                              </p>
-                                              <div className="flex items-center gap-3">
-                                                <p className="text-xs font-semibold text-yellow-600 whitespace-nowrap">
-                                                  Adjustment Amount :
-                                                </p>
+                                              </p> */}
+                                              
+                                              <div className="flex items-center gap-4 ">
+                                                <p className="text-xs font-semibold text-yellow-700 whitespace-nowrap">Add Adjustment :</p>
                                                 <input
                                                   type="number"
-                                                  className="border border-gray-300 rounded px-2 py-1 text-xs w-24"
-                                                  placeholder="0"
-                                                  value={adjustmentInputs[s._id] ?? ''}
+                                                  className="border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500 w-24"
+                                                  placeholder="Amount"
+                                                  value={adjustmentInputs[s._id]?.amount ?? ''}
                                                   onChange={e => setAdjustmentInputs(prev => ({
                                                     ...prev,
-                                                    [s._id]: e.target.value
+                                                    [s._id]: { ...prev[s._id], amount: e.target.value }
                                                   }))}
-                                                  />
+                                                  disabled={adjustmentInputs[s._id]?.loading}
+                                                />
+                                                <input
+                                                  type="text"
+                                                  className="border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500 w-40"
+                                                  placeholder="Enter reason..."
+                                                  value={adjustmentInputs[s._id]?.reason ?? ''}
+                                                  onChange={e => setAdjustmentInputs(prev => ({
+                                                    ...prev,
+                                                    [s._id]: { ...prev[s._id], reason: e.target.value }
+                                                  }))}
+                                                  disabled={adjustmentInputs[s._id]?.loading}
+                                                />
                                                 <button
-                                                  className="bg-yellow-600 text-white text-xs px-3 py-1 rounded"
+                                                  className="bg-yellow-600 text-white text-xs px-4 py-1.5 rounded-md hover:bg-yellow-700 transition disabled:opacity-60"
                                                   onClick={() => handleSaveAdjustment(s._id)}
+                                                  disabled={adjustmentInputs[s._id]?.loading}
                                                 >
-                                                  Save
+                                                  {adjustmentInputs[s._id]?.loading ? 'Adding...' : '+ Add'}
                                                 </button>
                                               </div>
-                                              <div className="flex items-center gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200 w-full">
+
+                                              <div className="flex items-center gap-4">
                                                 <p className="text-xs font-semibold text-yellow-700 whitespace-nowrap">Extra Amount :</p>
                                                 <input
                                                   type="number"
@@ -910,7 +1104,7 @@ export default function DriverPayments() {
                                                 />
                                                 <input
                                                   type="text"
-                                                  className="border border-gray-300 rounded-md px-3 py-1.5 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                                                  className="border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500 w-40"
                                                   placeholder="Enter reason..."
                                                   value={extraInputs[s._id]?.reason ?? ''}
                                                   onChange={e => setExtraInputs(prev => ({
@@ -946,101 +1140,16 @@ export default function DriverPayments() {
                                     <TableCell>
                                       {getStatusBadge(s.paymentStatus)}
                                     </TableCell>
-                                    <TableCell>
-                                      {/* Plan Status Dropdown */}
-                                      <div className="space-y-2">
-                                        <div className="relative status-dropdown">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setOpenDropdown(openDropdown === s._id ? null : s._id);
-                                            }}
-                                            className={`flex items-center justify-between gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md min-w-[120px] ${
-                                              s.status === 'active' 
-                                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700' 
-                                                : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white hover:from-gray-500 hover:to-gray-600'
-                                            }`}
-                                            title="Click to change plan status"
-                                          >
-                                            <span className="flex items-center gap-2">
-                                              <span className={`w-2 h-2 rounded-full ${s.status === 'active' ? 'bg-white' : 'bg-gray-200'} animate-pulse`}></span>
-                                              {s.status === 'active' ? 'Active' : 'Inactive'}
-                                            </span>
-                                            <ChevronDown className={`h-4 w-4 transition-transform ${openDropdown === s._id ? 'rotate-180' : ''}`} />
-                                          </button>
-                                          
-                                          {openDropdown === s._id && (
-                                            <div className="absolute left-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border-2 border-gray-200 z-50 overflow-hidden">
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleStatusChange(s._id, 'active');
-                                                }}
-                                                className={`w-full px-4 py-3 text-left text-sm font-semibold transition-all flex items-center gap-3 ${
-                                                  s.status === 'active' 
-                                                    ? 'bg-green-50 text-green-800 border-l-4 border-green-600' 
-                                                    : 'text-gray-700 hover:bg-green-50 hover:text-green-700'
-                                                }`}
-                                              >
-                                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-600">
-                                                  ✓
-                                                </span>
-                                                <span>Active</span>
-                                                {s.status === 'active' && <span className="ml-auto text-green-600">●</span>}
-                                              </button>
-                                              <div className="border-t-2 border-gray-100"></div>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleStatusChange(s._id, 'inactive');
-                                                }}
-                                                className={`w-full px-4 py-3 text-left text-sm font-semibold transition-all flex items-center gap-3 ${
-                                                  s.status === 'inactive' 
-                                                    ? 'bg-gray-50 text-gray-800 border-l-4 border-gray-600' 
-                                                    : 'text-gray-700 hover:bg-gray-50'
-                                                }`}
-                                              >
-                                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600">
-                                                  ✕
-                                                </span>
-                                                <span>Inactive</span>
-                                                {s.status === 'inactive' && <span className="ml-auto text-gray-600">●</span>}
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                        {/* Rent Status Info */}
-                                        {/* {s.rentStartDate && (
-                                          <div className="text-xs">
-                                            {s.status === 'active' ? (
-                                              rentSummaries[s._id]?.hasStarted ? (
-                                                <div className="bg-green-50 border border-green-200 rounded px-2 py-1 text-green-700">
-                                                  <div className="font-semibold">Rent Calculating</div>
-                                                  <div>Days: {rentSummaries[s._id]?.totalDays || 0}</div>
-                                                  <div>Due: ₹{(rentSummaries[s._id]?.totalDue || 0).toLocaleString('en-IN')}</div>
-                                                </div>
-                                              ) : (
-                                                <div className="text-gray-500">Loading...</div>
-                                              )
-                                            ) : (
-                                              <div className="bg-red-50 border border-red-200 rounded px-2 py-1 text-red-700">
-                                                <div className="font-semibold">⚠ Rent Stopped</div>
-                                                <div className="text-[10px]">Calculation paused</div>
-                                              </div>
-                                            )}
-                                          </div>
-                                        )} */}
-                                      </div>
-                                    </TableCell>
+                                    
                                     <TableCell>
                                       <div className="flex gap-2">
-                                        <button
+                                        {/* <button
                                           onClick={() => handleViewDetails(s._id)}
                                           className="text-primary-600 hover:text-primary-700 flex items-center gap-1 text-sm font-medium"
                                         >
                                           <Eye className="h-4 w-4" />
                                           View
-                                        </button>
+                                        </button> */}
                                         <button
                                           onClick={() => handleDelete(s._id)}
                                           className="text-red-600 hover:text-red-700 flex items-center gap-1 text-sm font-medium border border-red-200 rounded px-2 py-1"
@@ -1162,6 +1271,11 @@ export default function DriverPayments() {
                     {selectedDetail.paymentBreakdown.extraAmount > 0 && selectedDetail.paymentBreakdown.extraReason && (
                       <div className="mt-2 text-xs text-gray-700">
                         <span className="font-semibold">Extra Reason:</span> {selectedDetail.paymentBreakdown.extraReason}
+                      </div>
+                    )}
+                    {selectedDetail.adjustmentAmount > 0 && selectedDetail.adjustmentReason && (
+                      <div className="mt-2 text-xs text-gray-700">
+                        <span className="font-semibold">Adjustment Reason:</span> {selectedDetail.adjustmentReason}
                       </div>
                     )}
                     {selectedDetail.paidAmount !== null && selectedDetail.paidAmount !== undefined && (

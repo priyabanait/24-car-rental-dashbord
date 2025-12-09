@@ -18,9 +18,10 @@ const ManagerPage = () => {
     const fetchManagers = async () => {
       setLoading(true);
       try {
-        const res = await fetch('https://udrive-backend-1igb.vercel.app/api/managers');
-        const data = await res.json();
-        setManagers(data);
+        const res = await fetch('https://udrive-backend-1igb.vercel.app/api/managers?limit=1000');
+        const result = await res.json();
+        const data = result.data || result;
+        setManagers(Array.isArray(data) ? data : []);
       } catch (err) {
         setError('Failed to fetch managers');
       } finally {
@@ -123,28 +124,29 @@ const ManagerPage = () => {
           <p className="text-gray-500">No managers added yet.</p>
         )}
         {!loading && !error && managers.length > 0 && (
-          <table className="min-w-full table-auto">
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-auto">
             <thead>
               <tr>
-                <th className="px-4 py-2">Name</th>
-                <th className="px-4 py-2">Username</th>
-                <th className="px-4 py-2">Password</th>
-                <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">Mobile</th>
-                <th className="px-4 py-2">Department</th>
-                <th className="px-4 py-2">Actions</th>
+                <th className="px-4 py-2 whitespace-nowrap">Name</th>
+                <th className="px-4 py-2 whitespace-nowrap">Username</th>
+                <th className="px-4 py-2 whitespace-nowrap">Password</th>
+                <th className="px-4 py-2 whitespace-nowrap">Email</th>
+                <th className="px-4 py-2 whitespace-nowrap">Mobile</th>
+                <th className="px-4 py-2 whitespace-nowrap">Department</th>
+                <th className="px-4 py-2 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
               {managers.map((mgr, idx) => (
                 <tr key={mgr._id || idx}>
-                  <td className="border px-4 py-2">{mgr.name}</td>
-                  <td className="border px-4 py-2">{mgr.username}</td>
-                  <td className="border px-4 py-2">{mgr.password}</td>
-                  <td className="border px-4 py-2">{mgr.email}</td>
-                  <td className="border px-4 py-2">{mgr.mobile}</td>
-                  <td className="border px-4 py-2">{mgr.department}</td>
-                  <td className="border px-4 py-2 flex gap-2">
+                  <td className="border px-4 py-2 whitespace-nowrap">{mgr.name}</td>
+                  <td className="border px-4 py-2 whitespace-nowrap">{mgr.username}</td>
+                  <td className="border px-4 py-2 whitespace-nowrap">{mgr.password}</td>
+                  <td className="border px-4 py-2 whitespace-nowrap">{mgr.email}</td>
+                  <td className="border px-4 py-2 whitespace-nowrap">{mgr.mobile}</td>
+                  <td className="border px-4 py-2 whitespace-nowrap">{mgr.department}</td>
+                  <td className="border px-4 py-2 flex gap-2 whitespace-nowrap">
                     <button title="View" onClick={() => handleViewManager(mgr)} className="text-blue-600 hover:text-blue-800">
                       <FiEye />
                     </button>
@@ -158,7 +160,8 @@ const ManagerPage = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
       {/* Edit Manager Modal */}

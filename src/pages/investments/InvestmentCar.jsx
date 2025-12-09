@@ -13,7 +13,8 @@ import {
   Mail,
   Phone,
   MapPin,
-  TrendingUp
+  TrendingUp,
+  Car
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -30,6 +31,7 @@ const InvestmentCar = () => {
   const { hasPermission } = useAuth();
   const [carInvestments, setCarInvestments] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [investors, setInvestors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -37,17 +39,21 @@ const InvestmentCar = () => {
   useEffect(() => {
     loadCarInvestments();
     loadVehicles();
+    loadInvestors();
   }, []);
 
   const loadCarInvestments = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/car-investment-entries`, {
+      const response = await fetch(`${API_BASE}/api/car-investment-entries?limit=1000`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to load car investments');
-      const data = await response.json();
+      const result = await response.json();
+      // Handle both paginated response and legacy array response
+      const data = result.data || result;
+      console.log('Car Investments loaded:', Array.isArray(data) ? data.length : 0, data);
       setCarInvestments(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load car investments:', err);
@@ -60,21 +66,41 @@ const InvestmentCar = () => {
 
   const loadVehicles = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/vehicles`, {
+      const response = await fetch(`${API_BASE}/api/vehicles?limit=1000`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to load vehicles');
-      const data = await response.json();
+      const result = await response.json();
+      // Handle both paginated response and legacy array response
+      const data = result.data || result;
+      console.log('Vehicles loaded:', Array.isArray(data) ? data.length : 0, data);
       setVehicles(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load vehicles:', err);
       setVehicles([]);
     }
   };
+  const loadInvestors = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/investors?limit=1000`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to load investors');
+      const result = await response.json();
+      // Handle both paginated response and legacy array response
+      const data = result.data || result;
+      console.log('Investors loaded:', Array.isArray(data) ? data.length : 0, 'Sample:', data[0]);
+      setInvestors(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load investors:', err);
+      setInvestors([]);
+    }
+  };
 
   // Update vehicle status in backend
-  const updateVehicleStatus = async (id, newStatus) => {
+  const updateVehicleStatus = async (id, newStatus, oldStatus) => {
     try {
       const response = await fetch(`${API_BASE}/api/vehicles/${id}`, {
         method: 'PUT',
@@ -82,6 +108,16 @@ const InvestmentCar = () => {
         body: JSON.stringify({ status: newStatus })
       });
       if (!response.ok) throw new Error('Failed to update status');
+      
+      // Show appropriate message
+      if (newStatus === 'active') {
+        toast.success('Vehicle activated - Month tracking started from fresh');
+      } else if (newStatus === 'inactive' || newStatus === 'suspended') {
+        toast.success('Vehicle deactivated - Month tracking cleared');
+      } else {
+        toast.success('Vehicle status updated');
+      }
+      
       // Refresh vehicles after update
       await loadVehicles();
     } catch (err) {
@@ -89,35 +125,126 @@ const InvestmentCar = () => {
     }
   };
 
-
-
-  // Match vehicles with car investment entries by car category and investment name
+  // Match vehicles with car investment entries by car category and investor ID
   const matchedVehiclesRaw = vehicles.map(vehicle => {
-    const category = (vehicle.category || vehicle.carCategory || '').toLowerCase();
-    const matchedInvestment = carInvestments.find(entry => entry.name?.toLowerCase() === category);
+    const category = (vehicle.category || vehicle.carCategory || '').toLowerCase().trim();
+    const vehicleInvestorId = vehicle.investorId?._id || vehicle.investorId;
+    
+    // Find investor details
+    const investor = investors.find(inv => 
+      String(inv.id || inv._id) === String(vehicleInvestorId)
+    );
+    
+    // Match by category from car investment entries
+    const matchedInvestment = carInvestments.find(entry => {
+      const entryCarname = (entry.carname || '').toLowerCase().trim();
+      const categoryMatch = entryCarname === category;
+      
+      if (!categoryMatch) return false;
+      
+      // If vehicle has investor, try to match with entry's investor
+      if (vehicleInvestorId) {
+        // First priority: match by investorId
+        if (entry.investorId) {
+          const investorIdMatch = String(entry.investorId) === String(vehicleInvestorId);
+          if (investorIdMatch) return true;
+        }
+        
+        // Second priority: match by investor mobile
+        if (entry.investorMobile && investor?.phone) {
+          const mobileMatch = entry.investorMobile === investor.phone;
+          if (mobileMatch) return true;
+        }
+        
+        // If entry doesn't have investor info, match by category only
+        if (!entry.investorId && !entry.investorMobile) return true;
+      }
+      
+      // If vehicle doesn't have investor but entry does, don't match
+      if (!vehicleInvestorId && (entry.investorId || entry.investorMobile)) {
+        return false;
+      }
+      
+      // If neither has investor info, match by category only
+      return true;
+    });
+    
     return {
       ...vehicle,
-      matchedInvestment
+      matchedInvestment,
+      investor
     };
   }).filter(v => v.matchedInvestment);
 
-  // Search filter: match on vehicle, brand, model, car invest name, etc.
+  console.log('Matched vehicles (raw):', matchedVehiclesRaw.length, matchedVehiclesRaw);
+
+  // Search filter: match on vehicle, brand, model, car invest name, investor name, etc.
   const search = searchTerm.toLowerCase();
   const matchedVehicles = matchedVehiclesRaw.filter(v => {
     return (
       (v.registrationNumber || '').toLowerCase().includes(search) ||
       (v.brand || v.make || '').toLowerCase().includes(search) ||
       (v.model || '').toLowerCase().includes(search) ||
-      (v.matchedInvestment?.name || '').toLowerCase().includes(search)
+      (v.matchedInvestment?.carname || '').toLowerCase().includes(search) ||
+      (v.matchedInvestment?.carOwnerName || '').toLowerCase().includes(search) ||
+      (v.investor?.investorName || '').toLowerCase().includes(search)
     );
   });
 
+  // Calculate investor-wise totals from matched vehicles
+  const investorTotals = {};
+  
+  // Calculate totals by investor from matched vehicles
+  matchedVehiclesRaw.forEach(vehicle => {
+    // Extract investorId from various possible locations
+    let vehicleInvestorId = null;
+    if (vehicle.investorId) {
+      if (typeof vehicle.investorId === 'object') {
+        vehicleInvestorId = vehicle.investorId._id || vehicle.investorId.id;
+      } else {
+        vehicleInvestorId = vehicle.investorId;
+      }
+    }
+    
+    if (vehicleInvestorId) {
+      const investorId = String(vehicleInvestorId);
+      
+      // Find investor details from multiple sources
+      const investor = vehicle.investor || 
+                      vehicle.investorId?.investorName ? vehicle.investorId : null ||
+                      investors.find(inv => String(inv.id || inv._id) === investorId);
+      
+      const payout = parseFloat(vehicle.matchedInvestment?.finalMonthlyPayout || 0);
+      
+      if (!investorTotals[investorId]) {
+        investorTotals[investorId] = {
+          investorName: investor?.investorName || investor?.name || vehicle.ownerName || 'Unknown',
+          investorPhone: investor?.phone || '',
+          totalPayout: 0,
+          carCount: 0,
+          cars: []
+        };
+      }
+      investorTotals[investorId].totalPayout += payout;
+      investorTotals[investorId].carCount += 1;
+      investorTotals[investorId].cars.push({
+        vehicleNumber: vehicle.registrationNumber,
+        carname: vehicle.matchedInvestment?.carname,
+        brand: vehicle.brand || vehicle.make,
+        model: vehicle.model,
+        carOwnerName: vehicle.ownerName,
+        payout: payout,
+        status: vehicle.status
+      });
+    }
+  });
+
   // Metrics based on filtered matched vehicles
-  const totalInvestment = matchedVehicles.reduce((sum, v) => sum + parseFloat(v.matchedInvestment?.minAmount || 0), 0);
-  const avgROI = matchedVehicles.length > 0
-    ? matchedVehicles.reduce((sum, v) => sum + parseFloat(v.matchedInvestment?.expectedROI || 0), 0) / matchedVehicles.length
+  const totalInvestment = matchedVehicles.reduce((sum, v) => sum + parseFloat(v.matchedInvestment?.carvalue || 0), 0);
+  const avgMonthlyPayout = matchedVehicles.length > 0
+    ? matchedVehicles.reduce((sum, v) => sum + parseFloat(v.matchedInvestment?.finalMonthlyPayout || 0), 0) / matchedVehicles.length
     : 0;
-  const totalCarInvestmentPlans = [...new Set(matchedVehicles.map(v => v.matchedInvestment?.name))].length;
+  const totalCarInvestmentPlans = [...new Set(matchedVehicles.map(v => v.matchedInvestment?.carname))].length;
 
   if (loading) {
     return (
@@ -139,7 +266,7 @@ const InvestmentCar = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center">
@@ -160,8 +287,8 @@ const InvestmentCar = () => {
                 <TrendingUp className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Average ROI</p>
-                <p className="text-2xl font-bold text-green-600">{avgROI.toFixed(2)}%</p>
+                <p className="text-sm font-medium text-gray-600">Total Monthly Payout</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(Object.values(investorTotals).reduce((sum, inv) => sum + inv.totalPayout, 0))}</p>
               </div>
             </div>
           </CardContent>
@@ -173,8 +300,21 @@ const InvestmentCar = () => {
                 <User className="h-6 w-6 text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Car Investment Plans</p>
-                <p className="text-2xl font-bold text-purple-600">{totalCarInvestmentPlans}</p>
+                <p className="text-sm font-medium text-gray-600">Total Investors</p>
+                <p className="text-2xl font-bold text-purple-600">{Object.keys(investorTotals).length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <Car className="h-6 w-6 text-orange-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Vehicles</p>
+                <p className="text-2xl font-bold text-orange-600">{matchedVehicles.length}</p>
               </div>
             </div>
           </CardContent>
@@ -196,92 +336,355 @@ const InvestmentCar = () => {
         </CardContent>
       </Card>
 
+      {/* Month Tracking Info */}
+      {/* <Card>
+        <CardContent className="p-4">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 bg-blue-100 rounded">
+              <Calendar className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 mb-1">Month Tracking System</h3>
+              <p className="text-sm text-gray-600">
+                Set vehicle status to <span className="font-semibold text-green-600">Active</span> to start month tracking from fresh. 
+                Set to <span className="font-semibold text-orange-600">Inactive</span> to stop and clear tracking. 
+                Months are calculated from the active start date (every 30 days = 1 month).
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card> */}
+
+      {/* Investor Summary - Total Payouts */}
+      {/* {Object.keys(investorTotals).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Investor Summary - Total Monthly Payouts ({Object.keys(investorTotals).length} Investors)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(investorTotals)
+                .sort((a, b) => b[1].totalPayout - a[1].totalPayout) // Sort by total payout descending
+                .map(([investorId, total]) => (
+                <div key={investorId} className="border rounded-lg p-4 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-lg transition-shadow">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{total.investorName}</h3>
+                      {total.investorPhone && (
+                        <p className="text-xs text-gray-500">{total.investorPhone}</p>
+                      )}
+                    </div>
+                    <Badge variant="secondary">{total.carCount} {total.carCount === 1 ? 'car' : 'cars'}</Badge>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-600 mb-3">
+                    {formatCurrency(total.totalPayout)}
+                    <span className="text-sm text-gray-500 font-normal ml-1">/month</span>
+                  </div>
+                  <div className="border-t pt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Vehicle Details:</p>
+                    {total.cars.map((car, idx) => (
+                      <div key={idx} className="text-xs bg-white rounded p-2">
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">{car.vehicleNumber}</span>
+                            {car.status && (
+                              <Badge variant={car.status === 'active' ? 'success' : 'warning'} className="ml-2 text-xs">
+                                {car.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="font-semibold text-green-600">{formatCurrency(car.payout)}/mo</span>
+                        </div>
+                        <div className="text-gray-600">
+                          {car.brand} {car.model} - {car.carname}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )} */}
+
       {/* Matched Vehicles with Car Investment Details */}
       <Card>
         <CardHeader>
-          <CardTitle>Vehicles Matched with Car Investment Entries ({matchedVehicles.length})</CardTitle>
+          <CardTitle> Vehicles Matched with Car Investment Entries ({matchedVehicles.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-400px)]">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Brand</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Model</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Car Invest Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"> Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected ROI (%)</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Monthly Profit (Min)</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Months</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Investor Name</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Vehicle</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Brand</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Model</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Car Invest Name</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Car Owner Name</th>
+                    <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Car Submit Date</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Car Value</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Monthly Payout</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Deduction TDS</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Final Monthly Payout</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Months</th>
+                  <th className="sticky top-0 z-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {matchedVehicles.map((v) => {
-                  const entry = v.matchedInvestment;
-                  const id = v.vehicleId || v._id;
-                  const status = v.status || 'active';
-                  // Sum months from all rentPeriods
-                  let showMonth = '-';
-                  let months = 0;
-                  let activeMonths = 0;
-                  let isPaused = false;
-                  if (Array.isArray(v.rentPeriods) && v.rentPeriods.length > 0) {
-                    v.rentPeriods.forEach(period => {
-                      const start = new Date(period.start);
-                      const end = period.end ? new Date(period.end) : new Date();
-                      const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
-                      months += Math.floor(diffDays / 30) + 1;
-                      activeMonths += Math.floor(diffDays / 30) + 1;
-                    });
-                    showMonth = `Month ${months}`;
-                    // If last period is closed and status is inactive/suspended, show paused
-                    const lastPeriod = v.rentPeriods[v.rentPeriods.length - 1];
-                    if ((status === 'inactive' || status === 'suspended') && lastPeriod && lastPeriod.end) {
-                      isPaused = true;
+                {(() => {
+                  // Group vehicles by investor
+                  const groupedByInvestor = {};
+                  matchedVehicles.forEach(v => {
+                    // Get investor ID
+                    let vehicleInvestorId = null;
+                    if (v.investorId) {
+                      if (typeof v.investorId === 'object') {
+                        vehicleInvestorId = v.investorId._id || v.investorId.id;
+                      } else {
+                        vehicleInvestorId = v.investorId;
+                      }
                     }
-                  }
-                  // Show cumulative profit month-wise
-                  let monthlyProfit = '₹0';
-                  let totalProfit = 0;
-                  if (typeof v.monthlyProfitMin === 'number' && v.monthlyProfitMin > 0) {
-                    monthlyProfit = formatCurrency(v.monthlyProfitMin);
-                    totalProfit = v.monthlyProfitMin * activeMonths;
-                  } else if (entry && entry.minAmount && entry.expectedROI) {
-                    const calcProfit = entry.minAmount * (entry.expectedROI / 100) / 12;
-                    monthlyProfit = formatCurrency(calcProfit);
-                    totalProfit = calcProfit * activeMonths;
-                  }
-                  return (
-                    <tr key={id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 font-medium text-gray-900">{v.registrationNumber || '-'}</td>
-                      <td className="px-6 py-4">{v.brand || v.make || '-'}</td>
-                      <td className="px-6 py-4">{v.model || '-'}</td>
-                      <td className="px-6 py-4">{entry.name}</td>
-                      <td className="px-6 py-4">{formatCurrency(entry.minAmount)}</td>
-                      <td className="px-6 py-4">{entry.expectedROI}%</td>
-                      <td className="px-6 py-4 text-green-700 font-bold">
-                        {monthlyProfit}
-                        <div className="text-xs text-gray-500">Total: {formatCurrency(totalProfit)}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {showMonth} {isPaused && <span className="text-xs text-yellow-600 ml-2">(Paused)</span>}
-                      </td>
-                      <td className="px-6 py-4">
-                        <select
-                          value={status}
-                          onChange={e => updateVehicleStatus(id, e.target.value)}
-                          className="border rounded px-2 py-1 text-sm"
-                        >
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="suspended">Suspended</option>
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    
+                    const investorKey = vehicleInvestorId || 'unknown';
+                    
+                    if (!groupedByInvestor[investorKey]) {
+                      groupedByInvestor[investorKey] = [];
+                    }
+                    groupedByInvestor[investorKey].push(v);
+                  });
+
+                  // Render grouped rows
+                  return Object.entries(groupedByInvestor).map(([investorKey, vehicles]) => {
+                    const firstVehicle = vehicles[0];
+                    const entry = firstVehicle.matchedInvestment;
+                    
+                    // Get investor name
+                    let investorName = '-';
+                    let vehicleInvestorId = null;
+                    if (firstVehicle.investorId) {
+                      if (typeof firstVehicle.investorId === 'object') {
+                        vehicleInvestorId = firstVehicle.investorId._id || firstVehicle.investorId.id;
+                        if (firstVehicle.investorId.investorName) {
+                          investorName = firstVehicle.investorId.investorName;
+                        }
+                      } else {
+                        vehicleInvestorId = firstVehicle.investorId;
+                      }
+                    }
+                    
+                    if (investorName === '-' && vehicleInvestorId) {
+                      const foundInvestor = investors.find(inv => 
+                        String(inv.id || inv._id) === String(vehicleInvestorId)
+                      );
+                      if (foundInvestor?.investorName) {
+                        investorName = foundInvestor.investorName;
+                      }
+                    }
+                    
+                    if (investorName === '-' && firstVehicle.investor?.investorName) {
+                      investorName = firstVehicle.investor.investorName;
+                    }
+                    
+                    if (investorName === '-' && entry.investorId) {
+                      const entryInvestor = investors.find(inv => 
+                        String(inv.id || inv._id) === String(entry.investorId)
+                      );
+                      if (entryInvestor?.investorName) {
+                        investorName = entryInvestor.investorName;
+                      }
+                    }
+
+                    // Calculate total monthly payout for all vehicles
+                    const totalMonthlyPayout = vehicles.reduce((sum, v) => {
+                      const monthlyPayout = v.matchedInvestment?.finalMonthlyPayout || v.matchedInvestment?.MonthlyPayout || 0;
+                      return sum + parseFloat(monthlyPayout);
+                    }, 0);
+
+                    return (
+                      <tr key={investorKey} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-gray-900">{investorName}</div>
+                          <div className="text-xs text-blue-600 mt-1 font-semibold">
+                            Total: {vehicles.length} {vehicles.length === 1 ? 'car' : 'cars'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              <span className="font-medium text-gray-900">{v.registrationNumber || '-'}</span>
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              {v.brand || v.make || '-'}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              {v.model || '-'}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              {v.matchedInvestment?.carname || '-'}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              {v.ownerName || '-'}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+  {vehicles.map((v, idx) => (
+    <div
+      key={idx}
+      className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}
+    >
+      {v.emissionDate ? new Date(v.emissionDate).toLocaleDateString() : '-'}
+    </div>
+  ))}
+</td>
+
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              {formatCurrency(v.matchedInvestment?.carvalue || 0)}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              {formatCurrency(v.matchedInvestment?.MonthlyPayout || 0)}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => (
+                            <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                              {v.matchedInvestment?.deductionTDS || 0}%
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          {(() => {
+                            // Use backend-calculated values
+                            let cumulativeTotalPayout = 0;
+                            const vehicleCalculations = vehicles.map(v => {
+                              const months = v.calculatedMonths || 0;
+                              const monthlyPayout = v.matchedInvestment?.finalMonthlyPayout || v.matchedInvestment?.MonthlyPayout || 0;
+                              const vehicleCumulative = v.cumulativePayout || (parseFloat(monthlyPayout) * months);
+                              cumulativeTotalPayout += vehicleCumulative;
+                              
+                              return { v, months, monthlyPayout, vehicleCumulative };
+                            });
+                            
+                            return (
+                              <div className="space-y-2">
+                                {/* Total Amount Card */}
+                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200">
+                                  <div className="text-sm font-bold text-green-700">
+                                    {formatCurrency(cumulativeTotalPayout)}
+                                  </div>
+                                  <div className="text-xs text-green-600 font-medium mt-0.5">
+                                    Total Accumulated Payout
+                                  </div>
+                                </div>
+                                
+                                {/* Breakdown for multiple vehicles */}
+                                {vehicles.length > 1 && (
+                                  <div className="bg-gray-50 rounded-lg p-2.5 space-y-1.5">
+                                    {/* <div className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center">
+                                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5"></span>
+                                      Vehicle Breakdown
+                                    </div> */}
+                                    {vehicleCalculations.map(({ v, months, monthlyPayout, vehicleCumulative }, idx) => (
+                                      <div key={idx} className="bg-white rounded p-2 border border-gray-200">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className="text-xs font-semibold text-gray-800">{v.registrationNumber}</span>
+                                          <span className="text-xs font-bold text-green-700">{formatCurrency(vehicleCumulative)}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-600 flex items-center">
+                                          <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                                            {formatCurrency(monthlyPayout)}/mo
+                                          </span>
+                                          <span className="mx-1.5 text-gray-400">×</span>
+                                          <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                                            {months} {months === 1 ? 'month' : 'months'}
+                                          </span>
+                                          <span className="mx-1.5 text-gray-400">=</span>
+                                          <span className="text-green-700 font-semibold">
+                                            {formatCurrency(vehicleCumulative)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => {
+                            // Use backend-calculated months
+                            const months = v.calculatedMonths || 0;
+                            const isActive = v.isActive || false;
+                            const hasRentPeriods = v.hasRentPeriods || false;
+                            
+                            let showMonth = '-';
+                            if (isActive && months > 0) {
+                              showMonth = `Month ${months}`;
+                            } else if (isActive && !hasRentPeriods) {
+                              showMonth = 'Starting...';
+                            } else {
+                              showMonth = 'Not active';
+                            }
+                            
+                            return (
+                              <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                                <span className={isActive ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                                  {showMonth}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </td>
+                        <td className="px-6 py-4">
+                          {vehicles.map((v, idx) => {
+                            const id = v.vehicleId || v._id;
+                            const status = v.status || 'inactive';
+                            return (
+                              <div key={idx} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-200' : ''}>
+                                <select
+                                  value={status}
+                                  onChange={e => updateVehicleStatus(id, e.target.value, status)}
+                                  className="border rounded px-2 py-1 text-sm"
+                                >
+                                  <option value="active">Active</option>
+                                  <option value="inactive">Inactive</option>
+                                  <option value="suspended">Suspended</option>
+                                </select>
+                              </div>
+                            );
+                          })}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
             {matchedVehicles.length === 0 && (

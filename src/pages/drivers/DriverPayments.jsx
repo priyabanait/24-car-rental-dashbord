@@ -58,30 +58,34 @@ export default function DriverPayments() {
       try {
         const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
         // Load drivers for selector
-        const dRes = await fetch(`${API_BASE}/api/drivers`);
+        const dRes = await fetch(`${API_BASE}/api/drivers?limit=1000`);
         if (!dRes.ok) throw new Error(`Failed to load drivers: ${dRes.status}`);
-        const dList = await dRes.json();
+        const dResult = await dRes.json();
+        const dList = dResult.data || dResult;
         if (!mounted) return;
         setDrivers(dList);
 
         // Load managers for dropdown
-        const mRes = await fetch(`${API_BASE}/api/managers`);
+        const mRes = await fetch(`${API_BASE}/api/managers?limit=1000`);
         if (mRes.ok) {
-          const mList = await mRes.json();
+          const mResult = await mRes.json();
+          const mList = mResult.data || mResult;
           setManagers(Array.isArray(mList) ? mList : []);
         }
 
         // Manager filter logic
         let paymentsData = [];
         if (selectedManager) {
-          const pRes = await fetch(`${API_BASE}/api/driver-plan-selections/by-manager/${encodeURIComponent(selectedManager)}`);
+          const pRes = await fetch(`${API_BASE}/api/driver-plan-selections/by-manager/${encodeURIComponent(selectedManager)}?limit=1000`);
           if (!pRes.ok) throw new Error(`Failed to load payments for manager: ${pRes.status}`);
-          paymentsData = await pRes.json();
+          const pResult = await pRes.json();
+          paymentsData = pResult.data || pResult;
         } else {
           // Load all payments if no manager selected
-          const pRes = await fetch(`${API_BASE}/api/driver-plan-selections`);
+          const pRes = await fetch(`${API_BASE}/api/driver-plan-selections?limit=1000`);
           if (!pRes.ok) throw new Error(`Failed to load payments: ${pRes.status}`);
-          paymentsData = await pRes.json();
+          const pResult = await pRes.json();
+          paymentsData = pResult.data || pResult;
         }
         if (!mounted) return;
         // Map payments to UI format
@@ -298,15 +302,16 @@ export default function DriverPayments() {
               setError(null);
               // re-fetch drivers and transactions
               const [dRes, tRes] = await Promise.all([
-                fetch(`${API_BASE}/api/drivers`),
-                fetch(`${API_BASE}/api/transactions?include=summary`)
+                fetch(`${API_BASE}/api/drivers?limit=1000`),
+                fetch(`${API_BASE}/api/transactions?include=summary&limit=1000`)
               ]);
               if (!dRes.ok) throw new Error(`Failed to load drivers: ${dRes.status}`);
               if (!tRes.ok) throw new Error(`Failed to load payments: ${tRes.status}`);
-              const [dList, txData] = await Promise.all([dRes.json(), tRes.json()]);
+              const [dResult, txData] = await Promise.all([dRes.json(), tRes.json()]);
+              const dList = dResult.data || dResult;
               setDrivers(dList);
               
-              const tx = txData.transactions || txData;
+              const tx = txData.data || txData.transactions || txData;
               if (tx && tx.length > 0) {
                 const mapped = tx.map((t) => {
                   const drv = dList.find(dr => dr.id === t.driverId);

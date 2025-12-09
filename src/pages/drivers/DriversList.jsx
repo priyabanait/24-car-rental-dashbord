@@ -57,15 +57,17 @@ export default function DriversList() {
         const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
         
         // Fetch manual drivers
-        const res = await fetch(`${API_BASE}/api/drivers`);
+        const res = await fetch(`${API_BASE}/api/drivers?limit=1000`);
         if (!res.ok) throw new Error(`Failed to load drivers: ${res.status}`);
-        const data = await res.json();
+        const result = await res.json();
+        const data = result.data || result;
         if (mounted) setDriversData(data);
         
         // Fetch signup credentials
-        const credRes = await fetch(`${API_BASE}/api/drivers/signup/credentials`);
+        const credRes = await fetch(`${API_BASE}/api/drivers/signup/credentials?limit=1000`);
         if (credRes.ok) {
-          const credData = await credRes.json();
+          const credResult = await credRes.json();
+          const credData = credResult.data || credResult;
           if (mounted) setSignupCredentials(credData);
         }
       } catch (err) {
@@ -292,6 +294,106 @@ export default function DriversList() {
 
   // Permissions can be referenced directly via <PermissionGuard>, so local vars are not needed
 
+  const handleExportToCSV = () => {
+    try {
+      // Prepare CSV data with ALL fields from Driver model
+      const headers = [
+        'ID', 'Username', 'Name', 'Email', 'Phone', 'Mobile',
+        'Date of Birth', 'Address', 'City', 'State', 'Pincode',
+        'GPS Latitude', 'GPS Longitude',
+        'Emergency Contact', 'Emergency Relation', 'Emergency Phone', 'Emergency Phone Secondary',
+        'Employee ID',
+        'License Number', 'License Class', 'License Expiry Date',
+        'Aadhar Number', 'PAN Number', 'Electric Bill No',
+        'Driving Experience', 'Previous Employment',
+        'Plan Type', 'Current Plan', 'Plan Amount', 'Vehicle Preference', 'Vehicle Assigned',
+        'Total Trips', 'Total Earnings', 'Rating',
+        'KYC Status', 'Status',
+        'Bank Name', 'Branch Name', 'Account Number', 'IFSC Code', 'Account Holder Name',
+        'Profile Photo URL', 'License Document URL', 'Aadhar Front URL', 'Aadhar Back URL',
+        'PAN Document URL', 'Bank Document URL', 'Electric Bill Document URL',
+        'Join Date', 'Last Active', 'Created At', 'Updated At'
+      ];
+      
+      const csvData = filteredDrivers.map(driver => [
+        driver.id || driver._id || '',
+        driver.username || '',
+        driver.name || '',
+        driver.email || '',
+        driver.phone || '',
+        driver.mobile || '',
+        driver.dateOfBirth ? formatDate(driver.dateOfBirth) : '',
+        driver.address || '',
+        driver.city || '',
+        driver.state || '',
+        driver.pincode || '',
+        driver.latitude || '',
+        driver.longitude || '',
+        driver.emergencyContact || '',
+        driver.emergencyRelation || '',
+        driver.emergencyPhone || '',
+        driver.emergencyPhoneSecondary || '',
+        driver.employeeId || '',
+        driver.licenseNumber || '',
+        driver.licenseClass || '',
+        driver.licenseExpiryDate ? formatDate(driver.licenseExpiryDate) : '',
+        driver.aadharNumber || '',
+        driver.panNumber || '',
+        driver.electricBillNo || '',
+        driver.experience || '',
+        driver.previousEmployment || '',
+        driver.planType || '',
+        driver.currentPlan || '',
+        driver.planAmount || '',
+        driver.vehiclePreference || '',
+        driver.vehicleAssigned || '',
+        driver.totalTrips || '0',
+        driver.totalEarnings || '0',
+        driver.rating || '0',
+        driver.kycStatus || '',
+        driver.status || '',
+        driver.bankName || '',
+        driver.accountBranchName || '',
+        driver.accountNumber || '',
+        driver.ifscCode || '',
+        driver.accountHolderName || '',
+        driver.profilePhoto || '',
+        driver.licenseDocument || '',
+        driver.aadharDocument || '',
+        driver.aadharDocumentBack || '',
+        driver.panDocument || '',
+        driver.bankDocument || '',
+        driver.electricBillDocument || '',
+        driver.joinDate ? formatDate(driver.joinDate) : '',
+        driver.lastActive ? formatDate(driver.lastActive) : '',
+        driver.createdAt ? formatDate(driver.createdAt) : '',
+        driver.updatedAt ? formatDate(driver.updatedAt) : ''
+      ]);
+
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `drivers_complete_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Exported ${filteredDrivers.length} drivers with complete details to CSV`);
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export drivers');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -302,7 +404,10 @@ export default function DriversList() {
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <PermissionGuard permission={PERMISSIONS.REPORTS_EXPORT}>
-            <button className="btn btn-secondary flex items-center">
+            <button 
+              onClick={handleExportToCSV}
+              className="btn btn-secondary flex items-center"
+            >
               <Download className="h-4 w-4 mr-2" />
               Export
             </button>
@@ -405,16 +510,17 @@ export default function DriversList() {
 
             {/* Filters */}
             <div className="flex space-x-3">
-              <select
+              {/* <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="input"
+                className="border border-gray-300 rounded-md text-sm py-2 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                style={{ minWidth: '130px' }}
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="pending">Pending</option>
-              </select>
+              </select> */}
 
               {/* <select
                 value={planFilter}
@@ -430,7 +536,8 @@ export default function DriversList() {
               <select
                 value={kycFilter}
                 onChange={(e) => setKycFilter(e.target.value)}
-                className="input"
+                className="border border-gray-300 rounded-md text-sm py-2 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                style={{ minWidth: '150px' }}
               >
                 <option value="all">All KYC Status</option>
                 <option value="verified">Verified</option>
@@ -579,7 +686,8 @@ export default function DriversList() {
                           <select
                             value={driver.kycStatus || 'incomplete'}
                             onChange={(e)=>handleChangeDriverKyc(driver.id, e.target.value)}
-                            className="input text-sm h-10 leading-6 text-center"
+                            className="border border-gray-300 rounded-md text-sm h-8 py-1 px-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            style={{ minWidth: '120px' }}
                           >
                             <option value="verified">Verified</option>
                             <option value="pending">Pending</option>

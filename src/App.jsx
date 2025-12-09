@@ -38,6 +38,8 @@ import InvestorWallet from './pages/investors/InvestorWallet';
 import InvestmentWalletMessages from './pages/investors/InvestmentWalletMessages';
 import ManagerPage from './pages/manager/ManagerPage';
 import InvestorCar from './pages/investments/InvestmentCar'
+import InvesterDetails from './components/investors/InvesterDetails.jsx';
+import Profile from './pages/settings/Profile';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -129,6 +131,8 @@ function AppRoutes() {
                       <Route path="/investments/wallet-messages" element={<InvestmentWalletMessages />} />
                        <Route path="/investments/car" element={<InvestorCar />} />
             <Route path="manager" element={<ManagerPage />} />
+            <Route path="investerDetails" element={<InvesterDetails />} />
+            <Route path="settings" element={<Profile />} />
         {/* Add more routes as we create them */}
       </Route>
     </Routes>
