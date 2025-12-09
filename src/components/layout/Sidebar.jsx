@@ -402,7 +402,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center mr-3">
         <span className="text-sm font-bold text-white">UD</span>
       </div>
-      <span className="text-xl font-bold text-gray-900">UDriver</span>
+      <span className="text-xl font-bold text-gray-900">UDrive</span>
     </div>
         )}
       </div>
