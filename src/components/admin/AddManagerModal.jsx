@@ -113,9 +113,9 @@ const AddManagerModal = ({ isOpen, onClose, onAddManager, initialData }) => {
          
           <select name="serviceCategory" value={form.serviceCategory} onChange={handleChange} className="border p-2 rounded">
             <option value="">Select Department</option>
-            <option value="Admin">Admin</option>
+            {/* <option value="Admin">Admin</option> */}
             <option value="Manager">Manager</option>
-            <option value="Finance">Finance</option>
+            {/* <option value="Finance">Finance</option> */}
           </select>
           <input name="dob" value={form.dob} onChange={handleChange} placeholder="mm/dd/yyyy" type="date" className="border p-2 rounded" />
           <div className="col-span-2 flex justify-center mt-4">

@@ -49,11 +49,11 @@ const navigation = [
         href: '/drivers',
         permission: PERMISSIONS.DRIVERS_VIEW
       },
-      // { 
-      //   name: 'Driver login', 
-      //   href: '/drivers/login',
-      //   permission: PERMISSIONS.DRIVERS_VIEW
-      // },
+      { 
+        name: 'Driver login', 
+        href: '/drivers/login',
+        permission: PERMISSIONS.DRIVERS_VIEW
+      },
        { 
         name: 'Driver Wallet', 
         href: '/drivers/wallet',
@@ -403,7 +403,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         <span className="text-sm font-bold text-white">UD</span>
       </div>
       <span className="text-xl font-bold text-gray-900">UDrive</span>
-    </div>
+  </div>
         )}
       </div>
 

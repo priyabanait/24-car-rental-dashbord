@@ -373,53 +373,12 @@ export default function DriverPayments() {
   });
 
   const computeTotal = (s) => {
-    // Calculate days (inclusive)
-    let days = 0;
-    if (s.rentStartDate) {
-      const start = new Date(s.rentStartDate);
-      let end = new Date();
-      if (s.status === 'inactive' && s.rentPausedDate) {
-        end = new Date(s.rentPausedDate);
-      }
-      // Normalize to midnight for both dates
-      const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-      const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-      days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
-      days = Math.max(1, days);
+    // Use backend-calculated total if available
+    if (s.paymentDetails) {
+      return s.paymentDetails.totalPayable;
     }
-
-    // Rent per day/week
-    const rentPerDay = s.calculatedRent || (() => {
-      const slab = s.selectedRentSlab || {};
-      return s.planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
-    })();
-    // Accidental cover for weekly plans
-    const accidentalCover = s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)) : 0;
-
-    // Adjustment logic
-    const adjustment = s.adjustmentAmount || 0;
-    // Deposit paid after adjustment
-    const depositPaid = (s.paidAmount || 0) + adjustment;
-    // Deposit due
-    let depositDue = 0;
-    if (s.paymentType === 'security') {
-      depositDue = Math.max(0, (s.securityDeposit || 0) - depositPaid);
-    } else {
-      depositDue = s.securityDeposit || 0;
-    }
-
-    // Rent due after adjustment
-    let rentDue = 0;
-    if (s.paidAmount && s.paymentType === 'rent') {
-      rentDue = Math.max(0, (days * rentPerDay) - (s.paidAmount || 0) - adjustment);
-    } else {
-      rentDue = Math.max(0, (days * rentPerDay) - adjustment);
-    }
-
-    // Total calculation
-    const extraAmount = s.extraAmount || 0;
-    const total = depositDue + rentDue + accidentalCover + extraAmount;
-    return total;
+    // Fallback to 0 if no payment details
+    return 0;
   };
 
   const stats = {
@@ -469,22 +428,23 @@ export default function DriverPayments() {
       
       const accidentalCover = s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)) : 0;
       const adjustment = s.adjustmentAmount || 0;
-      const adjustedPaid = (s.paidAmount || 0) - adjustment;
+      const paidAmount = s.paidAmount || 0;
       
       // Calculate deposit due
       let depositDue = 0;
       if (s.paymentType === 'security') {
-        depositDue = Math.max(0, (s.securityDeposit || 0) - adjustedPaid);
+        depositDue = Math.max(0, (s.securityDeposit || 0) - paidAmount);
       } else {
         depositDue = s.securityDeposit || 0;
       }
       
-      // Calculate rent due
+      // Calculate rent due (adjustment is deducted from rent)
       let rentDue = 0;
-      if (s.paidAmount && s.paymentType === 'rent') {
-        rentDue = Math.max(0, (days * rentPerDay) - adjustedPaid);
+      const totalRent = days * rentPerDay;
+      if (s.paymentType === 'rent') {
+        rentDue = Math.max(0, totalRent - paidAmount - adjustment);
       } else {
-        rentDue = Math.max(0, (days * rentPerDay) - adjustment);
+        rentDue = Math.max(0, totalRent - adjustment);
       }
       
       const extraAmount = s.extraAmount || 0;
@@ -571,13 +531,10 @@ export default function DriverPayments() {
     toast.success(`Exported ${allRecords.length} payment records successfully`);
   };
 
-  const handleViewDetails = async (selectionId) => {
+  const handleViewDetails = async (driverGroup) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
-      const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`);
-      if (!res.ok) throw new Error('Failed to load details');
-      const data = await res.json();
-      setSelectedDetail(data);
+      // Pass the entire group of transactions for this driver
+      setSelectedDetail(driverGroup);
       setShowDetailModal(true);
     } catch (e) {
       console.error(e);
@@ -638,7 +595,7 @@ export default function DriverPayments() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 w-full">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -830,13 +787,13 @@ export default function DriverPayments() {
       </Card>
 
 
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Driver Payment Records</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
+        <CardContent className="p-0">
+          <div className="w-full h-screen overflow-auto">
+            <Table className="w-full">
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
@@ -855,7 +812,7 @@ export default function DriverPayments() {
                             <div>
                               <p className="font-semibold text-gray-900">{first.driverUsername || 'N/A'}</p>
                               <p className="text-xs text-gray-500 flex items-center gap-1"><Phone className="h-3 w-3" />{first.driverMobile}</p>
-                              <p className="text-[10px] text-gray-400">ID: {first._id.slice(-6)}</p>
+                              {/* <p className="text-[10px] text-gray-400">ID: {first._id.slice(-6)}</p> */}
                             </div>
                           </div>
                         </TableCell>
@@ -866,10 +823,11 @@ export default function DriverPayments() {
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>Plan</TableHead>
-                                  <TableHead>Total Paid Amount</TableHead>
+                                  <TableHead>Deposite Amount</TableHead>
                                   <TableHead>Total Payable Amount</TableHead>
-                                
+                                  <TableHead>Total Paid Amount</TableHead>
                                   <TableHead>Daily Rent</TableHead>
+                                      <TableHead>Transaction</TableHead>
                                   <TableHead>Payment</TableHead>
                                   <TableHead>Payment Status</TableHead>
                                  
@@ -902,81 +860,17 @@ export default function DriverPayments() {
                                     <TableCell>
                                         <div className="space-y-1">
                                           <p className="font-bold text-blue-600">
-                                            ₹{(
-                                              (() => {
-                                                // Remove Deposit Due from total calculation
-                                                const adjustment = s.adjustmentAmount || 0;
-                                                const adjustedPaid = (s.paidAmount || 0) - adjustment;
-                                                const rentDue = (() => {
-                                                  let days = 0;
-                                                  if (s.rentStartDate) {
-                                                    const start = new Date(s.rentStartDate);
-                                                    let end = new Date();
-                                                    if (s.status === 'inactive' && s.rentPausedDate) {
-                                                      end = new Date(s.rentPausedDate);
-                                                    }
-                                                    const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-                                                    const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-                                                    days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
-                                                    days = Math.max(1, days);
-                                                  }
-                                                  const rentPerDay = s.calculatedRent || (() => {
-                                                    const slab = s.selectedRentSlab || {};
-                                                    return s.planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
-                                                  })();
-                                                  let rentDue = Math.max(0, (days * rentPerDay) - adjustment);
-                                                  if (s.paidAmount && s.paymentType === 'rent') {
-                                                    rentDue = Math.max(0, (days * rentPerDay) - adjustedPaid);
-                                                  }
-                                                  return rentDue;
-                                                })();
-                                                const accidentalCover = s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)) : 0;
-                                                const extraAmount = s.extraAmount || 0;
-                                                // Total = Rent Due + Accidental Cover + Extra Amount (Deposit Due removed)
-                                                return (rentDue + accidentalCover + extraAmount).toLocaleString('en-IN');
-                                              })()
-                                            )}
+                                            ₹{(s.paymentDetails?.totalPayable || 0).toLocaleString('en-IN')}
                                           </p>
                                           <p className="text-[11px] text-gray-500">
                                             Remaining Due = (Rent Due + Accidental Cover + Extra Amount)
                                           </p>
                                           <div className="text-[10px] text-gray-500 mt-1">
-                                            <div>Deposit Due: ₹{(() => {
-                                              const adjustment = s.adjustmentAmount || 0;
-                                              const depositPaid = (s.paidAmount || 0) - adjustment;
-                                              if (s.paymentType === 'security') {
-                                                return Math.max(0, (s.securityDeposit || 0) - depositPaid).toLocaleString('en-IN');
-                                              } else {
-                                                return (s.securityDeposit || 0).toLocaleString('en-IN');
-                                              }
-                                            })()}</div>
-                                            <div>Rent Due: ₹{(() => {
-                                              let days = 0;
-                                              if (s.rentStartDate) {
-                                                const start = new Date(s.rentStartDate);
-                                                let end = new Date();
-                                                if (s.status === 'inactive' && s.rentPausedDate) {
-                                                  end = new Date(s.rentPausedDate);
-                                                }
-                                                const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-                                                const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-                                                days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
-                                                days = Math.max(1, days);
-                                              }
-                                              const rentPerDay = s.calculatedRent || (() => {
-                                                const slab = s.selectedRentSlab || {};
-                                                return s.planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
-                                              })();
-                                              const adjustment = s.adjustmentAmount || 0;
-                                              let rentDue = Math.max(0, (days * rentPerDay) - adjustment);
-                                              if (s.paidAmount && s.paymentType === 'rent') {
-                                                rentDue = Math.max(0, (days * rentPerDay) - ((s.paidAmount || 0) - adjustment));
-                                              }
-                                              return rentDue.toLocaleString('en-IN');
-                                            })()}</div>
-                                            <div>Accidental Cover: ₹{s.planType === 'weekly' ? (s.calculatedCover || (s.selectedRentSlab?.accidentalCover || 105)).toLocaleString('en-IN') : '0'}</div>
-                                            <div>Extra Amount: ₹{(s.extraAmount || 0).toLocaleString('en-IN')}</div>
-                                            <div>Paid: ₹{((s.paidAmount || 0) - (s.adjustmentAmount || 0)).toLocaleString('en-IN')}</div>
+                                            <div>Deposit Due: ₹{(s.paymentDetails?.depositDue || 0).toLocaleString('en-IN')}</div>
+                                            <div>Rent Due: ₹{(s.paymentDetails?.rentDue || 0).toLocaleString('en-IN')}</div>
+                                            <div>Accidental Cover: ₹{(s.paymentDetails?.accidentalCover || 0).toLocaleString('en-IN')}</div>
+                                            <div>Extra Amount: ₹{(s.paymentDetails?.extraAmount || 0).toLocaleString('en-IN')}</div>
+                                            <div>Paid: ₹{(s.paymentDetails?.paidAmount || 0).toLocaleString('en-IN')}</div>
                                           </div>
                                           {/* Show all due calculated amounts below */}
                                           <div className="mt-1">
@@ -1007,56 +901,49 @@ export default function DriverPayments() {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                      {s.rentStartDate ? (
-                                        (() => {
-                                          const start = new Date(s.rentStartDate);
-                                          let end = new Date();
-                                          if (s.status === 'inactive' && s.rentPausedDate) {
-                                            end = new Date(s.rentPausedDate);
-                                          }
-                                          // Normalize to midnight for both dates
-                                          const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-                                          const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-                                          let days = Math.floor((endMidnight - startMidnight) / (1000 * 60 * 60 * 24)) + 1;
-                                          days = Math.max(1, days);
-                                              const rentPerDay = rentSummaries[s._id]?.rentPerDay || 0;
-                                          // Always show rent due as days * rentPerDay minus adjustment unless rent is actually paid
-                                          const adjustment = s.adjustmentAmount || 0;
-                                          let rentDue = Math.max(0, (days * rentPerDay) - adjustment);
-                                          if (s.paidAmount && s.paymentType === 'rent') {
-                                            rentDue = Math.max(0, (days * rentPerDay) - (s.paidAmount || 0) - adjustment);
-                                          }
+                                      <div className="space-y-1">
+                                        {(() => {
+                                          // Calculate total paid amount for this driver across all transactions
+                                          // This shows all rent, deposit, and other payments made by the driver
+                                          const totalPaidByDriver = group.reduce((sum, transaction) => {
+                                            return sum + (transaction.paidAmount || 0);
+                                          }, 0);
+                                          
                                           return (
-                                            <div className="space-y-1">
-                                              <p className="text-xs text-gray-600">
-                                                <span className="font-semibold">Days:</span> {days}
+                                            <div>
+                                              <p className="font-bold text-green-600 text-lg">
+                                                ₹{totalPaidByDriver.toLocaleString('en-IN')}
                                               </p>
-                                              <p className="text-xs text-gray-600">
-                                                <span className="font-semibold">Rent/Day:</span> ₹{
-                                                  (
-                                                    s.rentPerDay
-                                                    ?? s.calculatedRent
-                                                    ?? (s.selectedRentSlab?.rentDay ?? 0)
-                                                  ).toLocaleString('en-IN')
-                                                }
-                                              </p>
-                                              {/* Deposit paid/due status */}
-                                              {((s.securityDeposit || 0) > 0) && (
-                                                <p className="text-xs">
-                                                  <span className="font-semibold">Deposit: </span>
-                                                  {(s.paymentType === 'security' && (s.paidAmount || 0) >= (s.securityDeposit || 0)) ? (
-                                                    <span className="text-green-600 font-semibold">Paid ₹{(s.paidAmount || 0).toLocaleString('en-IN')}</span>
-                                                  ) : (
-                                                    <span className="text-orange-600 font-semibold">Due ₹{((s.securityDeposit || 0) - (s.paymentType === 'security' ? (s.paidAmount || 0) : 0)).toLocaleString('en-IN')}</span>
-                                                  )}
-                                                </p>
-                                              )}
-                                              {/* Rent due status */}
-                                              {/* <p className="text-xs font-semibold text-orange-600">
-                                                Rent Due: ₹{rentDue.toLocaleString('en-IN')}
+                                              {/* <p className="text-[10px] text-gray-500 mt-1">
+                                                Total paid across {group.length} transaction{group.length !== 1 ? 's' : ''}
                                               </p> */}
-                                              
-                                              <div className="flex items-center gap-4 ">
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      {s.rentStartDate ? (
+                                        <div className="space-y-1">
+                                          <p className="text-xs text-gray-600">
+                                            <span className="font-semibold">Days:</span> {s.paymentDetails?.days || 0}
+                                          </p>
+                                          <p className="text-xs text-gray-600">
+                                            <span className="font-semibold">Rent/Day:</span> ₹{(s.paymentDetails?.rentPerDay || 0).toLocaleString('en-IN')}
+                                          </p>
+                                          {/* Deposit paid/due status */}
+                                          {((s.securityDeposit || 0) > 0) && (
+                                            <p className="text-xs">
+                                              <span className="font-semibold">Deposit: </span>
+                                              {(s.paymentDetails?.depositDue || 0) === 0 ? (
+                                                <span className="text-green-600 font-semibold">Paid ₹{(s.securityDeposit || 0).toLocaleString('en-IN')}</span>
+                                              ) : (
+                                                <span className="text-orange-600 font-semibold">Due ₹{(s.paymentDetails?.depositDue || 0).toLocaleString('en-IN')}</span>
+                                              )}
+                                            </p>
+                                          )}
+                                          
+                                          <div className="flex items-center gap-4 ">
                                                 <p className="text-xs font-semibold text-yellow-700 whitespace-nowrap">Add Adjustment :</p>
                                                 <input
                                                   type="number"
@@ -1085,7 +972,7 @@ export default function DriverPayments() {
                                                   onClick={() => handleSaveAdjustment(s._id)}
                                                   disabled={adjustmentInputs[s._id]?.loading}
                                                 >
-                                                  {adjustmentInputs[s._id]?.loading ? 'Adding...' : '+ Add'}
+                                                  {adjustmentInputs[s._id]?.loading ? 'saving...' : 'Save'}
                                                 </button>
                                               </div>
 
@@ -1121,12 +1008,23 @@ export default function DriverPayments() {
                                                   {extraInputs[s._id]?.loading ? 'Saving...' : 'Save'}
                                                 </button>
                                               </div>
-                                            </div>
-                                          );
-                                        })()
+                                        </div>
                                       ) : (
                                         <div className="text-xs text-gray-500">Not started</div>
                                       )}
+                                    </TableCell>
+                                      <TableCell>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => handleViewDetails(group)}
+                                          className="text-primary-600 hover:text-primary-700 flex items-center gap-1 text-sm font-medium border border-primary-200 rounded px-2 py-1"
+                                          title="View all transactions"
+                                        >
+                                          <Eye className="h-4 w-4" />
+                                          See Transaction
+                                        </button>
+                                       
+                                      </div>
                                     </TableCell>
                                     <TableCell>
                                       <div className="space-y-1">
@@ -1144,8 +1042,9 @@ export default function DriverPayments() {
                                     <TableCell>
                                       <div className="flex gap-2">
                                         {/* <button
-                                          onClick={() => handleViewDetails(s._id)}
-                                          className="text-primary-600 hover:text-primary-700 flex items-center gap-1 text-sm font-medium"
+                                          onClick={() => handleViewDetails(group)}
+                                          className="text-primary-600 hover:text-primary-700 flex items-center gap-1 text-sm font-medium border border-primary-200 rounded px-2 py-1"
+                                          title="View all transactions"
                                         >
                                           <Eye className="h-4 w-4" />
                                           View
@@ -1174,171 +1073,265 @@ export default function DriverPayments() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Payment Detail Modal */}
-      {selectedDetail && showDetailModal && (
+      {/* Payment Detail Modal - All Transactions */}
+      {selectedDetail && showDetailModal && Array.isArray(selectedDetail) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">Payment Details</h2>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Transaction History</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedDetail[0]?.driverUsername} - {selectedDetail[0]?.driverMobile}
+                  </p>
+                </div>
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
                 >
                   ✕
                 </button>
               </div>
             </div>
             
-            <div className="p-6 space-y-6">
-              {/* Driver Information */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Driver Information
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Name:</span>
-                    <span className="text-sm font-medium">{selectedDetail.driverUsername || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Mobile:</span>
-                    <span className="text-sm font-medium">{selectedDetail.driverMobile}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Plan:</span>
-                    <span className="text-sm font-medium">{selectedDetail.planName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Plan Type:</span>
-                    <span className="text-sm font-medium capitalize">{selectedDetail.planType}</span>
-                  </div>
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-4 flex-shrink-0">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <p className="text-xs text-gray-600">Total Transactions</p>
+                  <p className="text-2xl font-bold text-blue-600">{selectedDetail.length}</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4">
+                  <p className="text-xs text-gray-600">Total Paid</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    ₹{selectedDetail.reduce((sum, t) => sum + (t.paidAmount || 0), 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-4">
+                  <p className="text-xs text-gray-600">Total Due</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    ₹{selectedDetail.reduce((sum, t) => sum + (t.paymentDetails?.totalPayable || 0), 0).toLocaleString('en-IN')}
+                  </p>
                 </div>
               </div>
 
-              {/* Payment Breakdown */}
-              {selectedDetail.paymentBreakdown && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    Payment Breakdown
-                  </h3>
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Security Deposit:</span>
-                      <span className="text-lg font-semibold text-gray-900">
-                        ₹{selectedDetail.paymentBreakdown.securityDeposit.toLocaleString('en-IN')}
-                      </span>
+              {/* Transaction List */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700">All Transactions</h3>
+                {selectedDetail.map((transaction, index) => (
+                  <div key={transaction._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">Transaction #{index + 1}</h4>
+                        <p className="text-xs text-gray-500">ID: {transaction._id}</p>
+                      </div>
+                      <div className="text-right">
+                        {getStatusBadge(transaction.paymentStatus)}
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">{selectedDetail.paymentBreakdown.rentType === 'weeklyRent' ? 'Weekly Rent' : 'Daily Rent'}:</span>
-                      <span className="text-lg font-semibold text-gray-900">
-                        ₹{selectedDetail.paymentBreakdown.rent.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Accidental Cover:</span>
-                      <span className="text-lg font-semibold text-gray-900">
-                        ₹{selectedDetail.paymentBreakdown.accidentalCover.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    {selectedDetail.paymentBreakdown.extraAmount > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Extra Amount:</span>
-                        <span className="text-lg font-semibold text-gray-900">
-                          ₹{selectedDetail.paymentBreakdown.extraAmount.toLocaleString('en-IN')}
+
+                    {/* Transaction Details Grid */}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">Plan:</span>
+                        <span className="ml-2 font-medium">{transaction.planName}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Type:</span>
+                        <span className="ml-2 font-medium capitalize">{transaction.planType}</span>
+                      </div>
+                      
+                      <div>
+                        <span className="text-gray-600">Security Deposit:</span>
+                        <span className="ml-2 font-medium">₹{(transaction.securityDeposit || 0).toLocaleString('en-IN')}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Payment Type:</span>
+                        <span className="ml-2 font-medium capitalize">{transaction.paymentType || 'N/A'}</span>
+                      </div>
+
+                      {transaction.rentStartDate && (
+                        <>
+                          <div>
+                            <span className="text-gray-600">Rent Start:</span>
+                            <span className="ml-2 font-medium">{formatDate(transaction.rentStartDate)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Days:</span>
+                            <span className="ml-2 font-medium">{transaction.paymentDetails?.days || 0}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Rent/Day:</span>
+                            <span className="ml-2 font-medium">₹{(transaction.paymentDetails?.rentPerDay || 0).toLocaleString('en-IN')}</span>
+                          </div>
+                        </>
+                      )}
+
+                      <div>
+                        <span className="text-gray-600">Payment Mode:</span>
+                        <span className="ml-2">{getModeBadge(transaction.paymentMode)}</span>
+                      </div>
+
+                      <div>
+                        <span className="text-gray-600">Payment Date:</span>
+                        <span className="ml-2 font-medium">
+                          {transaction.paymentDate ? formatDate(transaction.paymentDate) : 'Not paid'}
                         </span>
                       </div>
-                    )}
-                    <div className="border-t border-blue-200 pt-3 mt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-base font-bold text-gray-900">Remaining Due:</span>
-                        <span className="text-2xl font-bold text-blue-600">
-                          ₹{(selectedDetail.paymentBreakdown.totalAmount - (selectedDetail.paidAmount || 0)).toLocaleString('en-IN')}
+                      <div>
+                        <span className="text-gray-600">Selected Date:</span>
+                        <span className="ml-2 font-medium">
+                          {transaction.selectedDate ? formatDate(transaction.selectedDate) : 'N/A'}
                         </span>
-                        <div className="text-xs text-gray-500 mt-2">
-                          <div>Calculation: (Deposit Due + Rent Due + Accidental Cover + Extra Amount) - Paid</div>
-                          <div>Deposit Due: ₹{selectedDetail.paymentBreakdown.securityDeposit.toLocaleString('en-IN')}</div>
-                          <div>Rent Due: ₹{selectedDetail.paymentBreakdown.rent.toLocaleString('en-IN')}</div>
-                          <div>Accidental Cover: ₹{selectedDetail.paymentBreakdown.accidentalCover.toLocaleString('en-IN')}</div>
-                          <div>Extra Amount: ₹{selectedDetail.paymentBreakdown.extraAmount.toLocaleString('en-IN')}</div>
-                          <div>Paid: ₹{(selectedDetail.paidAmount || 0).toLocaleString('en-IN')}</div>
-                        </div>
                       </div>
                     </div>
-                    {selectedDetail.paymentBreakdown.extraAmount > 0 && selectedDetail.paymentBreakdown.extraReason && (
-                      <div className="mt-2 text-xs text-gray-700">
-                        <span className="font-semibold">Extra Reason:</span> {selectedDetail.paymentBreakdown.extraReason}
-                      </div>
-                    )}
-                    {selectedDetail.adjustmentAmount > 0 && selectedDetail.adjustmentReason && (
-                      <div className="mt-2 text-xs text-gray-700">
-                        <span className="font-semibold">Adjustment Reason:</span> {selectedDetail.adjustmentReason}
-                      </div>
-                    )}
-                    {selectedDetail.paidAmount !== null && selectedDetail.paidAmount !== undefined && (
-                      <div className="border-t border-green-200 pt-3 mt-3 bg-green-50 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg">
-                        <div className="flex justify-between items-center">
-                          <span className="text-base font-bold text-green-800">Amount Paid (Manual Entry):</span>
-                          <span className="text-2xl font-bold text-green-600">
-                            ₹{selectedDetail.paidAmount.toLocaleString('en-IN')}
-                          </span>
+
+                    {/* Payment Breakdown */}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Deposit Due:</span>
+                          <span className="font-semibold">₹{(transaction.paymentDetails?.depositDue || 0).toLocaleString('en-IN')}</span>
                         </div>
-                        {selectedDetail.paidAmount !== selectedDetail.paymentBreakdown.totalAmount && (
-                          <p className="text-xs text-green-700 mt-2">
-                            {selectedDetail.paidAmount < selectedDetail.paymentBreakdown.totalAmount 
-                              ? `Partial payment (₹${(selectedDetail.paymentBreakdown.totalAmount - selectedDetail.paidAmount).toLocaleString('en-IN')} remaining)`
-                              : `Overpayment by ₹${(selectedDetail.paidAmount - selectedDetail.paymentBreakdown.totalAmount).toLocaleString('en-IN')}`
-                            }
-                          </p>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Rent Due:</span>
+                          <span className="font-semibold">₹{(transaction.paymentDetails?.rentDue || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Accidental Cover:</span>
+                          <span className="font-semibold">₹{(transaction.paymentDetails?.accidentalCover || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Extra Amount:</span>
+                          <span className="font-semibold text-yellow-600">₹{(transaction.extraAmount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        {transaction.adjustmentAmount > 0 && (
+                          <div className="flex justify-between col-span-2">
+                            <span className="text-gray-600">Adjustment (Discount):</span>
+                            <span className="font-semibold text-green-600">-₹{transaction.adjustmentAmount.toLocaleString('en-IN')}</span>
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
-              {/* Payment Status */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  Payment Status
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Payment Mode:</span>
-                    {getModeBadge(selectedDetail.paymentMode)}
+                      {/* Extra Amounts - Show all individual entries */}
+                      {(transaction.extraAmounts?.length > 0 || (transaction.extraAmount > 0 && transaction.extraReason)) && (
+                        <div className="mt-2 space-y-2">
+                          <p className="text-xs font-semibold text-yellow-800">Extra Amounts Added:</p>
+                          
+                          {/* Show new array format if available */}
+                          {transaction.extraAmounts?.map((extra, idx) => (
+                            <div key={idx} className="p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="font-semibold text-yellow-800">Amount #{idx + 1}:</span>
+                                <span className="text-yellow-600 font-medium">₹{extra.amount.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="text-yellow-700 mb-1">
+                                <span className="font-medium">Reason:</span> {extra.reason || 'No reason provided'}
+                              </div>
+                              <div className="text-yellow-600 text-[10px]">
+                                <span className="font-medium">Date:</span> {extra.date ? formatDate(extra.date) : 'N/A'}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Fallback: Show old single format if no array but has values */}
+                          {(!transaction.extraAmounts || transaction.extraAmounts.length === 0) && transaction.extraAmount > 0 && transaction.extraReason && (
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="font-semibold text-yellow-800">Extra Amount:</span>
+                                <span className="text-yellow-600 font-medium">₹{transaction.extraAmount.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="text-yellow-700 mb-1">
+                                <span className="font-medium">Reason:</span> {transaction.extraReason}
+                              </div>
+                              <div className="text-yellow-600 text-[10px]">
+                                <span className="font-medium">Last Updated:</span> {transaction.updatedAt ? formatDate(transaction.updatedAt) : 'N/A'}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="text-xs font-semibold text-yellow-800 pt-1 border-t border-yellow-300">
+                            Total Extra Amount: ₹{(transaction.extraAmount || 0).toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Adjustments - Show all individual entries */}
+                      {(transaction.adjustments?.length > 0 || (transaction.adjustmentAmount > 0 && transaction.adjustmentReason)) && (
+                        <div className="mt-2 space-y-2">
+                          <p className="text-xs font-semibold text-green-800">Adjustments (Discounts) Applied:</p>
+                          
+                          {/* Show new array format if available */}
+                          {transaction.adjustments?.map((adj, idx) => (
+                            <div key={idx} className="p-3 bg-green-50 border border-green-200 rounded text-xs">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="font-semibold text-green-800">Adjustment #{idx + 1}:</span>
+                                <span className="text-green-600 font-medium">-₹{adj.amount.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="text-green-700 mb-1">
+                                <span className="font-medium">Reason:</span> {adj.reason || 'No reason provided'}
+                              </div>
+                              <div className="text-green-600 text-[10px]">
+                                <span className="font-medium">Date:</span> {adj.date ? formatDate(adj.date) : 'N/A'}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Fallback: Show old single format if no array but has values */}
+                          {(!transaction.adjustments || transaction.adjustments.length === 0) && transaction.adjustmentAmount > 0 && transaction.adjustmentReason && (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded text-xs">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="font-semibold text-green-800">Adjustment (Discount):</span>
+                                <span className="text-green-600 font-medium">-₹{transaction.adjustmentAmount.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="text-green-700 mb-1">
+                                <span className="font-medium">Reason:</span> {transaction.adjustmentReason}
+                              </div>
+                              <div className="text-green-600 text-[10px]">
+                                <span className="font-medium">Last Updated:</span> {transaction.updatedAt ? formatDate(transaction.updatedAt) : 'N/A'}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="text-xs font-semibold text-green-800 pt-1 border-t border-green-300">
+                            Total Adjustment: -₹{(transaction.adjustmentAmount || 0).toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Totals */}
+                      <div className="mt-3 pt-2 border-t border-gray-300 flex justify-between items-center">
+                        <div>
+                          <span className="text-gray-600 font-medium">Paid Amount:</span>
+                          <span className="ml-2 text-lg font-bold text-green-600">
+                            ₹{(transaction.paidAmount || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600 font-medium">Total Payable:</span>
+                          <span className="ml-2 text-lg font-bold text-blue-600">
+                            ₹{(transaction.paymentDetails?.totalPayable || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Timestamps */}
+                    <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between text-xs text-gray-500">
+                      <span>Created: {formatDate(transaction.createdAt)}</span>
+                      {transaction.updatedAt && (
+                        <span>Updated: {formatDate(transaction.updatedAt)}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Payment Method:</span>
-                    <span className="text-sm font-medium">{selectedDetail.paymentMethod || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Status:</span>
-                    {getStatusBadge(selectedDetail.paymentStatus)}
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Payment Date:</span>
-                    <span className="text-sm font-medium">
-                      {selectedDetail.paymentDate ? formatDate(selectedDetail.paymentDate) : 'Not paid yet'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Selected Date:</span>
-                    <span className="text-sm font-medium">
-                      {selectedDetail.selectedDate ? formatDate(selectedDetail.selectedDate) : 'N/A'}
-                    </span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-200">
+            <div className="p-6 border-t border-gray-200 flex gap-3">
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="btn btn-secondary w-full"
+                className="btn btn-secondary flex-1"
               >
                 Close
               </button>

@@ -414,7 +414,7 @@ const InvestmentCar = () => {
           <CardTitle> Vehicles Matched with Car Investment Entries ({matchedVehicles.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-400px)]">
+          <div className="overflow-x-auto overflow-y-auto h-[80vh]">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
