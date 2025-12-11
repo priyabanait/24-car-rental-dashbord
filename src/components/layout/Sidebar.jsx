@@ -49,11 +49,11 @@ const navigation = [
         href: '/drivers',
         permission: PERMISSIONS.DRIVERS_VIEW
       },
-      { 
-        name: 'Driver login', 
-        href: '/drivers/login',
-        permission: PERMISSIONS.DRIVERS_VIEW
-      },
+      // { 
+      //   name: 'Driver login', 
+      //   href: '/drivers/login',
+      //   permission: PERMISSIONS.DRIVERS_VIEW
+      // },
        { 
         name: 'Driver Wallet', 
         href: '/drivers/wallet',
@@ -487,7 +487,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-700">{user?.name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role === 'fleet_manager' ? 'Manager' : user?.role?.replace('_', ' ')}</p>
             </div>
           </div>
         </div>
