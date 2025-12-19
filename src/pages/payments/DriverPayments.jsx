@@ -32,8 +32,8 @@ export default function DriverPayments() {
   const state = {};
   selections.flat().forEach(s => {
     state[s._id] = {
-      amount: s.extraAmount || '',
-      reason: s.extraReason || '',
+      amount: '', // Keep empty for new extra amount input
+      reason: '', // Keep empty for new reason input
       loading: false
     };
   });
@@ -43,6 +43,8 @@ export default function DriverPayments() {
   const [extraInputs, setExtraInputs] = useState({});
   // State for adjustment amount and reason per row
   const [adjustmentInputs, setAdjustmentInputs] = useState({});
+  // State for cash payment completion (deposit and rent amounts)
+  const [cashPaymentInputs, setCashPaymentInputs] = useState({});
   // Sync extraInputs state when selections change
   useEffect(() => {
     setExtraInputs(getInitialExtraState(selections));
@@ -56,6 +58,17 @@ export default function DriverPayments() {
       };
     });
     setAdjustmentInputs(adjState);
+    // Initialize cash payment inputs
+    const cashPayState = {};
+    selections.flat().forEach(s => {
+      cashPayState[s._id] = {
+        depositAmount: '',
+        rentAmount: '',
+        paymentType: 'deposit', // 'deposit', 'rent', or 'payable'
+        loading: false
+      };
+    });
+    setCashPaymentInputs(cashPayState);
   }, [selections]);
   // Save handler for extra amount/reason
     // Save handler for adjustment amount and reason
@@ -73,35 +86,92 @@ export default function DriverPayments() {
       }));
       
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const token = localStorage.getItem('token');
         
-        const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ adjustmentAmount: Number(amount) || 0, adjustmentReason: reason || 'Adjustment' })
-        });
+        // Find the selection to check if it's a booking
+        const selection = selections.flat().find(s => s._id === selectionId);
+        const isBooking = selection?.planType === 'booking';
+        
+        let res;
+        if (isBooking) {
+          // Use bookings API for bookings
+          res = await fetch(`${API_BASE}/api/bookings/${selectionId}/adjustment`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ adjustmentAmount: Number(amount) || 0, adjustmentReason: reason || 'Adjustment' })
+          });
+        } else {
+          // Use driver-plan-selections API for plan selections
+          res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ adjustmentAmount: Number(amount) || 0, adjustmentReason: reason || 'Adjustment' })
+          });
+        }
+        
         if (!res.ok) {
           const errorData = await res.json();
           throw new Error(errorData.message || 'Failed to update adjustment amount');
         }
         
         const result = await res.json();
+        const adjustmentTotal = isBooking ? result.booking.adjustmentAmount : result.selection.adjustmentAmount;
         
         // Update local state with cumulative adjustment
         setSelections(prev => prev.map(group =>
-          group.map(s =>
-            s._id === selectionId
-              ? { 
-                  ...s, 
-                  adjustmentAmount: result.selection.adjustmentAmount,
-                  adjustmentReason: result.selection.adjustmentReason
+          group.map(s => {
+            if (s._id !== selectionId) return s;
+            
+            if (isBooking) {
+              // Recalculate booking payment details with adjustment
+              const deposit = s.securityDeposit || 0;
+              const totalRent = (s.numberOfDays || 0) * (s.pricePerDay || 0);
+              const paidAmount = s.paidAmount || 0;
+              const extraAmount = s.extraAmount || 0;
+              
+              // Calculate what's been paid toward deposit and rent
+              let depositDue = 0;
+              let rentDue = 0;
+              
+              if (paidAmount >= deposit) {
+                // Deposit fully paid, remaining goes to rent
+                depositDue = 0;
+                const rentPaid = paidAmount - deposit;
+                // Apply adjustment to rent due
+                rentDue = Math.max(0, totalRent - rentPaid - adjustmentTotal);
+              } else {
+                // Partial or no deposit payment
+                depositDue = deposit - paidAmount;
+                // Apply adjustment to rent due
+                rentDue = Math.max(0, totalRent - adjustmentTotal);
+              }
+              
+              const finalTotalPayable = Math.max(0, depositDue + rentDue + extraAmount);
+              
+              return { 
+                ...s, 
+                adjustmentAmount: adjustmentTotal,
+                adjustmentReason: result.booking.adjustmentReason,
+                paymentDetails: {
+                  ...s.paymentDetails,
+                  totalPayable: finalTotalPayable
                 }
-              : s
-          )
+              };
+            } else {
+              // For plan selections, keep existing logic
+              return { 
+                ...s, 
+                adjustmentAmount: adjustmentTotal,
+                adjustmentReason: result.selection.adjustmentReason
+              };
+            }
+          })
         ));
         
         // Clear input fields after successful save
@@ -110,7 +180,7 @@ export default function DriverPayments() {
           [selectionId]: { amount: '', reason: '', loading: false }
         }));
         
-        toast.success(`Added ₹${Number(amount).toLocaleString('en-IN')} to adjustments. Total: ₹${result.selection.adjustmentAmount.toLocaleString('en-IN')}`);
+        toast.success(`Added ₹${Number(amount).toLocaleString('en-IN')} to adjustments. Total: ₹${adjustmentTotal.toLocaleString('en-IN')}`);
       } catch (e) {
         toast.error(e.message || 'Failed to update adjustment amount');
         setAdjustmentInputs(prev => ({
@@ -125,44 +195,245 @@ export default function DriverPayments() {
       [selectionId]: { ...prev[selectionId], loading: true }
     }));
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('token');
       const { amount, reason } = extraInputs[selectionId];
-      const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ extraAmount: Number(amount) || 0, extraReason: reason })
-      });
+      
+      // Find the selection to check if it's a booking
+      const selection = selections.flat().find(s => s._id === selectionId);
+      const isBooking = selection?.planType === 'booking';
+      
+      let res;
+      if (isBooking) {
+        // Use bookings API for bookings
+        res = await fetch(`${API_BASE}/api/bookings/${selectionId}/extra`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ extraAmount: Number(amount) || 0, extraReason: reason })
+        });
+      } else {
+        // Use driver-plan-selections API for plan selections
+        res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ extraAmount: Number(amount) || 0, extraReason: reason })
+        });
+      }
+      
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Failed to update extra amount');
       }
+      
+      const result = await res.json();
+      const extraTotal = isBooking ? result.booking.extraAmount : Number(amount) || 0;
+      
       // Update local state for this selection
       setSelections(prev => prev.map(group =>
-        group.map(s =>
-          s._id === selectionId
-            ? { ...s, extraAmount: Number(amount) || 0, extraReason: reason }
-            : s
-        )
+        group.map(s => {
+          if (s._id !== selectionId) return s;
+          
+          if (isBooking) {
+            // Recalculate booking payment details with extra amount
+            const deposit = s.securityDeposit || 0;
+            const totalRent = (s.numberOfDays || 0) * (s.pricePerDay || 0);
+            const paidAmount = s.paidAmount || 0;
+            const adjustmentAmount = s.adjustmentAmount || 0;
+            
+            // Calculate what's been paid toward deposit and rent
+            let depositDue = 0;
+            let rentDue = 0;
+            
+            if (paidAmount >= deposit) {
+              // Deposit fully paid, remaining goes to rent
+              depositDue = 0;
+              const rentPaid = paidAmount - deposit;
+              // Apply adjustment to rent due
+              rentDue = Math.max(0, totalRent - rentPaid - adjustmentAmount);
+            } else {
+              // Partial or no deposit payment
+              depositDue = deposit - paidAmount;
+              // Apply adjustment to rent due
+              rentDue = Math.max(0, totalRent - adjustmentAmount);
+            }
+            
+            const finalTotalPayable = Math.max(0, depositDue + rentDue + extraTotal);
+            
+            return { 
+              ...s, 
+              extraAmount: extraTotal,
+              extraReason: reason,
+              paymentDetails: {
+                ...s.paymentDetails,
+                extraAmount: extraTotal,
+                totalPayable: finalTotalPayable
+              }
+            };
+          } else {
+            // For plan selections, keep existing logic
+            return { 
+              ...s, 
+              extraAmount: extraTotal, 
+              extraReason: reason
+            };
+          }
+        })
       ));
       toast.success('Extra amount updated');
+      
+      // Clear input fields after successful save
+      setExtraInputs(prev => ({
+        ...prev,
+        [selectionId]: { amount: '', reason: '', loading: false }
+      }));
     } catch (e) {
       toast.error(e.message || 'Failed to update extra amount');
-    } finally {
       setExtraInputs(prev => ({
         ...prev,
         [selectionId]: { ...prev[selectionId], loading: false }
       }));
     }
   };
+    // Handler for completing cash payment
+    const handleCompleteCashPayment = async (selectionId, planType) => {
+      const { depositAmount, rentAmount, paymentType } = cashPaymentInputs[selectionId] || {};
+      
+      if (!depositAmount && !rentAmount) {
+        toast.error('Please enter deposit amount or rent amount');
+        return;
+      }
+      
+      const totalPaid = Number(depositAmount || 0) + Number(rentAmount || 0);
+      
+      setCashPaymentInputs(prev => ({
+        ...prev,
+        [selectionId]: { ...prev[selectionId], loading: true }
+      }));
+      
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+        
+        // For bookings, update the booking payment status
+        if (planType === 'booking') {
+          const res = await fetch(`${API_BASE}/api/bookings/${selectionId}/payment`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              paymentStatus: 'completed',
+              paidAmount: totalPaid,
+              paymentType: paymentType || 'deposit'
+            })
+          });
+          
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || 'Failed to update payment status');
+          }
+          
+          const result = await res.json();
+          
+          // Update local state with recalculated dues from backend
+          setSelections(prev => prev.map(group =>
+            group.map(s => {
+              if (s._id !== selectionId) return s;
+              
+              const deposit = s.securityDeposit || 0;
+              const totalRent = (s.numberOfDays || 0) * (s.pricePerDay || 0);
+              const paidNow = result.booking.paidAmount || 0;
+              const updatedExtraAmount = result.booking.extraAmount || 0; // Get updated extra amount from backend
+              const adjustmentAmount = s.adjustmentAmount || 0;
+              
+              // Recalculate dues based on updated paid amount
+              let depositDue = Math.max(0, deposit - Math.min(paidNow, deposit));
+              let rentPaid = Math.max(0, paidNow - deposit);
+              let rentDue = Math.max(0, totalRent - rentPaid - adjustmentAmount);
+              
+              const finalTotalPayable = Math.max(0, depositDue + rentDue + updatedExtraAmount);
+              
+              return { 
+                ...s, 
+                paymentStatus: 'completed',
+                paidAmount: paidNow,
+                extraAmount: updatedExtraAmount, // Update extra amount from backend
+                status: result.booking.status,
+                paymentDetails: {
+                  ...s.paymentDetails,
+                  paidAmount: paidNow,
+                  depositDue: depositDue,
+                  rentDue: rentDue,
+                  extraAmount: updatedExtraAmount,
+                  totalPayable: finalTotalPayable
+                }
+              };
+            })
+          ));
+        } else {
+          // For driver plan selections
+          const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              paymentStatus: 'completed',
+              paidAmount: totalPaid
+            })
+          });
+          
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || 'Failed to update payment status');
+          }
+          
+          const result = await res.json();
+          
+          // Update local state with exact values from backend
+          setSelections(prev => prev.map(group =>
+            group.map(s =>
+              s._id === selectionId
+                ? { 
+                    ...s, 
+                    paymentStatus: 'completed',
+                    paidAmount: result.selection?.paidAmount || totalPaid
+                  }
+                : s
+            )
+          ));
+        }
+        
+        // Clear input fields but preserve payment type
+        setCashPaymentInputs(prev => ({
+          ...prev,
+          [selectionId]: { 
+            depositAmount: '', 
+            rentAmount: '', 
+            paymentType: prev[selectionId]?.paymentType || 'deposit',
+            loading: false 
+          }
+        }));
+        
+        toast.success(`Payment completed successfully! Total paid: ₹${totalPaid.toLocaleString('en-IN')}`);
+      } catch (e) {
+        toast.error(e.message || 'Failed to complete payment');
+        setCashPaymentInputs(prev => ({
+          ...prev,
+          [selectionId]: { ...prev[selectionId], loading: false }
+        }));
+      }
+    };
+
     // Delete handler
     const handleDelete = async (selectionId) => {
       if (!window.confirm('Are you sure you want to delete this payment record?')) return;
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
           method: 'DELETE'
         });
@@ -181,7 +452,7 @@ export default function DriverPayments() {
  
 
   useEffect(() => {
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
     // If logged-in user is a manager, use their email/ID, otherwise use selected manager filter
     const managerFilter = isManager ? (user?.email || user?.id) : (selectedManagers?.filter || '');
     
@@ -205,6 +476,7 @@ export default function DriverPayments() {
     const fetchPayments = async () => {
       setLoading(true);
       try {
+        // Fetch driver plan selections
         let url = `${API_BASE}/api/driver-plan-selections?limit=1000`;
         if (managerFilter) {
           url = `${API_BASE}/api/driver-plan-selections/by-manager/${encodeURIComponent(managerFilter)}?limit=1000`;
@@ -218,11 +490,95 @@ export default function DriverPayments() {
           throw new Error(errorData.message || `Failed to load payments: ${res.status}`);
         }
         const result = await res.json();
-        const data = result.data || result;
-        console.log('Payments data received:', Array.isArray(data) ? data.length : 0, 'records');
+        const planSelectionData = result.data || result;
+        console.log('Driver plan selections data received:', Array.isArray(planSelectionData) ? planSelectionData.length : 0, 'records');
+        
+        // Fetch bookings data
+        const token = localStorage.getItem('token');
+        let bookingsData = [];
+        try {
+          const bookingsRes = await fetch(`${API_BASE}/api/bookings?limit=1000&all=true`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          });
+          console.log('Bookings API response status:', bookingsRes.status);
+          if (bookingsRes.ok) {
+            const bookingsResult = await bookingsRes.json();
+            console.log('Bookings API result:', bookingsResult);
+            bookingsData = (bookingsResult.bookings || bookingsResult.data || bookingsResult || []).map(booking => {
+              const totalRent = (booking.numberOfDays || 0) * (booking.pricePerDay || 0);
+              const deposit = booking.securityDeposit || 0;
+              const extraAmount = booking.extraAmount || 0;
+              const adjustmentAmount = booking.adjustmentAmount || 0;
+              const totalPayable = booking.finalAmount || (totalRent + deposit);
+              const paidAmount = booking.paidAmount || 0;
+              
+              // Calculate what's been paid toward deposit and rent
+              let depositDue = 0;
+              let rentDue = 0;
+              
+              if (paidAmount >= deposit) {
+                // Deposit fully paid, remaining goes to rent
+                depositDue = 0;
+                const rentPaid = paidAmount - deposit;
+                // Apply adjustment to rent due
+                rentDue = Math.max(0, totalRent - rentPaid - adjustmentAmount);
+              } else {
+                // Partial or no deposit payment
+                depositDue = deposit - paidAmount;
+                // Apply adjustment to rent due
+                rentDue = Math.max(0, totalRent - adjustmentAmount);
+              }
+              
+              // Calculate final total payable (rent due + extra, adjustment already applied to rent)
+              const finalTotalPayable = Math.max(0, depositDue + rentDue + extraAmount);
+              
+              return {
+                ...booking,
+                // Convert booking to driver-plan-selection format for consistent display
+                driverUsername: booking.driverName,
+                driverMobile: booking.driverMobile,
+                planName: booking.vehicleName || 'Vehicle Booking',
+                planType: 'booking',
+                selectedDate: booking.createdAt,
+                paymentStatus: booking.paymentStatus || 'pending',
+                paymentMode: booking.paymentMethod || 'cash',
+                paymentMethod: booking.paymentMethod || 'cash',
+                paymentDate: booking.createdAt,
+                paymentType: 'booking',
+                securityDeposit: deposit,
+                paidAmount: paidAmount,
+                rentStartDate: booking.tripStartDate,
+                extraAmount: extraAmount,
+                extraReason: booking.extraReason,
+                extraAmounts: booking.extraAmounts || [],
+                adjustmentAmount: adjustmentAmount,
+                adjustmentReason: booking.adjustmentReason,
+                adjustments: booking.adjustments || [],
+                paymentDetails: {
+                  totalPayable: finalTotalPayable,
+                  depositDue: depositDue,
+                  rentDue: rentDue,
+                  accidentalCover: 0,
+                  extraAmount: extraAmount,
+                  paidAmount: paidAmount,
+                  days: booking.numberOfDays || 0,
+                  rentPerDay: booking.pricePerDay || 0
+                }
+              };
+            });
+            console.log('Bookings data received:', bookingsData.length, 'records');
+          }
+        } catch (bookingsErr) {
+          console.error('Error loading bookings (non-fatal):', bookingsErr);
+          // Continue without bookings if error occurs
+        }
+        
+        // Combine driver plan selections and bookings
+        const combinedData = [...(Array.isArray(planSelectionData) ? planSelectionData : []), ...bookingsData];
+        
         // Group by driverMobile or driverUsername
         const grouped = {};
-        (Array.isArray(data) ? data : []).forEach(s => {
+        combinedData.forEach(s => {
           const key = s.driverMobile || s.driverUsername || s._id;
           if (!grouped[key]) grouped[key] = [];
           grouped[key].push(s);
@@ -260,7 +616,7 @@ export default function DriverPayments() {
   const loadSelections = async () => {
     setLoading(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/driver-plan-selections?limit=1000`);
       if (!res.ok) throw new Error('Failed to load driver payments');
       const result = await res.json();
@@ -544,7 +900,7 @@ export default function DriverPayments() {
 
   const handleStatusChange = async (selectionId, newStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('token');
       
       console.log('Updating status:', { selectionId, newStatus });
@@ -846,13 +1202,12 @@ export default function DriverPayments() {
                                     </TableCell>
                                     <TableCell>
                                       <p className='text-xs'>Deposite Amount: ₹{(s.securityDeposit||0).toLocaleString('en-IN')}</p>
-                                      {/* <p className="font-semibold">₹{(s.securityDeposit||0).toLocaleString('en-IN')}</p> */}
                                       {/* Show deposit paid if available */}
-                                      {s.paymentType === 'security' && s.paidAmount !== null && s.paidAmount !== undefined && (
+                                      {(s.paymentType === 'security' || s.planType === 'booking') && s.paidAmount !== null && s.paidAmount !== undefined && s.paidAmount > 0 && (
                                         <div className="mt-1 pt-1 border-t border-gray-200">
-                                          <p className="text-xs font-semibold text-green-600">Deposit Paid: ₹{((s.paidAmount || 0) - (s.adjustmentAmount || 0)).toLocaleString('en-IN')}</p>
+                                          <p className="text-xs font-semibold text-green-600">Deposit Paid: ₹{Math.max(0, (s.paidAmount || 0) - (s.adjustmentAmount || 0)).toLocaleString('en-IN')}</p>
                                           {s.adjustmentAmount > 0 && (
-                                            <p className="text-xs font-semibold text-yellow-600">Adjustment Deducted: ₹{s.adjustmentAmount.toLocaleString('en-IN')}</p>
+                                            <p className="text-xs font-semibold text-yellow-600">Adjustment Deducted: -₹{s.adjustmentAmount.toLocaleString('en-IN')}</p>
                                           )}
                                         </div>
                                       )}
@@ -863,12 +1218,12 @@ export default function DriverPayments() {
                                             ₹{(s.paymentDetails?.totalPayable || 0).toLocaleString('en-IN')}
                                           </p>
                                           <p className="text-[11px] text-gray-500">
-                                            Remaining Due = (Rent Due + Accidental Cover + Extra Amount)
+                                            Remaining Due = (Rent Due  + Extra Amount)
                                           </p>
                                           <div className="text-[10px] text-gray-500 mt-1">
                                             <div>Deposit Due: ₹{(s.paymentDetails?.depositDue || 0).toLocaleString('en-IN')}</div>
                                             <div>Rent Due: ₹{(s.paymentDetails?.rentDue || 0).toLocaleString('en-IN')}</div>
-                                            <div>Accidental Cover: ₹{(s.paymentDetails?.accidentalCover || 0).toLocaleString('en-IN')}</div>
+                                            {/* <div>Accidental Cover: ₹{(s.paymentDetails?.accidentalCover || 0).toLocaleString('en-IN')}</div> */}
                                             <div>Extra Amount: ₹{(s.paymentDetails?.extraAmount || 0).toLocaleString('en-IN')}</div>
                                             <div>Paid: ₹{(s.paymentDetails?.paidAmount || 0).toLocaleString('en-IN')}</div>
                                           </div>
@@ -879,16 +1234,16 @@ export default function DriverPayments() {
                                             {s.extraAmount > 0 && (
                                               <p className="text-xs text-yellow-700">Extra Amount: ₹{s.extraAmount.toLocaleString('en-IN')}</p>
                                             )}
-                                            {s.extraAmount > 0 && s.extraReason && (
+                                            {/* {s.extraAmount > 0 && s.extraReason && (
                                               <p className="text-xs text-gray-700">Reason: {s.extraReason}</p>
-                                            )}
+                                            )} */}
                                             {/* Adjustment Amount and Reason */}
                                             {s.adjustmentAmount > 0 && (
                                               <p className="text-xs text-yellow-700 mt-1">Adjustment Amount: ₹{s.adjustmentAmount.toLocaleString('en-IN')}</p>
                                             )}
-                                            {s.adjustmentAmount > 0 && s.adjustmentReason && (
+                                            {/* {s.adjustmentAmount > 0 && s.adjustmentReason && (
                                               <p className="text-xs text-gray-700">Reason: {s.adjustmentReason}</p>
-                                            )}
+                                            )} */}
                                           </div>
                                           {/* Show rent paid if available */}
                                           {s.paymentType === 'rent' && s.paidAmount !== null && s.paidAmount !== undefined && (
@@ -938,7 +1293,11 @@ export default function DriverPayments() {
                                               {(s.paymentDetails?.depositDue || 0) === 0 ? (
                                                 <span className="text-green-600 font-semibold">Paid ₹{(s.securityDeposit || 0).toLocaleString('en-IN')}</span>
                                               ) : (
-                                                <span className="text-orange-600 font-semibold">Due ₹{(s.paymentDetails?.depositDue || 0).toLocaleString('en-IN')}</span>
+                                                <>
+                                                  <span className="text-green-600 font-semibold">Paid ₹{((s.securityDeposit || 0) - (s.paymentDetails?.depositDue || 0)).toLocaleString('en-IN')}</span>
+                                                  {' / '}
+                                                  <span className="text-orange-600 font-semibold">Due ₹{(s.paymentDetails?.depositDue || 0).toLocaleString('en-IN')}</span>
+                                                </>
                                               )}
                                             </p>
                                           )}
@@ -1008,6 +1367,124 @@ export default function DriverPayments() {
                                                   {extraInputs[s._id]?.loading ? 'Saving...' : 'Save'}
                                                 </button>
                                               </div>
+                                              
+                                              {/* Cash Payment Completion - Only for cash payments with pending status */}
+                                              {s.paymentMethod === 'cash' && s.paymentStatus === 'pending' && (
+                                                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                                  <p className="text-xs font-semibold text-blue-800 mb-2">Complete Cash Payment</p>
+                                                  <div className="flex items-center gap-2">
+                                                    <div>
+                                                      <label className="block text-[10px] text-gray-600 mb-1">Deposit Amount</label>
+                                                      <input
+                                                        type="number"
+                                                        className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
+                                                        placeholder="₹"
+                                                        value={cashPaymentInputs[s._id]?.depositAmount ?? ''}
+                                                        onChange={e => setCashPaymentInputs(prev => ({
+                                                          ...prev,
+                                                          [s._id]: { ...prev[s._id], depositAmount: e.target.value }
+                                                        }))}
+                                                        disabled={cashPaymentInputs[s._id]?.loading}
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-[10px] text-gray-600 mb-1">Rent Amount</label>
+                                                      <input
+                                                        type="number"
+                                                        className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
+                                                        placeholder="₹"
+                                                        value={cashPaymentInputs[s._id]?.rentAmount ?? ''}
+                                                        onChange={e => setCashPaymentInputs(prev => ({
+                                                          ...prev,
+                                                          [s._id]: { ...prev[s._id], rentAmount: e.target.value }
+                                                        }))}
+                                                        disabled={cashPaymentInputs[s._id]?.loading}
+                                                      />
+                                                    </div>
+                                                    <button
+                                                      className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-blue-700 transition disabled:opacity-60 mt-4"
+                                                      onClick={() => handleCompleteCashPayment(s._id, s.planType)}
+                                                      disabled={cashPaymentInputs[s._id]?.loading}
+                                                    >
+                                                      {cashPaymentInputs[s._id]?.loading ? 'Processing...' : 'Mark Completed'}
+                                                    </button>
+                                                  </div>
+                                                  <p className="text-[10px] text-gray-600 mt-1">
+                                                    Total: ₹{((Number(cashPaymentInputs[s._id]?.depositAmount) || 0) + (Number(cashPaymentInputs[s._id]?.rentAmount) || 0)).toLocaleString('en-IN')}
+                                                  </p>
+                                                </div>
+                                              )}
+                                              
+                                              {/* Additional Payment - For paying remaining dues */}
+                                              {s.paymentMethod === 'cash' && s.paymentStatus === 'completed' && s.paymentDetails?.totalPayable > 0 && (
+                                                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                                                  <p className="text-xs font-semibold text-green-800 mb-2">Pay Remaining Dues</p>
+                                                  <div className="text-[10px] text-gray-600 mb-2 space-y-1">
+                                                    {s.paymentDetails?.depositDue > 0 && <p>Deposit Due: ₹{s.paymentDetails.depositDue.toLocaleString('en-IN')}</p>}
+                                                    {s.paymentDetails?.rentDue > 0 && <p>Rent Due: ₹{s.paymentDetails.rentDue.toLocaleString('en-IN')}</p>}
+                                                    {s.paymentDetails?.extraAmount > 0 && <p>Extra Amount: ₹{s.paymentDetails.extraAmount.toLocaleString('en-IN')}</p>}
+                                                    <p className="font-semibold text-green-800">Total Payable: ₹{s.paymentDetails.totalPayable.toLocaleString('en-IN')}</p>
+                                                  </div>
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                    <div>
+                                                      <label className="block text-[10px] text-gray-600 mb-1">Payment Type</label>
+                                                      <select
+                                                        className="border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 w-32"
+                                                        value={cashPaymentInputs[s._id]?.paymentType ?? 'deposit'}
+                                                        onChange={e => setCashPaymentInputs(prev => ({
+                                                          ...prev,
+                                                          [s._id]: { 
+                                                            ...prev[s._id], 
+                                                            paymentType: e.target.value,
+                                                            rentAmount: ''
+                                                          }
+                                                        }))}
+                                                        disabled={cashPaymentInputs[s._id]?.loading}
+                                                      >
+                                                        {s.paymentDetails?.depositDue > 0 && <option value="deposit">Deposit</option>}
+                                                        {s.paymentDetails?.rentDue > 0 && <option value="rent">Rent</option>}
+                                                        <option value="payable">Total Payable</option>
+                                                      </select>
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-[10px] text-gray-600 mb-1">Payment Amount</label>
+                                                      <input
+                                                        type="number"
+                                                        className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 w-24"
+                                                        placeholder="₹"
+                                                        value={cashPaymentInputs[s._id]?.rentAmount ?? ''}
+                                                        onChange={e => setCashPaymentInputs(prev => ({
+                                                          ...prev,
+                                                          [s._id]: { ...prev[s._id], rentAmount: e.target.value, depositAmount: '' }
+                                                        }))}
+                                                        disabled={cashPaymentInputs[s._id]?.loading}
+                                                      />
+                                                    </div>
+                                                    <button
+                                                      className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-green-700 transition disabled:opacity-60 mt-4"
+                                                      onClick={() => handleCompleteCashPayment(s._id, s.planType)}
+                                                      disabled={cashPaymentInputs[s._id]?.loading}
+                                                    >
+                                                      {cashPaymentInputs[s._id]?.loading ? 'Processing...' : 'Pay Now'}
+                                                    </button>
+                                                    <button
+                                                      className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-blue-700 transition disabled:opacity-60 mt-4"
+                                                      onClick={() => {
+                                                        const paymentType = cashPaymentInputs[s._id]?.paymentType ?? 'deposit';
+                                                        let fullAmount = s.paymentDetails.totalPayable;
+                                                        if (paymentType === 'deposit') fullAmount = s.paymentDetails.depositDue || 0;
+                                                        else if (paymentType === 'rent') fullAmount = s.paymentDetails.rentDue || 0;
+                                                        setCashPaymentInputs(prev => ({
+                                                          ...prev,
+                                                          [s._id]: { ...prev[s._id], rentAmount: fullAmount, depositAmount: '' }
+                                                        }));
+                                                      }}
+                                                    >
+                                                      Pay Full
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )}
                                         </div>
                                       ) : (
                                         <div className="text-xs text-gray-500">Not started</div>

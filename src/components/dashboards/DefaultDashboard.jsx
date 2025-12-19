@@ -59,7 +59,7 @@ export default function SuperAdminDashboard() {
     (async () => {
       setLoading(true);
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         
         // Fetch all data in parallel
         const [
@@ -484,7 +484,7 @@ export default function SuperAdminDashboard() {
             
 
             {/* Investments */}
-            {hasPermission(PERMISSIONS.INVESTMENTS_VIEW) && (
+            {/* {hasPermission(PERMISSIONS.INVESTMENTS_VIEW) && (
               <button 
                 onClick={() => navigate('/investerDetails')}
                 className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-teal-50 transition-colors"
@@ -493,7 +493,7 @@ export default function SuperAdminDashboard() {
                 <span className="text-sm font-medium">Investments</span>
                 <span className="text-xs text-gray-500 mt-1">{stats.totalInvestors} investors</span>
               </button>
-            )}
+            )} */}
 
             {/* Tickets */}
             {/* {hasPermission(PERMISSIONS.TICKETS_VIEW) && (
@@ -533,7 +533,7 @@ export default function SuperAdminDashboard() {
               </button>
             )} */}
  {/* Plans */}
-            {hasPermission(PERMISSIONS.PLANS_VIEW) && (
+            {/* {hasPermission(PERMISSIONS.PLANS_VIEW) && (
               <button 
                 onClick={() => navigate('/plans')}
                 className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-cyan-50 transition-colors"
@@ -542,7 +542,7 @@ export default function SuperAdminDashboard() {
                 <span className="text-sm font-medium">Car Plans</span>
                 <span className="text-xs text-gray-500 mt-1">Manage plans</span>
               </button>
-            )}
+            )} */}
             {/* Payments */}
             {hasPermission(PERMISSIONS.PAYMENTS_VIEW) && (
               <button 
@@ -556,7 +556,7 @@ export default function SuperAdminDashboard() {
             )}
 
            
-            {hasPermission(PERMISSIONS.EXPENSES_VIEW) && (
+            {/* {hasPermission(PERMISSIONS.EXPENSES_VIEW) && (
               <button 
                 onClick={() => navigate('/expenses')}
                 className="btn btn-outline flex flex-col items-center p-4 hover:text-black hover:bg-red-50 transition-colors"
@@ -565,7 +565,7 @@ export default function SuperAdminDashboard() {
                 <span className="text-sm font-medium">Expenses</span>
                 <span className="text-xs text-gray-500 mt-1">{formatCurrency(stats.totalExpenses)}</span>
               </button>
-            )}
+            )} */}
           </div>
            {/* System Alerts & Recent Activities */}
       

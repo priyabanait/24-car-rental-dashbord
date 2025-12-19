@@ -40,6 +40,7 @@ import ManagerPage from './pages/manager/ManagerPage';
 import InvestorCar from './pages/investments/InvestmentCar'
 import InvesterDetails from './components/investors/InvesterDetails.jsx';
 import Profile from './pages/settings/Profile';
+import CityManagement from './pages/cities/CityManagement';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -133,6 +134,7 @@ function AppRoutes() {
             <Route path="manager" element={<ManagerPage />} />
             <Route path="investerDetails" element={<InvesterDetails />} />
             <Route path="settings" element={<Profile />} />
+            <Route path="cities" element={<CityManagement />} />
         {/* Add more routes as we create them */}
       </Route>
     </Routes>

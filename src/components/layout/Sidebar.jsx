@@ -33,12 +33,12 @@ const navigation = [
     icon: LayoutDashboard,
     permission: PERMISSIONS.DASHBOARD_VIEW
   },
-  {
-    name: 'Manage Manager',
-    href: '/manager',
-    icon: LayoutDashboard,
-    permission: PERMISSIONS.DASHBOARD_VIEW
-  },
+  // {
+  //   name: 'Manage Manager',
+  //   href: '/manager',
+  //   icon: LayoutDashboard,
+  //   permission: PERMISSIONS.DASHBOARD_VIEW
+  // },
   {
     name: 'Driver Management',
     icon: Users,
@@ -54,16 +54,16 @@ const navigation = [
       //   href: '/drivers/login',
       //   permission: PERMISSIONS.DRIVERS_VIEW
       // },
-       { 
-        name: 'Driver Wallet', 
-        href: '/drivers/wallet',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-       { 
-        name: 'Driver Wallet Messages', 
-        href: '/drivers/wallet-messages',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
+      //  { 
+      //   name: 'Driver Wallet', 
+      //   href: '/drivers/wallet',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
+      //  { 
+      //   name: 'Driver Wallet Messages', 
+      //   href: '/drivers/wallet-messages',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
       // { 
       //   name: 'Driver Status', 
       //   href: '/drivers/status',
@@ -104,85 +104,81 @@ const navigation = [
       }
     ]
   },
-  {
-    name: 'Car Plans',
-    icon: Target,
-    permission: PERMISSIONS.PLANS_VIEW,
-    children: [
-      { 
-        name: 'All Plans', 
-        href: '/plans',
-        permission: PERMISSIONS.PLANS_VIEW
-      },
-      // { 
-      //   name: 'Create Plan', 
-      //   href: '/plans/create',
-      //   permission: PERMISSIONS.PLANS_CREATE
-      // },
-      // { 
-      //   name: 'Driver Enrollments', 
-      //   href: '/plans/enrollments',
-      //   permission: PERMISSIONS.PLANS_VIEW
-      // },
-      // { 
-      //   name: 'Driver Plan Selections', 
-      //   href: '/plans/selections',
-      //   permission: PERMISSIONS.PLANS_VIEW
-      // }
-    ]
-  },
-  {
-    name: 'Investment Management',
-    icon: TrendingUp,
-    permission: PERMISSIONS.INVESTMENTS_VIEW,
-    children: [
-      // { 
-      //   name: 'Invester Login', 
-      //   href: '/investments/InvesterLogin',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      { 
-        name: 'All Investments', 
-        href: '/investments',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-       { 
-        name: 'Investor Details', 
-        href: '/investerDetails',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-      { 
-        name: 'Investment FD', 
-        href: '/investments/investors',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-       { 
-        name: 'Investment Car', 
-        href: '/investments/car',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-       { 
-        name: 'Investment Wallet', 
-        href: '/investments/wallet',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-      { 
-        name: 'Investment Wallet Messages', 
-        href: '/investments/wallet-messages',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-      // { 
-      //   name: 'Investment Plans', 
-      //   href: '/investments/plans',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      // { 
-      //   name: 'Analytics', 
-      //   href: '/investments/analytics',
-      //   permission: PERMISSIONS.INVESTMENTS_ANALYTICS
-      // }
-    ]
-  },
+  // {
+  //   name: 'Car Plans',
+  //   icon: Target,
+  //   permission: PERMISSIONS.PLANS_VIEW,
+  //   children: [
+  //     { 
+  //       name: 'All Plans', 
+  //       href: '/plans',
+  //       permission: PERMISSIONS.PLANS_VIEW
+  //     },
+  //     // { 
+  //     //   name: 'Create Plan', 
+  //     //   href: '/plans/create',
+  //     //   permission: PERMISSIONS.PLANS_CREATE
+  //     // },
+  //     // { 
+  //     //   name: 'Driver Enrollments', 
+  //     //   href: '/plans/enrollments',
+  //     //   permission: PERMISSIONS.PLANS_VIEW
+  //     // },
+  //     // { 
+  //     //   name: 'Driver Plan Selections', 
+  //     //   href: '/plans/selections',
+  //     //   permission: PERMISSIONS.PLANS_VIEW
+  //     // }
+  //   ]
+  // },
+  // {
+  //   name: 'Investment Management',
+  //   icon: TrendingUp,
+  //   permission: PERMISSIONS.INVESTMENTS_VIEW,
+  //   children: [
+    
+  //     { 
+  //       name: 'All Investments', 
+  //       href: '/investments',
+  //       permission: PERMISSIONS.INVESTMENTS_VIEW
+  //     },
+  //      { 
+  //       name: 'Investor Details', 
+  //       href: '/investerDetails',
+  //       permission: PERMISSIONS.INVESTMENTS_VIEW
+  //     },
+  //     { 
+  //       name: 'Investment FD', 
+  //       href: '/investments/investors',
+  //       permission: PERMISSIONS.INVESTMENTS_VIEW
+  //     },
+  //      { 
+  //       name: 'Investment Car', 
+  //       href: '/investments/car',
+  //       permission: PERMISSIONS.INVESTMENTS_VIEW
+  //     },
+  //      { 
+  //       name: 'Investment Wallet', 
+  //       href: '/investments/wallet',
+  //       permission: PERMISSIONS.INVESTMENTS_VIEW
+  //     },
+  //     { 
+  //       name: 'Investment Wallet Messages', 
+  //       href: '/investments/wallet-messages',
+  //       permission: PERMISSIONS.INVESTMENTS_VIEW
+  //     },
+  //     // { 
+  //     //   name: 'Investment Plans', 
+  //     //   href: '/investments/plans',
+  //     //   permission: PERMISSIONS.INVESTMENTS_VIEW
+  //     // },
+  //     // { 
+  //     //   name: 'Analytics', 
+  //     //   href: '/investments/analytics',
+  //     //   permission: PERMISSIONS.INVESTMENTS_ANALYTICS
+  //     // }
+  //   ]
+  // },
   {
     name: 'Payment Management',
     icon: CreditCard,
@@ -220,31 +216,43 @@ const navigation = [
       // }
     ]
   },
+  // {
+  //   name: 'Expense Management',
+  //   icon: Receipt,
+  //   permission: PERMISSIONS.EXPENSES_VIEW,
+  //   children: [
+  //     { 
+  //       name: 'All Expenses', 
+  //       href: '/expenses',
+  //       permission: PERMISSIONS.EXPENSES_VIEW
+  //     },
+  //     // { 
+  //     //   name: 'Add Expense', 
+  //     //   href: '/expenses/add',
+  //     //   permission: PERMISSIONS.EXPENSES_CREATE
+  //     // },
+  //     // { 
+  //     //   name: 'Expense Reports', 
+  //     //   href: '/expenses/reports',
+  //     //   permission: PERMISSIONS.EXPENSES_VIEW
+  //     // },
+  //     // { 
+  //     //   name: 'Categories', 
+  //     //   href: '/expenses/categories',
+  //     //   permission: PERMISSIONS.EXPENSES_VIEW
+  //     // }
+  //   ]
+  // },
   {
-    name: 'Expense Management',
-    icon: Receipt,
-    permission: PERMISSIONS.EXPENSES_VIEW,
+    name: 'City Management',
+    icon: MapPin,
+    permission: PERMISSIONS.ADMIN_VIEW,
     children: [
       { 
-        name: 'All Expenses', 
-        href: '/expenses',
-        permission: PERMISSIONS.EXPENSES_VIEW
-      },
-      // { 
-      //   name: 'Add Expense', 
-      //   href: '/expenses/add',
-      //   permission: PERMISSIONS.EXPENSES_CREATE
-      // },
-      // { 
-      //   name: 'Expense Reports', 
-      //   href: '/expenses/reports',
-      //   permission: PERMISSIONS.EXPENSES_VIEW
-      // },
-      // { 
-      //   name: 'Categories', 
-      //   href: '/expenses/categories',
-      //   permission: PERMISSIONS.EXPENSES_VIEW
-      // }
+        name: 'All Cities', 
+        href: '/cities',
+        permission: PERMISSIONS.ADMIN_VIEW
+      }
     ]
   },
   // {
@@ -389,23 +397,35 @@ export default function Sidebar({ collapsed, onToggle }) {
       collapsed ? 'w-16' : 'w-64'
     )}>
       {/* Logo */}
-      <div className="h-16 flex items-center justify-center px-4 border-b border-gray-200">
-        {collapsed ? (
-          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-            <span className="text-sm font-bold text-white">UD</span>
-          </div>
-        ) : (
-           <div
+     <div className="h-16 flex items-center justify-center px-4 border-b border-gray-200">
+  {collapsed ? (
+    // COLLAPSED LOGO
+    <div className="w-9 h-9 rounded-lg overflow-hidden">
+      <img
+        src="/WhatsApp Image 2025-12-15 at 4.36.20 PM (1).jpeg"
+        alt="UDrive"
+        className="w-full h-full object-contain"
+      />
+    </div>
+  ) : (
+    // EXPANDED LOGO + NAME
+    <div
       className="flex items-center cursor-pointer"
       onClick={() => navigate("/")}
     >
-      <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center mr-3">
-        <span className="text-sm font-bold text-white">UD</span>
+      <div className="w-16 h-16 rounded-lg overflow-hidden mr-3">
+        <img
+          src="/WhatsApp Image 2025-12-15 at 4.36.20 PM (1).jpeg"
+          alt="UDrive"
+          className="w-full h-full object-contain"
+        />
       </div>
-      <span className="text-xl font-bold text-gray-900">UDrive</span>
-  </div>
-        )}
-      </div>
+
+     
+    </div>
+  )}
+</div>
+
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-hide">

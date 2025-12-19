@@ -78,7 +78,7 @@ export default function VehiclesList() {
     (async function fetchAll(){
       setLoading(true);
       try{
-        const API_BASE =  'https://udrive-backend-1igb.vercel.app';
+        const API_BASE =  'http://localhost:4000';
         const [vehicleRes, driverRes, managerRes] = await Promise.all([
           fetch(`${API_BASE}/api/vehicles?limit=1000`),
           fetch(`${API_BASE}/api/drivers?limit=1000`),
@@ -129,7 +129,7 @@ export default function VehiclesList() {
     // fetch fresh vehicle data from backend before opening modal so all fields are populated
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const apiId = resolveApiVehicleId(vehicle);
       if (apiId == null || Number.isNaN(apiId)) {
         // If we can't resolve an API id, skip fetching and use available data
@@ -154,7 +154,7 @@ export default function VehiclesList() {
   const handleViewVehicle = async (vehicle) => {
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const id = resolveApiVehicleId(vehicle);
       if (id == null || Number.isNaN(id)) {
         setSelectedVehicle(normalizeVehicle(vehicle));
@@ -208,7 +208,7 @@ export default function VehiclesList() {
         }
       }
 
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const headers = {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
@@ -259,7 +259,7 @@ export default function VehiclesList() {
   const handleDeleteVehicle = async (vehicleOrId) => {
     if (!window.confirm('Delete this vehicle?')) return;
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const resolvedId = typeof vehicleOrId === 'object' ? resolveApiVehicleId(vehicleOrId) : (Number.isFinite(Number(vehicleOrId)) ? Number(vehicleOrId) : undefined);
       if (!resolvedId && resolvedId !== 0) {
         throw new Error('Vehicle not found');
@@ -281,7 +281,7 @@ export default function VehiclesList() {
 
   const handleChangeStatus = async (vehicleId, newStatus) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -299,7 +299,7 @@ export default function VehiclesList() {
 
   const handleChangeKyc = async (vehicleId, newKyc) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -320,11 +320,11 @@ export default function VehiclesList() {
       const headers = [
         'Registration Number', 'Category', 'Brand', 'Model', 'Car Name',
         'Owner Name', 'Owner Phone', 'Investor ID', 'Investor Name',
-        'Manufacture Year', 'Color', 'Fuel Type',
+        'Manufacture Year', 'Color', 'Fuel Type', 'Seating Capacity', 'Price Per Day', 'City', 'Location',
         'Registration Date', 'RC Expiry Date', 'Road Tax Date', 'Road Tax Number',
         'Insurance Date', 'Permit Date', 'Emission Date', 'PUC Number',
         'Traffic Fine', 'Traffic Fine Date',
-        'Assigned Driver', 'Assigned Manager',
+        'Assigned Driver', 
         'KYC Status', 'Status', 'Remarks',
         'Registration Card Photo', 'Road Tax Photo', 'PUC Photo', 'Permit Photo',
         'Car Front Photo', 'Car Left Photo', 'Car Right Photo', 'Car Back Photo', 'Car Full Photo'
@@ -343,6 +343,10 @@ export default function VehiclesList() {
         v.year || '',
         v.color || '',
         v.fuelType || '',
+        v.seatingCapacity || '',
+        v.pricePerDay || '',
+        v.city || '',
+        v.location || '',
         formatDate(v.registrationDate) || '',
         formatDate(v.rcExpiryDate) || '',
         formatDate(v.roadTaxDate) || '',
@@ -553,6 +557,10 @@ export default function VehiclesList() {
                   <TableHead>Car Name</TableHead>
                   {/* <TableHead>Color</TableHead> */}
                   <TableHead>Fuel Type</TableHead>
+                  <TableHead>Seating</TableHead>
+                  <TableHead>Price/Day</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Vehicle No.</TableHead>
                   <TableHead>Owner Name</TableHead>
                   <TableHead>Owner Phone</TableHead>
@@ -568,11 +576,11 @@ export default function VehiclesList() {
                   {/* <TableHead>Traffic Fine</TableHead>
                   <TableHead>Fine Date</TableHead> */}
                   <TableHead>Assigned Driver</TableHead>
-                  <TableHead>Assigned Manager</TableHead>
+                  {/* <TableHead>Assigned Manager</TableHead> */}
                   <TableHead>Driver Rent Days</TableHead>
                   <TableHead>KYC Status</TableHead>
                   <TableHead>Car Status</TableHead>
-                  <TableHead>Remarks</TableHead>
+                  
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -585,6 +593,14 @@ export default function VehiclesList() {
                     <TableCell>{v.carName || '-'}</TableCell>
                     {/* <TableCell>{v.color || '-'}</TableCell> */}
                     <TableCell>{v.fuelType || '-'}</TableCell>
+                    <TableCell>{v.seatingCapacity ? `${v.seatingCapacity} Seater` : '-'}</TableCell>
+                    <TableCell>{v.pricePerDay ? `₹${v.pricePerDay}` : '-'}</TableCell>
+                    <TableCell>{v.city || '-'}</TableCell>
+                    <TableCell>
+                      <div className="max-w-xs truncate" title={v.location || '-'}>
+                        {v.location || '-'}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium text-gray-900">{v.registrationNumber}</div>
                     </TableCell>
@@ -609,14 +625,14 @@ export default function VehiclesList() {
                           })()
                         : <Badge variant="warning">Not Assigned</Badge>
                     }</TableCell>
-                    <TableCell>{
+                    {/* <TableCell>{
                       v.assignedManager
                         ? (() => {
                             const found = managers.find(m => m._id === v.assignedManager);
                             return found ? (found.name || found.username || found.email) : v.assignedManager;
                           })()
                         : <Badge variant="warning">Not Assigned</Badge>
-                    }</TableCell>
+                    }</TableCell> */}
                     <TableCell>{
                       v.rentStartDate
                         ? (() => {
@@ -648,7 +664,7 @@ export default function VehiclesList() {
                     }</TableCell>
                     <TableCell>{getKycBadge(v.kycStatus || v.kyc || v.kyc_status)}</TableCell>
                     <TableCell>{getStatusBadge(v.status)}</TableCell>
-                    <TableCell>{v.remarks || '-'}</TableCell>
+                    
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         <button title="View" className="p-1 text-gray-400 hover:text-blue-600" onClick={()=>handleViewVehicle(v)}><Eye className="h-4 w-4"/></button>

@@ -24,6 +24,8 @@ import weeklyRentPlansRouter from './weeklyRentPlans.js';
 import dailyRentPlansRouter from './dailyRentPlans.js';
 import expensesRouter from './expenses.js';
 import vehicleOptionsRouter from './vehicleOptions.js';
+import citiesRouter from './cities.js';
+import bookingsRouter from './bookings.js';
 // Static routes commented out - now using database
 // import staticInvestmentsRouter from './staticInvestments.js';
 // import staticInvestmentPlansRouter from './staticInvestmentPlans.js';
@@ -43,6 +45,7 @@ router.use('/driver-wallet-message', driverWalletMessageRouter);
 router.use('/auth', authRouter);
 router.use('/drivers', driversRouter);
 router.use('/drivers', driverAuthRouter);
+router.use('/driver-auth', driverAuthRouter);
 router.use('/driver-plan-selections', driverPlanSelectionsRouter);
 router.use('/vehicles', vehiclesRouter);
 router.use('/vehicles-by-driver', vehiclesByDriverRouter);
@@ -61,6 +64,8 @@ router.use('/weekly-rent-plans', weeklyRentPlansRouter);
 router.use('/daily-rent-plans', dailyRentPlansRouter);
 router.use('/expenses', expensesRouter);
 router.use('/vehicle-options', vehicleOptionsRouter);
+router.use('/cities', citiesRouter);
+router.use('/bookings', bookingsRouter);
 // Static investment routes disabled - now using database routes above
 // router.use('/static/investments', staticInvestmentsRouter);
 // router.use('/static/investment-plans', staticInvestmentPlansRouter);

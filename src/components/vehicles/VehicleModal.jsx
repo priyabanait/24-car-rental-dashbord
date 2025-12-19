@@ -8,13 +8,15 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     'White', 'Black', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Other'
   ];
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
   const [carNames, setCarNames] = useState([]);
   const [investors, setInvestors] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [cityAddresses, setCityAddresses] = useState([]);
 
   const [form, setForm] = useState({
     registrationNumber: '',
@@ -38,9 +40,15 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     trafficFineDate: '',
     fuelType: '',
     color: '',
+    seatingCapacity: 5,
+    pricePerDay: 0,
+    securityDeposit: 0,
+    city: '',
+    location: '',
     assignedDriver: '',
     status: 'active',
     remarks: '',
+    features: [],
     // Document & Photo uploads (File objects)
     registrationCardPhoto: null,
     roadTaxPhoto: null,
@@ -82,6 +90,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       fetchDrivers();
       fetchManagers();
       fetchInvestors();
+      fetchCities();
     }
   }, [isOpen]);
 
@@ -97,6 +106,20 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       });
     };
   }, [previews]);
+
+  // Fetch addresses when city changes
+  useEffect(() => {
+    if (form.city && cities.length > 0) {
+      const selectedCity = cities.find(c => c.name === form.city);
+      if (selectedCity && selectedCity.addresses && selectedCity.addresses.length > 0) {
+        setCityAddresses(selectedCity.addresses);
+      } else {
+        setCityAddresses([]);
+      }
+    } else {
+      setCityAddresses([]);
+    }
+  }, [form.city, cities]);
   const fetchManagers = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/managers?limit=1000`);
@@ -115,6 +138,16 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       setInvestors(Array.isArray(data) ? data : []);
     } catch (e) {
       setInvestors([]);
+    }
+  };
+
+  const fetchCities = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/cities?isActive=true`);
+      const data = res.ok ? await res.json() : [];
+      setCities(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setCities([]);
     }
   };
 
@@ -153,9 +186,15 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
         trafficFineDate: vehicle.trafficFineDate || '',
         fuelType: vehicle.fuelType || '',
         color: vehicle.color || '',
+        seatingCapacity: vehicle.seatingCapacity || 5,
+        pricePerDay: vehicle.pricePerDay || 0,
+        securityDeposit: vehicle.securityDeposit || 0,
+        city: vehicle.city || '',
+        location: vehicle.location || '',
         assignedDriver: vehicle.assignedDriver || '',
         status: vehicle.status || 'active',
         remarks: vehicle.remarks || '',
+        features: Array.isArray(vehicle.features) ? vehicle.features : [],
         // Files are user-provided during edit; keep null by default
         registrationCardPhoto: null,
         roadTaxPhoto: null,
@@ -172,7 +211,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       setForm({
   registrationNumber: '', model: '', carName: '', brand: '', category: '', investorId: '', ownerName: '', ownerPhone: '', kycStatus: '', manufactureYear: '',
         registrationDate: '', rcExpiryDate: '', roadTaxDate: '', roadTaxNumber: '', insuranceDate: '', permitDate: '', emissionDate: '',
-        trafficFine: '', trafficFineDate: '', fuelType: '', color: '', assignedDriver: '', status: 'active', remarks: '',
+        trafficFine: '', trafficFineDate: '', fuelType: '', color: '', seatingCapacity: 5, pricePerDay: 0, securityDeposit: 0, city: '', location: '', assignedDriver: '', status: 'active', remarks: '', features: [],
         registrationCardPhoto: null, roadTaxPhoto: null, pucNumber: '', pucPhoto: null, permitPhoto: null,
         carFrontPhoto: null, carLeftPhoto: null, carRightPhoto: null, carBackPhoto: null, carFullPhoto: null
       });
@@ -352,10 +391,16 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
         trafficFineDate: form.trafficFineDate,
         fuelType: form.fuelType,
         color: form.color,
+        seatingCapacity: form.seatingCapacity ? Number(form.seatingCapacity) : 5,
+        pricePerDay: form.pricePerDay ? Number(form.pricePerDay) : 0,
+        securityDeposit: form.securityDeposit ? Number(form.securityDeposit) : 0,
+        city: form.city || undefined,
+        location: form.location || undefined,
         assignedDriver: form.assignedDriver,
         assignedManager: form.assignedManager,
         status: form.status,
         remarks: form.remarks,
+        features: form.features || [],
         // Files (parent should handle uploading e.g., via FormData)
         registrationCardPhoto: form.registrationCardPhoto || undefined,
         roadTaxPhoto: form.roadTaxPhoto || undefined,
@@ -535,6 +580,65 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                 {errors.fuelType && <p className="text-xs text-red-600 mt-1">{errors.fuelType}</p>}
               </div>
 
+              <div>
+                <label className="block text-sm font-medium">Seating Capacity</label>
+                <select className="input" value={form.seatingCapacity} onChange={(e)=>handleChange('seatingCapacity', e.target.value)}>
+                  <option value="2">2 Seater</option>
+                  <option value="4">4 Seater</option>
+                  <option value="5">5 Seater</option>
+                  <option value="7">7 Seater</option>
+                  <option value="8">8 Seater</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Price Per Day (₹)</label>
+                <input type="number" className="input" value={form.pricePerDay} onChange={(e)=>handleChange('pricePerDay', e.target.value)} placeholder="0" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Security Deposit (₹)</label>
+                <input type="number" className="input" value={form.securityDeposit} onChange={(e)=>handleChange('securityDeposit', e.target.value)} placeholder="0" />
+              </div>
+
+              {/* City and Location */}
+              <div>
+                <label className="block text-sm font-medium">City</label>
+                <select className="input" value={form.city} onChange={(e)=>{
+                  handleChange('city', e.target.value);
+                  handleChange('location', ''); // Clear location when city changes
+                }}>
+                  <option value="">Select City</option>
+                  {cities.map((city) => (
+                    <option key={city._id} value={city.name}>
+                      {city.name}, {city.state}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Location/Address</label>
+                {cityAddresses.length > 0 ? (
+                  <select className="input" value={form.location} onChange={(e)=>handleChange('location', e.target.value)}>
+                    <option value="">Select Address</option>
+                    {cityAddresses.map((addr, idx) => (
+                      <option key={idx} value={addr.address}>
+                        {addr.isPrimary && '★ '}{addr.label ? `${addr.label}: ` : ''}{addr.address}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input 
+                    type="text" 
+                    className="input" 
+                    value={form.location} 
+                    onChange={(e)=>handleChange('location', e.target.value)} 
+                    placeholder="Enter location manually"
+                  />
+                )}
+              </div>
+
               {/* Then: Vehicle No. and Owner details, etc. */}
               <div>
                 <label className="block text-sm font-medium">Vehicle No.</label>
@@ -542,17 +646,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                 {errors.registrationNumber && <p className="text-xs text-red-600 mt-1">{errors.registrationNumber}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium">Select Investor</label>
-                <select className="input" value={form.investorId} onChange={(e)=>handleChange('investorId', e.target.value)}>
-                  <option value="">Select Investor</option>
-                  {investors.map((investor) => (
-                    <option key={investor._id || investor.id} value={investor._id || investor.id}>
-                      {investor.investorName || investor.name} {investor.phone ? `(${investor.phone})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              
 
               <div>
                 <label className="block text-sm font-medium">Owner Name</label>
@@ -631,7 +725,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                   ))}
                 </select>
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium">Assign Manager</label>
                 <select
                   className="input"
@@ -645,7 +739,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                     </option>
                   ))}
                 </select>
-              </div>
+              </div> */}
               
 
               <div>
@@ -672,6 +766,99 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium">Remarks</label>
                 <textarea className="input" rows={2} value={form.remarks} onChange={(e)=>handleChange('remarks', e.target.value)} />
+              </div>
+            </div>
+
+            {/* Features Section */}
+            <div className="pt-4 border-t">
+              <h4 className="text-sm font-semibold mb-3">Car Features</h4>
+              <div className="space-y-3">
+                {/* Display existing features */}
+                {form.features.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {form.features.map((feature, index) => (
+                      <div key={index} className="inline-flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                        <span className="text-sm text-gray-800">{feature}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newFeatures = form.features.filter((_, i) => i !== index);
+                            handleChange('features', newFeatures);
+                          }}
+                          className="text-red-600 hover:text-red-700"
+                          title="Remove feature"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Add new feature */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    id="newFeature"
+                    className="input flex-1"
+                    placeholder="Add a feature (e.g., Bluetooth, GPS, AC)"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const value = e.target.value.trim();
+                        if (value && !form.features.includes(value)) {
+                          handleChange('features', [...form.features, value]);
+                          e.target.value = '';
+                        } else if (form.features.includes(value)) {
+                          toast.error('Feature already added');
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = document.getElementById('newFeature');
+                      const value = input.value.trim();
+                      if (value && !form.features.includes(value)) {
+                        handleChange('features', [...form.features, value]);
+                        input.value = '';
+                      } else if (form.features.includes(value)) {
+                        toast.error('Feature already added');
+                      } else {
+                        toast.error('Please enter a feature');
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium"
+                  >
+                    Add Feature
+                  </button>
+                </div>
+                
+                {/* Common features quick add */}
+                <div className="pt-2">
+                  <p className="text-xs text-gray-500 mb-2">Quick add common features:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['Bluetooth', 'GPS', 'AC', 'Power Steering', 'Airbags', 'ABS', 'Sunroof', 'Parking Sensors', 'Reverse Camera', 'Cruise Control', 'USB Charging'].map((commonFeature) => (
+                      <button
+                        key={commonFeature}
+                        type="button"
+                        onClick={() => {
+                          if (!form.features.includes(commonFeature)) {
+                            handleChange('features', [...form.features, commonFeature]);
+                          } else {
+                            toast.error('Feature already added');
+                          }
+                        }}
+                        className="text-xs px-3 py-1 border border-gray-300 rounded-full hover:bg-gray-50 text-gray-700"
+                        disabled={form.features.includes(commonFeature)}
+                        style={{ opacity: form.features.includes(commonFeature) ? 0.5 : 1 }}
+                      >
+                        {commonFeature}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 

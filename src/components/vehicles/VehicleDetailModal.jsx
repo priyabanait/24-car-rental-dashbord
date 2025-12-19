@@ -58,6 +58,43 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null, dr
                 <p className="font-medium">{v.fuelType || '-'}</p>
               </div>
 
+              <div>
+                <p className="text-sm text-gray-500">Seating Capacity</p>
+                <p className="font-medium">{v.seatingCapacity ? `${v.seatingCapacity} Seater` : '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Price Per Day</p>
+                <p className="font-medium">{v.pricePerDay ? `₹${v.pricePerDay}` : '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Security Deposit</p>
+                <p className="font-medium">{v.securityDeposit ? `₹${v.securityDeposit}` : '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">City</p>
+                <p className="font-medium">{v.city || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Location</p>
+                <p className="font-medium">{v.location || '-'}</p>
+              </div>
+
+              {/* Features Section */}
+              {v.features && v.features.length > 0 && (
+                <div className="md:col-span-2">
+                  <p className="text-sm text-gray-500 mb-2">Features</p>
+                  <div className="flex flex-wrap gap-2">
+                    {v.features.map((feature, idx) => (
+                      <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* then rest of key info */}
               <div>
                 <p className="text-sm text-gray-500">Registration Number</p>
@@ -127,10 +164,10 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle = null, dr
                 <p className="font-medium">{getDriverName()}</p>
               </div>
 
-              <div>
+              {/* <div>
                 <p className="text-sm text-gray-500">Assigned Manager</p>
                 <p className="font-medium">{getManagerName()}</p>
-              </div>
+              </div> */}
 
               <div>
                 <p className="text-sm text-gray-500">KYC Status</p>

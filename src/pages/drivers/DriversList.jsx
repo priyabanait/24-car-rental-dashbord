@@ -53,25 +53,37 @@ export default function DriversList() {
       setError(null);
       try {
         // Use Vite env var VITE_API_BASE to point to backend in dev/production.
-        // Fallback to https://udrive-backend-1igb.vercel.app for local development.
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        // Fallback to http://localhost:4000 for local development.
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         
         // Fetch manual drivers
         const res = await fetch(`${API_BASE}/api/drivers?limit=1000`);
         if (!res.ok) throw new Error(`Failed to load drivers: ${res.status}`);
         const result = await res.json();
-        const data = result.data || result;
-        if (mounted) setDriversData(data);
+        
+        // Handle different response formats
+        let data = result;
+        if (result.data) {
+          data = result.data;
+        } else if (result.drivers) {
+          data = result.drivers;
+        }
+        
+        // Ensure data is an array
+        const driversArray = Array.isArray(data) ? data : [];
+        console.log('Fetched drivers:', driversArray.length, driversArray);
+        
+        if (mounted) setDriversData(driversArray);
         
         // Fetch signup credentials
         const credRes = await fetch(`${API_BASE}/api/drivers/signup/credentials?limit=1000`);
         if (credRes.ok) {
           const credResult = await credRes.json();
           const credData = credResult.data || credResult;
-          if (mounted) setSignupCredentials(credData);
+          if (mounted) setSignupCredentials(Array.isArray(credData) ? credData : []);
         }
       } catch (err) {
-        console.error(err);
+        console.error('Fetch drivers error:', err);
         setError(err.message || 'Failed to load drivers');
         toast.error('Failed to load drivers');
       } finally {
@@ -96,6 +108,8 @@ export default function DriversList() {
     
     return matchesSearch && matchesStatus && matchesPlan && matchesKyc;
   });
+
+  console.log('Total drivers:', driversData.length, 'Filtered:', filteredDrivers.length);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -135,7 +149,7 @@ export default function DriversList() {
   const handleEditDriver = async (driver) => {
     try {
       // Fetch complete driver data from the backend
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -159,7 +173,7 @@ export default function DriversList() {
 
   const handleSaveDriver = async (driverData) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('udriver_token');
       
       if (selectedDriver) {
@@ -215,7 +229,7 @@ export default function DriversList() {
     if (window.confirm('Are you sure you want to delete this driver?')) {
       (async () => {
         try {
-          const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+          const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
           const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
             method: 'DELETE'
           });
@@ -248,7 +262,7 @@ export default function DriversList() {
 
   const handleChangeDriverStatus = async (driverId, newStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app'||'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'||'http://localhost:4000';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -271,7 +285,7 @@ export default function DriversList() {
 
   const handleChangeDriverKyc = async (driverId, newKyc) => {
     try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('udriver_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -588,24 +602,26 @@ export default function DriversList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDrivers.map((driver,index) => (
-                  <TableRow key={index}>
+                {filteredDrivers.map((driver, index) => {
+                  const driverId = driver.id || driver._id || index;
+                  return (
+                  <TableRow key={driverId}>
                     <TableCell>
                       <div>
-                        <div className="font-medium text-gray-900">{driver.name}</div>
-                        <div className="text-sm text-gray-500">ID: {driver.licenseNumber}</div>
-                        <div className="text-sm text-gray-500">Joined: {formatDate(driver.joinDate)}</div>
+                        <div className="font-medium text-gray-900">{driver.name || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">ID: {driver.licenseNumber || driver.id || driver._id}</div>
+                        <div className="text-sm text-gray-500">Joined: {formatDate(driver.joinDate || driver.createdAt)}</div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex items-center text-sm">
                           <Mail className="h-3 w-3 mr-1 text-gray-400" />
-                          <span className="text-gray-600">{driver.email}</span>
+                          <span className="text-gray-600">{driver.email || 'N/A'}</span>
                         </div>
                         <div className="flex items-center text-sm">
                           <Phone className="h-3 w-3 mr-1 text-gray-400" />
-                          <span className="text-gray-600">{driver.phone}</span>
+                          <span className="text-gray-600">{driver.phone || driver.mobile || 'N/A'}</span>
                         </div>
                       </div>
                     </TableCell>
@@ -652,7 +668,7 @@ export default function DriversList() {
                         <button
                           onClick={async () => {
                             try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://udrive-backend-1igb.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
                               const token = localStorage.getItem('udriver_token');
                               const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
                                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -721,7 +737,8 @@ export default function DriversList() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
