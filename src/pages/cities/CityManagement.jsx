@@ -56,7 +56,7 @@ export default function CityManagement() {
     setLoading(true);
     setError(null);
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const res = await fetch(`${API_BASE}/api/cities`);
       if (!res.ok) throw new Error(`Failed to load cities: ${res.status}`);
       const data = await res.json();
@@ -73,7 +73,7 @@ export default function CityManagement() {
 
   const fetchStats = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const res = await fetch(`${API_BASE}/api/cities/stats/summary`);
       if (res.ok) {
         const data = await res.json();
@@ -180,7 +180,7 @@ export default function CityManagement() {
     e.preventDefault();
     
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const token = localStorage.getItem('udriver_token');
       
       const payload = {
@@ -238,7 +238,7 @@ export default function CityManagement() {
     if (!window.confirm('Are you sure you want to delete this city?')) return;
     
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const token = localStorage.getItem('udriver_token');
       
       const res = await fetch(`${API_BASE}/api/cities/${cityId}`, {
@@ -259,7 +259,7 @@ export default function CityManagement() {
 
   const handleToggleStatus = async (cityId, currentStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const token = localStorage.getItem('udriver_token');
       
       const endpoint = currentStatus 

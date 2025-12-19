@@ -34,10 +34,10 @@ This document describes the API endpoints for filtering vehicles on the customer
 **Example Usage:**
 ```javascript
 // Get all filter options
-fetch('http://localhost:4000/api/vehicles/filter-options?status=active')
+fetch('https://24-car-rental-backend.vercel.app/api/vehicles/filter-options?status=active')
 
 // Get filter options for a specific city
-fetch('http://localhost:4000/api/vehicles/filter-options?city=Bangalore&status=active')
+fetch('https://24-car-rental-backend.vercel.app/api/vehicles/filter-options?city=Bangalore&status=active')
 ```
 
 ---
@@ -96,13 +96,13 @@ fetch('http://localhost:4000/api/vehicles/filter-options?city=Bangalore&status=a
 **Example Usage:**
 ```javascript
 // Search all active vehicles in Bangalore
-fetch('http://localhost:4000/api/vehicles/search/by-location?city=Bangalore&status=active')
+fetch('https://24-car-rental-backend.vercel.app/api/vehicles/search/by-location?city=Bangalore&status=active')
 
 // Search Hatchback cars with Petrol fuel type
-fetch('http://localhost:4000/api/vehicles/search/by-location?city=Bangalore&category=Hatchback&fuelType=Petrol&status=active')
+fetch('https://24-car-rental-backend.vercel.app/api/vehicles/search/by-location?city=Bangalore&category=Hatchback&fuelType=Petrol&status=active')
 
 // Search 5-seater vehicles within price range
-fetch('http://localhost:4000/api/vehicles/search/by-location?city=Bangalore&seatingCapacity=5&minPrice=1000&maxPrice=2000&status=active')
+fetch('https://24-car-rental-backend.vercel.app/api/vehicles/search/by-location?city=Bangalore&seatingCapacity=5&minPrice=1000&maxPrice=2000&status=active')
 ```
 
 ---
@@ -133,7 +133,7 @@ const [filters, setFilters] = useState({
 ```javascript
 const fetchFilterOptions = async () => {
   try {
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000';
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://24-car-rental-backend.vercel.app';
     
     const queryParams = new URLSearchParams({
       status: 'active'
@@ -160,7 +160,7 @@ const fetchFilterOptions = async () => {
 const fetchVehicles = async () => {
   setLoading(true);
   try {
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000';
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://24-car-rental-backend.vercel.app';
     
     const queryParams = new URLSearchParams({
       status: 'active'
