@@ -150,7 +150,7 @@ export default function DriversList() {
     try {
       // Fetch complete driver data from the backend
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
@@ -174,7 +174,7 @@ export default function DriversList() {
   const handleSaveDriver = async (driverData) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       
       if (selectedDriver) {
         // Update existing driver
@@ -188,7 +188,7 @@ export default function DriversList() {
         });
 
         if (!res.ok) {
-          if (res.status === 401 || res.status === 403) { localStorage.removeItem('udriver_token'); navigate('/login'); return; }
+          if (res.status === 401 || res.status === 403) { localStorage.removeItem('24cr_token'); navigate('/login'); return; }
           throw new Error(`Failed to update driver: ${res.status}`);
         }
 
@@ -209,7 +209,7 @@ export default function DriversList() {
         });
 
         if (!res.ok) {
-          if (res.status === 401 || res.status === 403) { localStorage.removeItem('udriver_token'); navigate('/login'); return; }
+          if (res.status === 401 || res.status === 403) { localStorage.removeItem('24cr_token'); navigate('/login'); return; }
           throw new Error(`Failed to create driver: ${res.status}`);
         }
 
@@ -263,7 +263,7 @@ export default function DriversList() {
   const handleChangeDriverStatus = async (driverId, newStatus) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app'||'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...(token?{ 'Authorization': `Bearer ${token}` }: {}) },
@@ -286,7 +286,7 @@ export default function DriversList() {
   const handleChangeDriverKyc = async (driverId, newKyc) => {
     try {
         const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...(token?{ 'Authorization': `Bearer ${token}` }: {}) },
@@ -669,7 +669,7 @@ export default function DriversList() {
                           onClick={async () => {
                             try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-                              const token = localStorage.getItem('udriver_token');
+                              const token = localStorage.getItem('24cr_token');
                               const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
                                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                               });

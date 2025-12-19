@@ -18,7 +18,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend
  */
 export async function processZwitchPayout(paymentData) {
   try {
-    const token = localStorage.getItem('udriver_token') || 'mock';
+    const token = localStorage.getItem('24cr_token') || 'mock';
     
     const response = await fetch(`${API_BASE}/api/payments/zwitch/payout`, {
       method: 'POST',
@@ -56,7 +56,7 @@ export async function processZwitchPayout(paymentData) {
  */
 export async function checkPayoutStatus(referenceId) {
   try {
-    const token = localStorage.getItem('udriver_token') || 'mock';
+    const token = localStorage.getItem('24cr_token') || 'mock';
     
     const response = await fetch(`${API_BASE}/api/payments/zwitch/status/${referenceId}`, {
       method: 'GET',
@@ -83,7 +83,7 @@ export async function checkPayoutStatus(referenceId) {
  */
 export async function verifyBankAccount(bankDetails) {
   try {
-    const token = localStorage.getItem('udriver_token') || 'mock';
+    const token = localStorage.getItem('24cr_token') || 'mock';
     
     const response = await fetch(`${API_BASE}/api/payments/zwitch/verify-account`, {
       method: 'POST',

@@ -44,13 +44,13 @@ export default function VehiclesList() {
 
   // Auth helpers for deployed backend
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('udriver_token');
+    const token = localStorage.getItem('24cr_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
   const handleAuthRedirectIfNeeded = (res) => {
     if (res && (res.status === 401 || res.status === 403)) {
-      localStorage.removeItem('udriver_token');
+      localStorage.removeItem('24cr_token');
       toast.error('Session expired. Please log in again');
       navigate('/login');
       return true;

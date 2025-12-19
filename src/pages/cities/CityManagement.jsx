@@ -181,7 +181,7 @@ export default function CityManagement() {
     
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       
       const payload = {
         name: formData.name.trim(),
@@ -239,7 +239,7 @@ export default function CityManagement() {
     
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       
       const res = await fetch(`${API_BASE}/api/cities/${cityId}`, {
         method: 'DELETE',
@@ -260,7 +260,7 @@ export default function CityManagement() {
   const handleToggleStatus = async (cityId, currentStatus) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       
       const endpoint = currentStatus 
         ? `${API_BASE}/api/cities/${cityId}`

@@ -1,11 +1,11 @@
-# udriver-backend (development)
+# 24carrental-backend (development)
 
 This is a minimal Express backend scaffold that serves the frontend's mock data and provides simple auth.
 
 Quick start (Windows CMD):
 
 ```cmd
-cd "e:\\admin Udrive\\backend"
+cd "g:\\24-car rental\\backend"
 npm install
 npm run dev
 ```

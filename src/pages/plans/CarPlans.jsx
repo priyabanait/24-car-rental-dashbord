@@ -289,7 +289,7 @@ export default function CarPlans() {
         const plan = carPlans.find(p => String(p.id) === String(planId));
         if (!plan) throw new Error('Plan not found');
         const newStatus = plan.status === 'active' ? 'inactive' : 'active';
-        const token = localStorage.getItem('udriver_token') || 'mock';
+        const token = localStorage.getItem('24cr_token') || 'mock';
         // Always use Mongo _id for API routes
         const res = await fetch(`${API_BASE}/api/car-plans/${plan._id || plan.id}`, {
           method: 'PUT',
@@ -311,7 +311,7 @@ export default function CarPlans() {
 
   const handleVehicleSlabSave = async (formData) => {
     try {
-      const token = localStorage.getItem('udriver_token') || 'mock';
+      const token = localStorage.getItem('24cr_token') || 'mock';
       const plan = weeklyPlans.find(p => p.name === selectedVehicle);
       if (!plan) throw new Error('Plan not found');
       
@@ -341,7 +341,7 @@ export default function CarPlans() {
 
   const handleDailySlabSave = async (formData) => {
     try {
-      const token = localStorage.getItem('udriver_token') || 'mock';
+      const token = localStorage.getItem('24cr_token') || 'mock';
       const plan = dailyPlans.find(p => p.name === selectedDailyVehicle);
       if (!plan) throw new Error('Plan not found');
       
@@ -373,7 +373,7 @@ export default function CarPlans() {
     if (!window.confirm(`Are you sure you want to delete ${planName} ${type} plan?`)) return;
     
     try {
-      const token = localStorage.getItem('udriver_token') || 'mock';
+      const token = localStorage.getItem('24cr_token') || 'mock';
       const plan = (type === 'weekly' ? weeklyPlans : dailyPlans).find(p => p.name === planName);
       if (!plan) throw new Error('Plan not found');
       

@@ -50,7 +50,7 @@ export default function PlanModal({ isOpen, onClose, initial = null, onSave, api
     try {
       setSaving(true);
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token') || 'mock';
+      const token = localStorage.getItem('24cr_token') || 'mock';
       let payload = {
         name: form.name,
         category: 'standard',

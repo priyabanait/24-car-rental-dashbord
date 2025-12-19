@@ -75,7 +75,7 @@ export default function DriverStatus() {
     (async () => {
       try {
         const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-        const token = localStorage.getItem('udriver_token') || 'mock';
+        const token = localStorage.getItem('24cr_token') || 'mock';
         const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
           method: 'PUT',
           headers: {
@@ -98,7 +98,7 @@ export default function DriverStatus() {
   const handleChangeDriverStatus = async (driverId, newStatus) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token') || 'mock';
+      const token = localStorage.getItem('24cr_token') || 'mock';
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
         headers: {
@@ -125,7 +125,7 @@ export default function DriverStatus() {
     if (!hasPermission('drivers.edit') || selectedDrivers.size === 0) return;
     const ids = Array.from(selectedDrivers);
     const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-    const token = localStorage.getItem('udriver_token') || 'mock';
+    const token = localStorage.getItem('24cr_token') || 'mock';
 
     (async () => {
       try {

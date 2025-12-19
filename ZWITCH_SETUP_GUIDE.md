@@ -57,7 +57,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend
 
 The integration uses existing `Transaction` model. Ensure your MongoDB connection is configured in `backend/.env`:
 ```env
-MONGODB_URI=mongodb://localhost:27017/udriver
+MONGODB_URI=mongodb://localhost:27017/24carrental
 ```
 
 ## API Endpoints
@@ -82,7 +82,7 @@ MONGODB_URI=mongodb://localhost:27017/udriver
   "success": true,
   "message": "Payment initiated successfully",
   "data": {
-    "referenceId": "UDRIVER_1234567890_123",
+    "referenceId": "24CR_1234567890_123",
     "zwitchTransactionId": "zwitch_txn_abc123",
     "status": "SUCCESS",
     "amount": 5000
@@ -265,4 +265,4 @@ Before going live:
 - Payments are processed in **Indian Rupees (₹)**
 - Amount is sent to ZWITCH in **paise** (multiply by 100)
 - Default payment mode: **IMPS** (instant)
-- Transaction reference format: `UDRIVER_{timestamp}_{driverId}`
+- Transaction reference format: `24CR_{timestamp}_{driverId}`

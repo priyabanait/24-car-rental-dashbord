@@ -182,7 +182,7 @@ export default function ExpenseManagement() {
           return;
       }
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       const res = await fetch(`${API_BASE}/api/expenses/${expenseId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...(token?{ Authorization: `Bearer ${token}`}: {}) },
@@ -202,7 +202,7 @@ export default function ExpenseManagement() {
     if (!window.confirm('Delete this expense?')) return;
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       const res = await fetch(`${API_BASE}/api/expenses/${expenseId}`, {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -222,7 +222,7 @@ export default function ExpenseManagement() {
 
   const handleSaveExpense = async (expenseData) => {
     const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-    const token = localStorage.getItem('udriver_token');
+    const token = localStorage.getItem('24cr_token');
     
     if (selectedExpense) {
       // Update existing expense
@@ -263,7 +263,7 @@ export default function ExpenseManagement() {
   const handleChangeExpenseStatus = async (expenseId, newStatus) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const token = localStorage.getItem('udriver_token');
+      const token = localStorage.getItem('24cr_token');
       const update = { status: newStatus };
       if (newStatus === 'approved') {
         update.approvedBy = 'Current User';

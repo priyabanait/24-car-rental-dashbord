@@ -27,7 +27,7 @@ export default function Header({ onToggleSidebar, sidebarCollapsed }) {
     if (path.startsWith('/tickets')) return 'Ticket System';
     if (path.startsWith('/hr')) return 'HR Management';
     if (path.startsWith('/settings')) return null;
-    return 'UDriver Admin';
+    return '24 Car Rental Admin';
   };
 
   const pageTitle = getPageTitle();

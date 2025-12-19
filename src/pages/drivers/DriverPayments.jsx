@@ -624,7 +624,7 @@ export default function DriverPayments() {
                             if (!window.confirm('Delete this payment?')) return;
                             try {
                               const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-                              const token = localStorage.getItem('udriver_token') || 'mock';
+                              const token = localStorage.getItem('24cr_token') || 'mock';
                               if (payment.txId) {
                                 const res = await fetch(`${API_BASE}/api/transactions/${payment.txId}`, {
                                   method: 'DELETE',
@@ -730,7 +730,7 @@ export default function DriverPayments() {
                   onClick={async () => {
                     try {
                       const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-                      const token = localStorage.getItem('udriver_token') || 'mock';
+                      const token = localStorage.getItem('24cr_token') || 'mock';
                       const payload = {
                         driverId: newPayment.driverId,
                         amount: Number(newPayment.amount) || 0,

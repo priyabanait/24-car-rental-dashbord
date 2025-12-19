@@ -33,7 +33,7 @@ export default function Login() {
             </div>
           </div>
           <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
-          <p className="mt-2 text-gray-600">Sign in to your UDriver admin account</p>
+          <p className="mt-2 text-gray-600">Sign in to your 24 Car Rental admin account</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-8">
@@ -124,9 +124,9 @@ export default function Login() {
             <div className="text-sm text-gray-600">
               <p className="font-medium mb-2">Demo Accounts:</p>
               <div className="space-y-1 text-xs">
-                <p><strong>Super Admin:</strong> admin@udrive.com / admin123</p>
-                <p><strong>Manager:</strong> manager@udrive.com / manager123</p>
-                <p><strong>Finance:</strong> finance@udrive.com / finance123</p>
+                <p><strong>Super Admin:</strong> admin@24carrental.com / admin123</p>
+                <p><strong>Manager:</strong> manager@24carrental.com / manager123</p>
+                <p><strong>Finance:</strong> finance@24carrental.com / finance123</p>
               </div>
             </div>
           </div> */}

@@ -403,7 +403,7 @@ export default function Sidebar({ collapsed, onToggle }) {
     <div className="w-9 h-9 rounded-lg overflow-hidden">
       <img
         src="/WhatsApp Image 2025-12-15 at 4.36.20 PM (1).jpeg"
-        alt="UDrive"
+        alt="24 Car Rental"
         className="w-full h-full object-contain"
       />
     </div>
@@ -416,7 +416,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       <div className="w-16 h-16 rounded-lg overflow-hidden mr-3">
         <img
           src="/WhatsApp Image 2025-12-15 at 4.36.20 PM (1).jpeg"
-          alt="UDrive"
+          alt="24 Car Rental"
           className="w-full h-full object-contain"
         />
       </div>

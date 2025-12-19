@@ -16,7 +16,7 @@ export function useAuth() {
 const MOCK_USERS = [
   {
     id: 1,
-    email: 'admin@udrive.com',
+    email: 'admin@24carrental.com',
     password: 'admin123',
     name: 'Admin',
    
@@ -30,7 +30,7 @@ const MOCK_USERS = [
   },
   {
     id: 2,
-    email: 'manager@udrive.com',
+    email: 'manager@24carrental.com',
     password: 'manager123',
     name: 'Manager',
    
@@ -44,7 +44,7 @@ const MOCK_USERS = [
   },
   {
     id: 3,
-    email: 'finance@udrive.com',
+    email: 'finance@24carrental.com',
     password: 'finance123',
     name: 'Finance',
    
@@ -58,7 +58,7 @@ const MOCK_USERS = [
   },
   {
     id: 4,
-    email: 'hr@udrive.com',
+    email: 'hr@24carrental.com',
     password: 'hr123',
     name: 'Lisa Rodriguez',
     role: 'hr_manager',
@@ -72,7 +72,7 @@ const MOCK_USERS = [
   },
   {
     id: 5,
-    email: 'operations@udrive.com',
+    email: 'operations@24carrental.com',
     password: 'ops123',
     name: 'David Kumar',
     role: 'operations_manager',
@@ -86,7 +86,7 @@ const MOCK_USERS = [
   },
   {
     id: 6,
-    email: 'support@udrive.com',
+    email: 'support@24carrental.com',
     password: 'support123',
     name: 'Priya Sharma',
     role: 'support_agent',
@@ -100,7 +100,7 @@ const MOCK_USERS = [
   },
   {
     id: 7,
-    email: 'auditor@udrive.com',
+    email: 'auditor@24carrental.com',
     password: 'audit123',
     name: 'Robert Wilson',
     role: 'auditor',
@@ -120,12 +120,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Check if user is logged in from localStorage
-    const savedUser = localStorage.getItem('udriver_user');
+    const savedUser = localStorage.getItem('24cr_user');
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (error) {
-        localStorage.removeItem('udriver_user');
+        localStorage.removeItem('24cr_user');
       }
     }
     setLoading(false);
@@ -143,7 +143,7 @@ export function AuthProvider({ children }) {
         delete userWithoutPassword.password;
         userWithoutPassword.lastLogin = new Date().toISOString();
         setUser(userWithoutPassword);
-        localStorage.setItem('udriver_user', JSON.stringify(userWithoutPassword));
+        localStorage.setItem('24cr_user', JSON.stringify(userWithoutPassword));
         toast.success(`Welcome back, ${userWithoutPassword.name}!`);
         setLoading(false);
         return { success: true };
@@ -190,7 +190,7 @@ export function AuthProvider({ children }) {
 
       userWithoutPassword.lastLogin = new Date().toISOString();
       setUser(userWithoutPassword);
-      localStorage.setItem('udriver_user', JSON.stringify(userWithoutPassword));
+      localStorage.setItem('24cr_user', JSON.stringify(userWithoutPassword));
       toast.success(`Welcome back, ${userWithoutPassword.name}!`);
       setLoading(false);
       return { success: true };
@@ -203,7 +203,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('udriver_user');
+    localStorage.removeItem('24cr_user');
     toast.success('Logged out successfully');
   };
 
