@@ -13,7 +13,7 @@ export function NotificationsProvider({ children }) {
 
   useEffect(() => {
     // Try to fetch recent notifications from backend; fall back to localStorage
-    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+    const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/api/notifications?limit=100`);

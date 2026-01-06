@@ -8,7 +8,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     'White', 'Black', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Other'
   ];
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
 
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);

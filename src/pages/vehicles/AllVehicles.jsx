@@ -78,7 +78,7 @@ export default function VehiclesList() {
     (async function fetchAll(){
       setLoading(true);
       try{
-        const API_BASE =  'http://localhost:4000';
+        const API_BASE =  'https://24-car-rental-backend.vercel.app';
         const [vehicleRes, driverRes, managerRes] = await Promise.all([
           fetch(`${API_BASE}/api/vehicles?limit=1000`),
           fetch(`${API_BASE}/api/drivers?limit=1000`),
@@ -129,7 +129,7 @@ export default function VehiclesList() {
     // fetch fresh vehicle data from backend before opening modal so all fields are populated
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const apiId = resolveApiVehicleId(vehicle);
       if (apiId == null || Number.isNaN(apiId)) {
         // If we can't resolve an API id, skip fetching and use available data
@@ -154,7 +154,7 @@ export default function VehiclesList() {
   const handleViewVehicle = async (vehicle) => {
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const id = resolveApiVehicleId(vehicle);
       if (id == null || Number.isNaN(id)) {
         setSelectedVehicle(normalizeVehicle(vehicle));
@@ -208,7 +208,7 @@ export default function VehiclesList() {
         }
       }
 
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const headers = {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
@@ -266,7 +266,7 @@ export default function VehiclesList() {
   const handleDeleteVehicle = async (vehicleOrId) => {
     if (!window.confirm('Delete this vehicle?')) return;
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const resolvedId = typeof vehicleOrId === 'object' ? resolveApiVehicleId(vehicleOrId) : (Number.isFinite(Number(vehicleOrId)) ? Number(vehicleOrId) : undefined);
       if (!resolvedId && resolvedId !== 0) {
         throw new Error('Vehicle not found');
@@ -288,7 +288,7 @@ export default function VehiclesList() {
 
   const handleChangeStatus = async (vehicleId, newStatus) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -311,7 +311,7 @@ export default function VehiclesList() {
 
   const handleChangeKyc = async (vehicleId, newKyc) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
