@@ -13,6 +13,7 @@ import {
   MessageSquare,
   UserCheck,
   Settings,
+  Bell,
   FileText,
   PlusCircle,
   BarChart3,
@@ -22,14 +23,15 @@ import {
   ChevronRight,
   Receipt,
   Building,
-  Target
+  Target,
+  
 } from 'lucide-react';
 import { cn } from '../../utils';
 
 const navigation = [
   {
     name: 'Dashboard',
-    href: '/dashboard',
+  href: '/dashboard',
     icon: LayoutDashboard,
     permission: PERMISSIONS.DASHBOARD_VIEW
   },
@@ -87,6 +89,7 @@ const navigation = [
         href: '/vehicles/allvehicles',
         permission: PERMISSIONS.VEHICLES_VIEW
       },
+      
       // { 
       //   name: 'Add Vehicle', 
       //   href: '/vehicles/add',
@@ -102,6 +105,58 @@ const navigation = [
         href: '/vehicles/documents',
         permission: PERMISSIONS.VEHICLES_VIEW
       }
+    ]
+  },
+  {
+    name: 'Investment Management',
+    icon: Wallet,
+    permission: PERMISSIONS.INVESTMENTS_VIEW,
+    children: [
+      // { 
+      //   name: 'Invester Login', 
+      //   href: '/investments/InvesterLogin',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
+      { 
+        name: 'All Investments', 
+        href: '/investments',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
+       { 
+        name: 'Investor Details', 
+        href: '/investerDetails',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
+      // { 
+      //   name: 'Investment FD', 
+      //   href: '/investments/investors',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
+       { 
+        name: 'Investment Car', 
+        href: '/investments/car',
+        permission: PERMISSIONS.INVESTMENTS_VIEW
+      },
+      //  { 
+      //   name: 'Investment Wallet', 
+      //   href: '/investments/wallet',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
+      // { 
+      //   name: 'Investment Wallet Messages', 
+      //   href: '/investments/wallet-messages',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
+      // { 
+      //   name: 'Investment Plans', 
+      //   href: '/investments/plans',
+      //   permission: PERMISSIONS.INVESTMENTS_VIEW
+      // },
+      // { 
+      //   name: 'Analytics', 
+      //   href: '/investments/analytics',
+      //   permission: PERMISSIONS.INVESTMENTS_ANALYTICS
+      // }
     ]
   },
   // {
@@ -215,6 +270,12 @@ const navigation = [
       //   permission: PERMISSIONS.PAYMENTS_ANALYTICS
       // }
     ]
+  },
+  {
+    name: 'Notification Management',
+    href: '/notification',
+    icon: Bell ,
+    permission: PERMISSIONS.DASHBOARD_VIEW
   },
   // {
   //   name: 'Expense Management',

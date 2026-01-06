@@ -86,7 +86,7 @@ export default function DriverPayments() {
       }));
       
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const token = localStorage.getItem('token');
         
         // Find the selection to check if it's a booking
@@ -195,7 +195,7 @@ export default function DriverPayments() {
       [selectionId]: { ...prev[selectionId], loading: true }
     }));
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('token');
       const { amount, reason } = extraInputs[selectionId];
       
@@ -316,7 +316,7 @@ export default function DriverPayments() {
       }));
       
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         
         // For bookings, update the booking payment status
         if (planType === 'booking') {
@@ -431,28 +431,57 @@ export default function DriverPayments() {
 
     // Delete handler
     const handleDelete = async (selectionId) => {
-      if (!window.confirm('Are you sure you want to delete this payment record?')) return;
+  if (!window.confirm('Are you sure you want to delete this payment record?')) return;
+
+  try {
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+
+    const selection = selections.flat().find(s => s._id === selectionId);
+    const isBooking = selection?.planType === 'booking';
+
+    const url = isBooking
+      ? `${API_BASE}/api/bookings/${selectionId}`
+      : `${API_BASE}/api/driver-plan-selections/${selectionId}`;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please login to delete records');
+      return;
+    }
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!res.ok) {
+      // Try to parse JSON error body, otherwise fall back to text
+      let errorData = {};
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-        const res = await fetch(`${API_BASE}/api/driver-plan-selections/${selectionId}`, {
-          method: 'DELETE'
-        });
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.message || 'Failed to delete record');
-        }
-        toast.success('Payment record deleted');
-        // Remove from local state
-        setSelections(prev => prev.filter(s => s._id !== selectionId));
-      } catch (e) {
-        console.error('Delete error:', e);
-        toast.error(e.message || 'Failed to delete record');
+        errorData = await res.json();
+      } catch (err) {
+        errorData = { message: await res.text().catch(() => `HTTP ${res.status}`) };
       }
-    };
+      throw new Error(errorData.message || `Failed to delete record (${res.status})`);
+    }
+
+    toast.success('Payment record deleted');
+
+    setSelections(prev =>
+      prev
+        .map(group => group.filter(s => s._id !== selectionId))
+        .filter(group => group.length > 0)
+    );
+  } catch (e) {
+    console.error('Delete error:', e);
+    toast.error(e.message || 'Failed to delete record');
+  }
+};
+
  
 
+
   useEffect(() => {
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
     // If logged-in user is a manager, use their email/ID, otherwise use selected manager filter
     const managerFilter = isManager ? (user?.email || user?.id) : (selectedManagers?.filter || '');
     
@@ -511,11 +540,11 @@ export default function DriverPayments() {
               const adjustmentAmount = booking.adjustmentAmount || 0;
               const totalPayable = booking.finalAmount || (totalRent + deposit);
               const paidAmount = booking.paidAmount || 0;
-              
+
               // Calculate what's been paid toward deposit and rent
               let depositDue = 0;
               let rentDue = 0;
-              
+
               if (paidAmount >= deposit) {
                 // Deposit fully paid, remaining goes to rent
                 depositDue = 0;
@@ -528,13 +557,15 @@ export default function DriverPayments() {
                 // Apply adjustment to rent due
                 rentDue = Math.max(0, totalRent - adjustmentAmount);
               }
-              
+
               // Calculate final total payable (rent due + extra, adjustment already applied to rent)
               const finalTotalPayable = Math.max(0, depositDue + rentDue + extraAmount);
-              
+
               return {
                 ...booking,
                 // Convert booking to driver-plan-selection format for consistent display
+                // IMPORTANT: Start counting rent only when admin/vehicle assignment sets `rentStartDate`
+                // or when vehicle assignment/activation sets it on the booking. Do NOT fallback to tripStartDate.
                 driverUsername: booking.driverName,
                 driverMobile: booking.driverMobile,
                 planName: booking.vehicleName || 'Vehicle Booking',
@@ -547,31 +578,86 @@ export default function DriverPayments() {
                 paymentType: 'booking',
                 securityDeposit: deposit,
                 paidAmount: paidAmount,
-                rentStartDate: booking.tripStartDate,
+                // Use explicit rentStartDate only; do not fall back to tripStartDate to prevent early counting
+                rentStartDate: booking.rentStartDate || null,
                 extraAmount: extraAmount,
                 extraReason: booking.extraReason,
                 extraAmounts: booking.extraAmounts || [],
                 adjustmentAmount: adjustmentAmount,
                 adjustmentReason: booking.adjustmentReason,
                 adjustments: booking.adjustments || [],
-                paymentDetails: {
-                  totalPayable: finalTotalPayable,
-                  depositDue: depositDue,
-                  rentDue: rentDue,
-                  accidentalCover: 0,
-                  extraAmount: extraAmount,
-                  paidAmount: paidAmount,
-                  days: booking.numberOfDays || 0,
-                  rentPerDay: booking.pricePerDay || 0
-                }
+                paymentDetails: (() => {
+                  // If rent hasn't started, days should be 0 (no counting). If rentStartDate exists, compute days dynamically.
+                  let days = 0;
+                  if (booking.rentStartDate) {
+                    const start = new Date(booking.rentStartDate);
+                    let end = new Date();
+                    // Normalize to midnight
+                    const startMid = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+                    const endMid = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+                    days = Math.floor((endMid - startMid) / (1000 * 60 * 60 * 24)) + 1;
+                    days = Math.max(1, days);
+                  }
+                  const rentPerDay = booking.pricePerDay || 0;
+                  const totalRentComputed = days * rentPerDay;
+
+                  // Recompute depositDue and rentDue using computed totalRent
+                  let computedDepositDue = 0;
+                  let computedRentDue = 0;
+                  if (paidAmount >= deposit) {
+                    computedDepositDue = 0;
+                    const rentPaid = paidAmount - deposit;
+                    computedRentDue = Math.max(0, totalRentComputed - rentPaid - adjustmentAmount);
+                  } else {
+                    computedDepositDue = Math.max(0, deposit - paidAmount);
+                    computedRentDue = Math.max(0, totalRentComputed - adjustmentAmount);
+                  }
+
+                  const computedFinalTotal = Math.max(0, computedDepositDue + computedRentDue + extraAmount);
+
+                  return {
+                    totalPayable: computedFinalTotal,
+                    depositDue: computedDepositDue,
+                    rentDue: computedRentDue,
+                    accidentalCover: 0,
+                    extraAmount: extraAmount,
+                    paidAmount: paidAmount,
+                    days: days,
+                    rentPerDay: rentPerDay
+                  };
+                })()
               };
             });
-            console.log('Bookings data received:', bookingsData.length, 'records');
           }
-        } catch (bookingsErr) {
-          console.error('Error loading bookings (non-fatal):', bookingsErr);
-          // Continue without bookings if error occurs
+        } catch (e) {
+          console.error('Failed to fetch bookings:', e);
         }
+
+        // Fetch driver payments (cancellations and other records)
+        try {
+          const paymentsRes = await fetch(`${API_BASE}/api/payments/drivers`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          });
+          if (paymentsRes.ok) {
+            const payments = await paymentsRes.json();
+            // Filter booking cancellations and apply them to bookings in-place
+            const cancels = (Array.isArray(payments) ? payments : []).filter(p => p.paymentType === 'booking_cancellation');
+            if (cancels.length > 0 && bookingsData.length > 0) {
+              cancels.forEach(c => {
+                const booking = bookingsData.find(b => String(b._id) === String(c.bookingId));
+                if (booking) {
+                  booking.paymentStatus = 'cancelled';
+                  booking.cancellationRecord = c;
+                }
+              });
+              console.log('Applied cancellations to bookings:', cancels.length);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load driver payments:', err);
+        }
+
+
         
         // Combine driver plan selections and bookings
         const combinedData = [...(Array.isArray(planSelectionData) ? planSelectionData : []), ...bookingsData];
@@ -593,6 +679,17 @@ export default function DriverPayments() {
       }
     };
     fetchPayments();
+
+    // Listen for vehicle updates to refresh payments data (e.g., when admin assigns driver or changes status)
+    const handleVehicleUpdated = (ev) => {
+      console.log('Vehicle updated event received', ev.detail);
+      fetchPayments();
+    };
+    window.addEventListener('vehicle:updated', handleVehicleUpdated);
+
+    return () => {
+      window.removeEventListener('vehicle:updated', handleVehicleUpdated);
+    };
   }, [selectedManagers?.filter, isManager, user?.email, user?.id]);
 
   // Debug: log selections after fetch
@@ -616,7 +713,7 @@ export default function DriverPayments() {
   const loadSelections = async () => {
     setLoading(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/driver-plan-selections?limit=1000`);
       if (!res.ok) throw new Error('Failed to load driver payments');
       const result = await res.json();
@@ -665,10 +762,12 @@ export default function DriverPayments() {
         return <Badge variant="warning" className="flex items-center gap-1"><Clock className="h-3 w-3" />Pending</Badge>;
       case 'failed':
         return <Badge variant="danger" className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Failed</Badge>;
+      case 'cancelled':
+        return <Badge variant="danger" className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Cancelled</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
-  };
+  }; 
 
   const getModeBadge = (mode) => {
     switch (mode) {
@@ -900,7 +999,7 @@ export default function DriverPayments() {
 
   const handleStatusChange = async (selectionId, newStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('token');
       
       console.log('Updating status:', { selectionId, newStatus });
@@ -1148,6 +1247,7 @@ export default function DriverPayments() {
           <CardTitle>Driver Payment Records</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+
       <div className="overflow-x-auto">
             <Table className="w-full">
               <TableBody>
@@ -1198,6 +1298,9 @@ export default function DriverPayments() {
                                         <p className="font-medium">{s.planName}</p>
                                         <p className="text-xs text-gray-500 capitalize">Type: {s.planType}</p>
                                         <p className="text-xs text-gray-500">Selected: {s.selectedDate ? formatDate(s.selectedDate) : 'N/A'}</p>
+                                        { (s.paymentStatus === 'cancelled' || s.cancellationRecord) && (
+                                          <p className="text-xs text-red-600 font-semibold">Status: Cancelled{(s.cancellationRecord && (s.cancellationRecord.paymentDate || s.cancellationRecord.createdAt)) ? ` on ${new Date(s.cancellationRecord.paymentDate || s.cancellationRecord.createdAt).toLocaleDateString()}` : ''}</p>
+                                        ) }
                                       </div>
                                     </TableCell>
                                     <TableCell>

@@ -122,6 +122,95 @@ POST /api/investors/forgot-password
 
 ---
 
+## Forgot Password (Users / Drivers / Investors)
+
+### Endpoint
+```
+POST /api/auth/forgot-password
+```
+
+### Request Body
+You may provide either `mobile` (for Users and Drivers) or `phone` (for Investors):
+
+```json
+{
+  "mobile": "1234567890",
+  "newPassword": "newPassword123"
+}
+```
+
+or
+
+```json
+{
+  "phone": "1234567890",
+  "newPassword": "newPassword123"
+}
+```
+
+### Request Fields
+- `mobile` (string) — accepted for Users and Drivers
+- `phone` (string) — accepted for Investors
+- `newPassword` (string, required): The new password to set
+
+### Success Response (200 OK)
+The response will include the updated entity (user, driver, or investor) depending on where the match was found.
+
+Example (User):
+```json
+{
+  "success": true,
+  "message": "Password updated successfully.",
+  "user": { "id": "...", "email": "...", "mobile": "...", "name": "..." }
+}
+```
+
+Example (Driver):
+```json
+{
+  "success": true,
+  "message": "Password updated successfully.",
+  "driver": { "id": "...", "username": "...", "mobile": "..." }
+}
+```
+
+Example (Investor):
+```json
+{
+  "success": true,
+  "message": "Password updated successfully.",
+  "investor": { "id": "...", "investorName": "...", "email": "...", "phone": "..." }
+}
+```
+
+### Error Responses
+
+#### 400 Bad Request - Missing fields
+```json
+{
+  "success": false,
+  "message": "Mobile/phone number and new password required."
+}
+```
+
+#### 404 Not Found - No matching record
+```json
+{
+  "success": false,
+  "message": "User not found with this mobile/phone number."
+}
+```
+
+#### 500 Internal Server Error
+```json
+{
+  "success": false,
+  "message": "Server error during password reset."
+}
+```
+
+---
+
 ## Implementation Flow
 
 ### Step 1: User Opens "Forgot Password" Screen

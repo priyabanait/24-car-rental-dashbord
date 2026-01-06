@@ -359,6 +359,13 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
       if (value.trim().length < 10) return 'Please enter complete address (min 10 characters)';
       return '';
     }
+
+    if (field === 'pincode') {
+      if (!value || !value.trim()) return '';// optional but validate format if provided
+      const digits = String(value).replace(/\D/g, '');
+      if (digits.length !== 6) return 'Pincode must be exactly 6 digits';
+      return '';
+    }
     // if (field === 'licenseNumber') {
     //   if (!value || !value.trim()) return 'License number is required';
     //   // Format: XX[0-9]{13} (2 characters followed by 13 numbers)
@@ -510,7 +517,7 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
     try {
       const driverData = {
         ...formData,
-        id: driver?.id || Date.now(),
+        // Backend will assign or maintain IDs; do not set synthetic ids here
         joinDate: driver?.joinDate || new Date().toISOString(),
         lastActive: new Date().toISOString(),
         totalTrips: driver?.totalTrips || 0,
@@ -528,6 +535,8 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
         bankDocument: formData.bankDocument || driver?.bankDocument,
         electricBillDocument: formData.electricBillDocument || driver?.electricBillDocument
       };
+      // Ensure no accidental id is sent in the payload
+      if (driverData.id) delete driverData.id;
 
       // Filter out undefined or null values to prevent overwriting existing data
       Object.keys(driverData).forEach(key => {
@@ -694,6 +703,20 @@ export default function DriverModal({ isOpen, onClose, driver = null, onSave }) 
                   <option value="Delhi">Delhi</option>
                   {/* Add more states */}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pincode
+                </label>
+                <input
+                  type="text"
+                  value={formData.pincode}
+                  onChange={(e) => handleInputChange('pincode', e.target.value)}
+                  className={`input ${errors.pincode ? 'border-red-300' : ''}`}
+                  placeholder="Enter pincode"
+                />
+                {errors.pincode && <p className="mt-1 text-sm text-red-600">{errors.pincode}</p>}
               </div>
 
               <div>

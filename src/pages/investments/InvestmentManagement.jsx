@@ -34,7 +34,7 @@ import InvestmentPlanModal from '../../components/investors/InvestmentPlanModal'
 import CarInvestmentModal from '../../components/investors/CarInvestmentModal';
 
 // Centralized API base (falls back to local backend). Using explicit base + GET for reads for clarity.
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 
 export default function InvestmentManagement() {
@@ -568,13 +568,7 @@ const handleExportReport = () => {
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <PermissionGuard permission={PERMISSIONS.INVESTMENTS_CREATE}>
-            <button 
-              onClick={handleAddPlan}
-              className="btn btn-secondary flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Amount Investment
-            </button>
+            
             <button 
               onClick={() => {
                 setSelectedCarInvestment(null);
@@ -644,80 +638,7 @@ const handleExportReport = () => {
         </Card>
       </div>
 
-      {/* Investment Plans */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Building className="h-5 w-5 mr-2" />
-           Amount Investment
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {investmentPlans.map(plan => (
-              <div key={plan.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-gray-900">{plan.name}</h3>
-                  {getRiskBadge(plan.riskLevel)}
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Min Amount:</span>
-                    <span className="font-medium">{formatCurrency(plan.minAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Max Amount:</span>
-                    <span className="font-medium">{formatCurrency(plan.maxAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium">{plan.duration} months</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Expected ROI:</span>
-                    <span className="font-medium text-green-600">{plan.expectedROI}%</span>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2">Features:</p>
-                  <ul className="text-xs text-gray-500 space-y-1">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-center">
-                        <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <PermissionGuard permission={PERMISSIONS.INVESTMENTS_EDIT}>
-                  <div className="flex space-x-2">
-      {/* Edit Button */}
-      <button
-        onClick={() => handleEditPlan(plan)}
-        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
-      >
-        <Edit className="h-4 w-4 mr-1" />
-        Edit
-      </button>
-
-      {/* Delete Button */}
-      <button
-        onClick={() => handleDeletePlan(plan.id)}
-        className="flex items-center justify-center flex-1 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors"
-      >
-        <Trash2 className="h-4 w-4 mr-1" />
-        Delete
-      </button>
-    </div>
-                </PermissionGuard>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+    
       {/* Car Investments Section - Card UI like Amount Investment */}
       <Card>
         <CardHeader>

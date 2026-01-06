@@ -25,5 +25,9 @@ export default function Dashboard() {
     }
   };
 
-  return renderDashboard();
+  return (
+    <>
+      {renderDashboard()}
+    </>
+  );
 }

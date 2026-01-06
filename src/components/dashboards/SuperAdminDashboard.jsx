@@ -14,7 +14,9 @@ import {
   BarChart3,
   Wallet,
   Shield,
-  Database
+  Database,
+  IndianRupee,
+  User
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { formatCurrency, formatDate } from '../../utils';
@@ -57,7 +59,7 @@ export default function SuperAdminDashboard() {
     (async () => {
       setLoading(true);
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         
         // Fetch all data in parallel
         const [
@@ -340,7 +342,7 @@ export default function SuperAdminDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <Car className="h-6 w-6 text-green-600" />
+                <User className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Drivers</p>
@@ -605,7 +607,7 @@ export default function SuperAdminDashboard() {
                 onClick={() => navigate('/payments/drivers')}
                 className="btn btn-outline flex flex-col items-center p-4 hover:bg-emerald-50 transition-colors"
               >
-                <DollarSign className="h-6 w-6 mb-2 text-emerald-600" />
+                <IndianRupee className="h-6 w-6 mb-2 text-emerald-600" />
                 <span className="text-sm font-medium">Payments</span>
                 <span className="text-xs text-gray-500 mt-1">Process payments</span>
               </button>

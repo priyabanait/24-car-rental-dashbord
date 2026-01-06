@@ -5,7 +5,21 @@ import { formatDate, formatCurrency } from '../../utils';
 
 const docUrl = (doc) => {
   if (!doc) return null;
-  if (typeof doc === 'string') return doc;
+  if (typeof doc === 'string') {
+    if (doc.startsWith('data:') || /^https?:\/\//i.test(doc)) return doc;
+    if (doc.startsWith('/') || doc.startsWith('uploads/')) {
+      try {
+        return (window.location.origin || '') + (doc.startsWith('/') ? doc : '/' + doc);
+      } catch (e) {
+        return doc;
+      }
+    }
+    return doc;
+  }
+  if (typeof doc === 'object') {
+    if (doc.secure_url) return doc.secure_url;
+    if (doc.url) return doc.url;
+  }
   if (doc instanceof File) return URL.createObjectURL(doc);
   return null;
 };
@@ -112,7 +126,7 @@ export default function InvestmentDetailModal({ isOpen, onClose, investment }) {
             <div className="flex items-center space-x-4">
               <div className="h-12 w-12 bg-primary-100 rounded-full overflow-hidden flex items-center justify-center">
                 {docUrl(investment.profilePhoto) ? (
-                  <img src={investment.profilePhoto} alt={investment.investorName} className="h-12 w-12 object-cover" />
+                  <img src={docUrl(investment.profilePhoto)} alt={investment.investorName} className="h-12 w-12 object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images.jpg'; }} />
                 ) : (
                   <span className="text-lg font-medium text-primary-700">
                     {investment.investorName?.split(' ').map(n => n[0]).join('')}

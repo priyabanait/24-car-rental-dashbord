@@ -4,7 +4,26 @@ import { formatDate } from '../../utils';
 
 const docUrl = (doc) => {
   if (!doc) return null;
-  if (typeof doc === 'string') return doc;
+  // Strings (URLs)
+  if (typeof doc === 'string') {
+    // If it's a data URL or absolute http(s) URL, return as-is
+    if (doc.startsWith('data:') || /^https?:\/\//i.test(doc)) return doc;
+    // Handle site-root or relative paths by prefixing origin
+    if (doc.startsWith('/') || doc.startsWith('uploads/')) {
+      try {
+        return (window.location.origin || '') + (doc.startsWith('/') ? doc : '/' + doc);
+      } catch (e) {
+        return doc; // fallback
+      }
+    }
+    return doc;
+  }
+  // Cloudinary response objects may have secure_url or url
+  if (typeof doc === 'object') {
+    if (doc.secure_url) return doc.secure_url;
+    if (doc.url) return doc.url;
+  }
+  // File objects (local previews)
   if (doc instanceof File) return URL.createObjectURL(doc);
   return null;
 };
@@ -52,6 +71,7 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
             src={doc} 
             alt={label || "Document"} 
             className="h-full w-full object-cover rounded-lg transition-transform group-hover:scale-105" 
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images.jpg'; }}
             onClick={(e) => {
               e.stopPropagation();
               setFullScreenImage({ url: doc, label });
@@ -75,6 +95,7 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
               alt={label || "Document"} 
               className="h-full w-full object-cover rounded-lg transition-transform group-hover:scale-105"
               onLoad={() => URL.revokeObjectURL(previewUrl)}
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images.jpg'; }}
               onClick={(e) => {
                 e.stopPropagation();
                 setFullScreenImage({ url: previewUrl, label });
@@ -103,7 +124,7 @@ export default function DriverDetailModal({ isOpen, onClose, driver }) {
             <div className="flex items-center space-x-4">
               <div className="h-12 w-12 bg-primary-100 rounded-full overflow-hidden flex items-center justify-center">
                 {docUrl(driver.profilePhoto) ? (
-                  <img src={driver.profilePhoto} alt={driver.name} className="h-12 w-12 object-cover" />
+                  <img src={docUrl(driver.profilePhoto)} alt={driver.name} className="h-12 w-12 object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images.jpg'; }} />
                 ) : (
                   <span className="text-lg font-medium text-primary-700">
                     {driver.name?.split(' ').map(n => n[0]).join('')}

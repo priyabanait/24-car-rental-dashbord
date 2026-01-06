@@ -159,7 +159,7 @@ Before booking, check if the vehicle is available:
 
 ```javascript
 const checkAvailability = async (vehicleId, startDate, endDate) => {
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://24-car-rental-backend.vercel.app';
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000';
   
   const params = new URLSearchParams({
     startDate,

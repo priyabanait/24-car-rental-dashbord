@@ -111,7 +111,7 @@ import { Search, Users, Shield, Edit, Trash2 } from 'lucide-react';
 import { formatDate } from '../../utils';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 export default function SignupCredentials() {
   const [activeTab, setActiveTab] = useState('drivers'); // 'drivers' | 'investors'

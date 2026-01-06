@@ -32,6 +32,7 @@ Endpoints (examples):
 - DELETE /api/payments/drivers/:id
 
 Auth: POST /api/auth/login returns { user, token }. Use `Authorization: Bearer <token>` to call protected endpoints (POST/PUT/DELETE)
+- DELETE /api/auth/delete-account  (supports token auth or provide { email|mobile, password } in body)
 
 Notes:
 - The backend does NOT pre-populate domain mock data on startup. The database will remain empty until records are created by users via the API (for example, when forms are submitted in the frontend).

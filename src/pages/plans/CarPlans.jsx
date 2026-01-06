@@ -140,7 +140,7 @@ export default function CarPlans() {
 
   const metrics = calculateMetrics();
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   const mapApiPlanToUI = (p) => ({
     // Preserve Mongo _id separately and prefer it as plan identifier for API ops
@@ -373,14 +373,12 @@ export default function CarPlans() {
     if (!window.confirm(`Are you sure you want to delete ${planName} ${type} plan?`)) return;
     
     try {
-      const token = localStorage.getItem('24cr_token') || 'mock';
       const plan = (type === 'weekly' ? weeklyPlans : dailyPlans).find(p => p.name === planName);
       if (!plan) throw new Error('Plan not found');
       
       const endpoint = type === 'weekly' ? '/api/weekly-rent-plans' : '/api/daily-rent-plans';
       const res = await fetch(`${API_BASE}${endpoint}/${plan._id || plan.id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+        method: 'DELETE'
       });
       
       if (!res.ok) {

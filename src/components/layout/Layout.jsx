@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { NotificationsProvider } from '../../contexts/NotificationsContext';
+import DashboardSocket from '../notifications/DashboardSocket';
 import { Toaster } from 'react-hot-toast';
+
+
+
 
 export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -15,14 +20,18 @@ export default function Layout() {
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
-          <Outlet />
-        </main>
+        <NotificationsProvider>
+          <Header 
+            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+            sidebarCollapsed={sidebarCollapsed}
+          />
+
+          <DashboardSocket />
+
+          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
+            <Outlet />
+          </main>
+        </NotificationsProvider>
       </div>
       
       <Toaster

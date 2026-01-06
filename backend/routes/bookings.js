@@ -2,12 +2,32 @@ import express from 'express';
 import Booking from '../models/booking.js';
 import Vehicle from '../models/vehicle.js';
 import DriverSignup from '../models/driverSignup.js';
+import Notification from '../models/notification.js';
+import FcmToken from '../models/fcmToken.js';
+import { sendToTokens } from '../lib/firebaseAdmin.js';
 import jwt from 'jsonwebtoken';
+
+// Helper to send FCM to driver userIds
+async function _sendFcmToUserIds(userIds, title, message, payload = {}) {
+  if (!userIds || userIds.length === 0) return;
+  const tokenDocs = await FcmToken.find({ userId: { $in: userIds }, userType: 'driver' }).lean();
+  const tokens = tokenDocs.map(t => t.token).filter(Boolean);
+  if (tokens.length === 0) return;
+  try {
+    const notification = { title: title || '', body: message || '' };
+    await sendToTokens(tokens, notification, { payload: JSON.stringify(payload) }).catch(err => {
+      console.error('Error sending multicast FCM:', err);
+    });
+  } catch (err) {
+    console.error('Error sending FCM:', err);
+  }
+}
 
 const router = express.Router();
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
+  // Require a token for all modifying requests (including DELETE)
   const token = req.headers.authorization?.split(' ')[1];
   
   if (!token) {
@@ -96,6 +116,27 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
+    // Prevent driver from creating another active booking
+    const existingActiveBooking = await Booking.findOne({
+      driverId: req.driverId,
+      status: { $in: ['pending', 'confirmed', 'ongoing'] }
+    });
+
+    if (existingActiveBooking) {
+      return res.status(409).json({
+        success: false,
+        message: 'You already have an active booking. Please complete or cancel it before creating a new booking.',
+        existingBooking: {
+          id: existingActiveBooking._id,
+          vehicleId: existingActiveBooking.vehicleId,
+          vehicleName: existingActiveBooking.vehicleName,
+          status: existingActiveBooking.status,
+          tripStartDate: existingActiveBooking.tripStartDate,
+          tripEndDate: existingActiveBooking.tripEndDate
+        }
+      });
+    }
+
     // Calculate number of days
     const startDate = new Date(tripStartDate);
     const endDate = tripEndDate ? new Date(tripEndDate) : new Date(tripStartDate);
@@ -178,7 +219,47 @@ router.post('/', verifyToken, async (req, res) => {
       kycStatus: driver.kycStatus || 'pending'
     });
 
-    await booking.save();
+    try {
+      await booking.save();
+    } catch (e) {
+      if (e && e.code === 11000 && e.keyPattern && e.keyPattern.driverId) {
+        return res.status(409).json({
+          success: false,
+          message: 'You already have an active booking. Please complete or cancel it before creating a new booking.'
+        });
+      }
+      throw e;
+    }
+
+    // Persist notification so it is available even if socket was missed
+    try {
+      const notif = await Notification.create({
+        type: 'new_booking',
+        title: 'New Booking',
+        message: `${booking.driverName} created a booking for ${booking.vehicleName}.`,
+        payload: { bookingId: booking._id, booking },
+        read: false
+      });
+      console.info('Saved new booking notification:', notif._id || '(no id)');
+    } catch (saveErr) {
+      console.error('Failed to save new booking notification:', saveErr);
+    }
+
+    // Emit notification to dashboard clients (if socket server available)
+    try {
+      const io = req.app?.locals?.io;
+      if (io) {
+        io.to('dashboard').emit('dashboard_notification', {
+          type: 'new_booking',
+          title: 'New Booking',
+          message: `${booking.driverName} created a booking for ${booking.vehicleName}.`,
+          bookingId: booking._id,
+          booking
+        });
+      }
+    } catch (emitErr) {
+      console.error('Failed to emit dashboard notification:', emitErr);
+    }
 
     // Note: Vehicle status remains 'active' - we track bookings separately
     // Don't change vehicle status as 'booked' is not a valid enum value
@@ -208,7 +289,15 @@ router.get('/', async (req, res) => {
     // Otherwise, filter by driverId if available
     const filter = all === 'true' ? {} : (req.driverId ? { driverId: req.driverId } : {});
     
-    if (status) filter.status = status;
+    if (status) {
+      // Support single status or comma-separated list
+      if (typeof status === 'string' && status.includes(',')) {
+        const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+        if (statuses.length > 0) filter.status = { $in: statuses };
+      } else {
+        filter.status = status;
+      }
+    }
     if (bookingType) filter.bookingType = bookingType;
     if (startDate || endDate) {
       filter.tripStartDate = {};
@@ -392,12 +481,15 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
       });
     }
 
-    // Check if booking belongs to the driver
-    if (booking.driverId.toString() !== req.driverId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
+    // If a driver token was provided, enforce ownership check.
+    // If no token (req.driverId undefined), allow the delete to proceed (admin or other flows).
+    if (req.driverId) {
+      if (booking.driverId.toString() !== req.driverId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
     }
 
     // Handle cancellation
@@ -519,6 +611,41 @@ router.patch('/:id/payment', async (req, res) => {
     }
 
     await booking.save();
+
+    // If this payment completed the booking, notify the booking owner (driver)
+    try {
+      if (paymentStatus === 'completed') {
+        // Persist notification for the user
+        await Notification.create({
+          userId: booking.driverId,
+          userType: 'driver',
+          type: 'payment_completed',
+          title: 'Payment received',
+          message: `Payment completed for booking ${booking._id}. Your booking is confirmed.`,
+          payload: { bookingId: booking._id },
+          read: false
+        });
+
+        // Emit socket event to user's room if available
+        const io = req.app?.locals?.io;
+        if (io) {
+          io.to(`driver:${booking.driverId}`).emit('payment_completed', {
+            bookingId: booking._id,
+            title: 'Payment received',
+            message: `Payment completed for booking ${booking._id}. Your booking is confirmed.`
+          });
+        }
+
+        // Send FCM
+        try {
+          await _sendFcmToUserIds([booking.driverId], 'Payment received', `Payment completed for booking ${booking._id}. Your booking is confirmed.`, { bookingId: booking._id });
+        } catch (err) {
+          console.error('Failed to send FCM on payment completion:', err);
+        }
+      }
+    } catch (notifErr) {
+      console.error('Failed to send payment notifications:', notifErr);
+    }
 
     res.json({
       success: true,
@@ -743,6 +870,31 @@ router.delete('/:id', verifyToken, async (req, res) => {
     booking.cancelledAt = new Date();
 
     await booking.save();
+
+    // Add a driver payment record so admin payments UI can show cancellation
+    try {
+      const { addDriverPayment } = await import('../lib/driverPayments.js');
+      await addDriverPayment({
+        driverId: booking.driverId?.toString() || '',
+        driverName: booking.driverName || '',
+        phone: booking.driverMobile || '',
+        paymentType: 'booking_cancellation',
+        period: `Booking ${new Date(booking.tripStartDate).toISOString().split('T')[0]}`,
+        amount: 0,
+        commissionAmount: 0,
+        commissionRate: 0,
+        netPayment: 0,
+        totalTrips: 0,
+        totalDistance: 0,
+        status: 'cancelled',
+        paymentMethod: null,
+        transactionId: null,
+        paymentDate: new Date().toISOString().split('T')[0],
+        bookingId: booking._id
+      });
+    } catch (e) {
+      console.error('Failed to add driver payment record for cancellation:', e);
+    }
 
     // Vehicle status remains 'active' - bookings are tracked separately
     // No need to update vehicle status

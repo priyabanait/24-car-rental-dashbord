@@ -49,7 +49,7 @@ export default function PlanModal({ isOpen, onClose, initial = null, onSave, api
     if (!slabData.rows.length) return toast.error('Add at least one rent slab');
     try {
       setSaving(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('24cr_token') || 'mock';
       let payload = {
         name: form.name,

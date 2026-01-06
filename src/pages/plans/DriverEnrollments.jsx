@@ -63,7 +63,7 @@ export default function DriverEnrollments() {
       setLoading(true);
       setError(null);
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         
         // Fetch enrollments
         const enrollRes = await fetch(`${API_BASE}/api/static/driver-enrollments`);
@@ -143,7 +143,7 @@ export default function DriverEnrollments() {
     try {
       setLoading(true);
       setError(null);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       
       const [enrollRes, driversRes, plansRes] = await Promise.all([
         fetch(`${API_BASE}/api/static/driver-enrollments`),
@@ -182,7 +182,7 @@ export default function DriverEnrollments() {
     try {
       setLoading(true);
       setError(null);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('24cr_token');
       
       const res = await fetch(`${API_BASE}/api/static/driver-enrollments/sync`, {
@@ -213,12 +213,9 @@ export default function DriverEnrollments() {
   const handleDelete = async (enrollmentId) => {
     if (window.confirm('Are you sure you want to delete this enrollment?')) {
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-        const token = localStorage.getItem('24cr_token');
-        
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const res = await fetch(`${API_BASE}/api/static/driver-enrollments/${enrollmentId}`, {
-          method: 'DELETE',
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          method: 'DELETE'
         });
         
         if (!res.ok) throw new Error('Failed to delete enrollment');
@@ -258,7 +255,7 @@ export default function DriverEnrollments() {
 
   const handleSaveEnrollment = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('24cr_token');
       
       if (formData.id) {

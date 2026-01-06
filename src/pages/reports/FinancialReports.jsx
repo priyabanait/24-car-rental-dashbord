@@ -47,7 +47,7 @@ export default function FinancialReports() {
     (async () => {
       setLoading(true);
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         
         // Fetch all financial data in parallel
         const [expensesRes, driversRes, vehiclesRes, investorsRes, transactionsRes] = await Promise.all([

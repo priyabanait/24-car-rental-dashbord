@@ -1,7 +1,6 @@
 import React from 'react';
 import DriverWalletMessages from './pages/drivers/DriverWalletMessages';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
@@ -41,7 +40,8 @@ import InvestorCar from './pages/investments/InvestmentCar'
 import InvesterDetails from './components/investors/InvesterDetails.jsx';
 import Profile from './pages/settings/Profile';
 import CityManagement from './pages/cities/CityManagement';
-
+import DashboardSocket from './components/notifications/DashboardSocket';
+import AdminNotification from './components/notifications/AdminNotification.jsx';
 // Protected Route Component
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -135,6 +135,7 @@ function AppRoutes() {
             <Route path="investerDetails" element={<InvesterDetails />} />
             <Route path="settings" element={<Profile />} />
             <Route path="cities" element={<CityManagement />} />
+            <Route path="notification" element={<AdminNotification />} />
         {/* Add more routes as we create them */}
       </Route>
     </Routes>
@@ -146,19 +147,6 @@ function App() {
     <AuthProvider>
       <Router>
         <AppRoutes />
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
-              duration: 3000,
-            },
-          }}
-        />
       </Router>
     </AuthProvider>
   );

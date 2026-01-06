@@ -8,7 +8,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     'White', 'Black', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Other'
   ];
 
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -131,15 +131,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
     }
   };
 
-  const fetchInvestors = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/investors`);
-      const data = res.ok ? await res.json() : [];
-      setInvestors(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setInvestors([]);
-    }
-  };
+  
 
   const fetchCities = async () => {
     try {
@@ -358,6 +350,18 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
       return null;
     }
   };
+  const fetchInvestors = async () => {
+    try {
+      // Request a larger limit for dropdowns and support paginated or raw array responses
+      const res = await fetch(`${API_BASE}/api/investors?limit=1000`);
+      const result = res.ok ? await res.json() : [];
+      const data = result.data || result;
+      setInvestors(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setInvestors([]);
+    }
+  };
+
 
   const handleSubmit = async () => {
     // final validation before submit
@@ -645,7 +649,17 @@ export default function VehicleModal({ isOpen, onClose, vehicle = null, onSave }
                 <input className={`input ${errors.registrationNumber ? 'border-red-500' : ''}`} value={form.registrationNumber} onChange={(e)=>handleChange('registrationNumber', e.target.value)} />
                 {errors.registrationNumber && <p className="text-xs text-red-600 mt-1">{errors.registrationNumber}</p>}
               </div>
-
+ <div>
+                <label className="block text-sm font-medium">Select Investor</label>
+                <select className="input" value={form.investorId} onChange={(e)=>handleChange('investorId', e.target.value)}>
+                  <option value="">Select Investor</option>
+                  {investors.map((investor) => (
+                    <option key={investor._id || investor.id} value={investor._id || investor.id}>
+                      {investor.investorName || investor.name} {investor.phone ? `(${investor.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
               
 
               <div>

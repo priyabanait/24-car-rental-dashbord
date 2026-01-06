@@ -9,7 +9,7 @@ export default function DriverWalletMessages() {
     async function fetchMessages() {
       setLoading(true);
       try {
-        const res = await axios.get('https://24-car-rental-backend.vercel.app/api/driver-wallet-message');
+        const res = await axios.get('http://localhost:4000/api/driver-wallet-message');
         setMessages(res.data);
       } catch (err) {
         setMessages([]);

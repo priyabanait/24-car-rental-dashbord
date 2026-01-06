@@ -37,11 +37,13 @@ export default function DriverStatus() {
       setLoading(true);
       setError(null);
       try {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const res = await fetch(`${API_BASE}/api/drivers`);
         if (!res.ok) throw new Error(`Failed to load drivers: ${res.status}`);
         const list = await res.json();
-        if (mounted) setDriversData(list);
+        // Support response with { data, pagination } or raw array
+        const data = list?.data || list;
+        if (mounted) setDriversData(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err.message || 'Failed to load drivers');
       } finally {
@@ -74,7 +76,7 @@ export default function DriverStatus() {
 
     (async () => {
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         const token = localStorage.getItem('24cr_token') || 'mock';
         const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
           method: 'PUT',
@@ -86,7 +88,7 @@ export default function DriverStatus() {
         });
         if (!res.ok) throw new Error(`Failed to update: ${res.status}`);
         const updated = await res.json();
-        setDriversData(prev => prev.map(d => d.id === driverId ? updated : d));
+        setDriversData(prev => prev.map(d => ((d.id || d._id) === driverId ? updated : d)));
         toast.success('Driver status updated');
       } catch (err) {
         console.error('Status update failed', err);
@@ -97,7 +99,7 @@ export default function DriverStatus() {
 
   const handleChangeDriverStatus = async (driverId, newStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('24cr_token') || 'mock';
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -124,7 +126,7 @@ export default function DriverStatus() {
   const handleBulkStatusUpdate = (newStatus) => {
     if (!hasPermission('drivers.edit') || selectedDrivers.size === 0) return;
     const ids = Array.from(selectedDrivers);
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
     const token = localStorage.getItem('24cr_token') || 'mock';
 
     (async () => {
@@ -139,7 +141,7 @@ export default function DriverStatus() {
         })));
         const updatedList = await Promise.all(responses.map(r => r.ok ? r.json() : null));
         setDriversData(prev => prev.map(d => {
-          const updated = updatedList.find(u => u && u.id === d.id);
+          const updated = updatedList.find(u => u && ((u.id || u._id) === (d.id || d._id)));
           return updated ? updated : d;
         }));
       } catch (err) {
@@ -161,7 +163,7 @@ export default function DriverStatus() {
   };
 
   const selectAllDrivers = () => {
-    const allDriverIds = new Set(filteredDrivers.map(d => d.id));
+    const allDriverIds = new Set(filteredDrivers.map(d => d.id || d._id));
     setSelectedDrivers(selectedDrivers.size === filteredDrivers.length ? new Set() : allDriverIds);
   };
 

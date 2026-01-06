@@ -24,7 +24,7 @@ import { PermissionGuard } from '../../components/guards/PermissionGuards';
 import { PERMISSIONS } from '../../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 const Investors = () => {
   const { hasPermission } = useAuth();
@@ -105,7 +105,6 @@ const Investors = () => {
       paymentMethod: '',
       investmentRate: '',
       investmentAmount: '',
-      planId: '',
       planId: '',
       fdType: 'monthly',
       termMonths: '',

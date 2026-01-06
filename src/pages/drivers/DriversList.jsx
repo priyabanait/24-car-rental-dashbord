@@ -15,7 +15,8 @@ import {
   XCircle,
   Clock,
   AlertTriangle,
-  MoreHorizontal
+  MoreHorizontal,
+  User
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -53,8 +54,8 @@ export default function DriversList() {
       setError(null);
       try {
         // Use Vite env var VITE_API_BASE to point to backend in dev/production.
-        // Fallback to https://24-car-rental-backend.vercel.app for local development.
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        // Fallback to http://localhost:4000 for local development.
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
         
         // Fetch manual drivers
         const res = await fetch(`${API_BASE}/api/drivers?limit=1000`);
@@ -149,9 +150,10 @@ export default function DriversList() {
   const handleEditDriver = async (driver) => {
     try {
       // Fetch complete driver data from the backend
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('24cr_token');
-      const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
+        const id = driver.id || driver._id;
+      const res = await fetch(`${API_BASE}/api/drivers/${id}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
 
@@ -173,29 +175,68 @@ export default function DriversList() {
 
   const handleSaveDriver = async (driverData) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('24cr_token');
       
       if (selectedDriver) {
         // Update existing driver
-        const res = await fetch(`${API_BASE}/api/drivers/${selectedDriver.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify(driverData)
-        });
+        // Prefer MongoDB _id when available, fallbacks afterwards
+        const targetCandidates = [selectedDriver?._id, selectedDriver?.id, driverData?._id, driverData?.id];
+        const candidates = [...new Set(targetCandidates.filter(Boolean))];
+        if (candidates.length === 0) throw new Error('No driver id available for update');
+
+        const doPut = async (idToUse) => {
+          console.info('PUT /api/drivers/', idToUse, 'body:', driverData);
+          const res = await fetch(`${API_BASE}/api/drivers/${idToUse}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify(driverData)
+          });
+          return res;
+        };
+
+        let res = null;
+        // Try candidates in order (prefer _id)
+        for (const c of candidates) {
+          res = await doPut(c);
+          if (res.ok) break;
+          if (res.status !== 404) break; // non-404 means stop and surface error
+        }
+
+        // As a last resort, if we still have a 404 and there is a numeric form of any candidate, try numeric
+        if (res && !res.ok && res.status === 404) {
+          for (const c of candidates) {
+            const numericId = Number(c);
+            if (!isNaN(numericId)) {
+              console.warn('Previous attempts returned 404; retrying with numeric id', numericId);
+              res = await doPut(numericId);
+              if (res.ok) break;
+            }
+          }
+        }
 
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) { localStorage.removeItem('24cr_token'); navigate('/login'); return; }
-          throw new Error(`Failed to update driver: ${res.status}`);
+          // Try to extract JSON message where possible
+          let bodyText = '';
+          try {
+            const b = await res.json();
+            bodyText = b.message || b.error || JSON.stringify(b);
+          } catch (err) {
+            try { bodyText = await res.text(); } catch { bodyText = String(res.status); }
+          }
+          throw new Error(`Failed to update driver: ${res.status} ${bodyText}`);
         }
 
         const updatedDriver = await res.json();
-        setDriversData(prev => prev.map(driver => 
-          driver.id === selectedDriver.id ? updatedDriver : driver
-        ));
+        setDriversData(prev => prev.map(driver => {
+          const did = driver.id || driver._id;
+          const selId = selectedDriver?._id || selectedDriver?.id || targetCandidates[0];
+          return String(did) === String(selId) ? updatedDriver : driver;
+        }));
         toast.success('Driver updated successfully');
       } else {
         // Add new driver
@@ -229,7 +270,7 @@ export default function DriversList() {
     if (window.confirm('Are you sure you want to delete this driver?')) {
       (async () => {
         try {
-          const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+          const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
           const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
             method: 'DELETE'
           });
@@ -245,7 +286,7 @@ export default function DriversList() {
           }
 
           // Remove from local state after successful deletion
-          setDriversData(prev => prev.filter(driver => driver.id !== driverId));
+          setDriversData(prev => prev.filter(driver => (driver.id || driver._id) !== driverId));
           toast.success('Driver deleted successfully');
         } catch (err) {
           console.error(err);
@@ -262,7 +303,7 @@ export default function DriversList() {
 
   const handleChangeDriverStatus = async (driverId, newStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app'||'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'||'http://localhost:4000';
       const token = localStorage.getItem('24cr_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -275,7 +316,7 @@ export default function DriversList() {
         throw new Error(msg);
       }
       const updated = await res.json();
-      setDriversData(prev => prev.map(d => d.id === driverId ? updated : d));
+      setDriversData(prev => prev.map(d => ((d.id || d._id) === driverId ? updated : d)));
       toast.success('Driver status updated');
     } catch(err) {
       console.error(err);
@@ -285,7 +326,7 @@ export default function DriversList() {
 
   const handleChangeDriverKyc = async (driverId, newKyc) => {
     try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const token = localStorage.getItem('24cr_token');
       const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
         method: 'PUT',
@@ -298,7 +339,7 @@ export default function DriversList() {
         throw new Error(msg);
       }
       const updated = await res.json();
-      setDriversData(prev => prev.map(d => d.id === driverId ? updated : d));
+      setDriversData(prev => prev.map(d => ((d.id || d._id) === driverId ? updated : d)));
       toast.success('Driver KYC status updated');
     } catch(err) {
       console.error(err);
@@ -450,7 +491,20 @@ export default function DriversList() {
           <CardContent className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <Car className="h-6 w-6 text-green-600" />
+                <User className="h-6 w-6 text-green-600" />
+              </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Drivers</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredDrivers.length}</p>
+            </div>
+            </div>
+          </CardContent>
+        </Card>
+ <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <User className="h-6 w-6 text-green-600" />
               </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Active Drivers</p>
@@ -459,7 +513,6 @@ export default function DriversList() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -668,12 +721,15 @@ export default function DriversList() {
                         <button
                           onClick={async () => {
                             try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+                              const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
                               const token = localStorage.getItem('24cr_token');
-                              const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
+                              const id = driver.id || driver._id;
+                              const res = await fetch(`${API_BASE}/api/drivers/${id}`, {
                                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                               });
-                              if (!res.ok) throw new Error('Failed to fetch driver details');
+                              if (!res.ok) {
+                                throw new Error(`Failed to fetch driver details: ${res.status}`);
+                              }
                               const driverDetails = await res.json();
                               setSelectedViewDriver(driverDetails);
                               setShowDetailModal(true);
@@ -701,7 +757,7 @@ export default function DriversList() {
                         <PermissionGuard permission={PERMISSIONS.DRIVERS_KYC}>
                           <select
                             value={driver.kycStatus || 'incomplete'}
-                            onChange={(e)=>handleChangeDriverKyc(driver.id, e.target.value)}
+                            onChange={(e)=>handleChangeDriverKyc(driver.id || driver._id, e.target.value)}
                             className="border border-gray-300 rounded-md text-sm h-8 py-1 px-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                             style={{ minWidth: '120px' }}
                           >
@@ -727,7 +783,7 @@ export default function DriversList() {
 
                         <PermissionGuard permission={PERMISSIONS.DRIVERS_DELETE}>
                           <button
-                            onClick={() => handleDeleteDriver(driver.id)}
+                            onClick={() => handleDeleteDriver(driver.id || driver._id)}
                             className="p-1 text-gray-400 hover:text-red-600"
                             title="Delete Driver"
                           >

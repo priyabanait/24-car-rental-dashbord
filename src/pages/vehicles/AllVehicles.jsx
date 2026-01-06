@@ -78,7 +78,7 @@ export default function VehiclesList() {
     (async function fetchAll(){
       setLoading(true);
       try{
-        const API_BASE =  'https://24-car-rental-backend.vercel.app';
+        const API_BASE =  'http://localhost:4000';
         const [vehicleRes, driverRes, managerRes] = await Promise.all([
           fetch(`${API_BASE}/api/vehicles?limit=1000`),
           fetch(`${API_BASE}/api/drivers?limit=1000`),
@@ -129,7 +129,7 @@ export default function VehiclesList() {
     // fetch fresh vehicle data from backend before opening modal so all fields are populated
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const apiId = resolveApiVehicleId(vehicle);
       if (apiId == null || Number.isNaN(apiId)) {
         // If we can't resolve an API id, skip fetching and use available data
@@ -154,7 +154,7 @@ export default function VehiclesList() {
   const handleViewVehicle = async (vehicle) => {
     try{
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const id = resolveApiVehicleId(vehicle);
       if (id == null || Number.isNaN(id)) {
         setSelectedVehicle(normalizeVehicle(vehicle));
@@ -208,7 +208,7 @@ export default function VehiclesList() {
         }
       }
 
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const headers = {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
@@ -247,6 +247,13 @@ export default function VehiclesList() {
         return [...prev, saved];
       });
 
+      // Notify other pages that a vehicle was updated (so payments/bookings can refresh)
+      try {
+        window.dispatchEvent(new CustomEvent('vehicle:updated', { detail: { vehicleId: saved.vehicleId } }));
+      } catch (e) {
+        console.warn('Failed to dispatch vehicle:updated event', e);
+      }
+
       setShowVehicleModal(false);
       setSelectedVehicle(null);
       toast.success(`Vehicle ${selectedVehicle ? 'updated' : 'created'} successfully`);
@@ -259,12 +266,12 @@ export default function VehiclesList() {
   const handleDeleteVehicle = async (vehicleOrId) => {
     if (!window.confirm('Delete this vehicle?')) return;
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const resolvedId = typeof vehicleOrId === 'object' ? resolveApiVehicleId(vehicleOrId) : (Number.isFinite(Number(vehicleOrId)) ? Number(vehicleOrId) : undefined);
       if (!resolvedId && resolvedId !== 0) {
         throw new Error('Vehicle not found');
       }
-      const res = await fetch(`${API_BASE}/api/vehicles/${resolvedId}`, { method: 'DELETE', headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/api/vehicles/${resolvedId}`, { method: 'DELETE' });
       if (!res.ok) {
         if (handleAuthRedirectIfNeeded(res)) return;
         const b = await res.json().catch(()=>null);
@@ -281,7 +288,7 @@ export default function VehiclesList() {
 
   const handleChangeStatus = async (vehicleId, newStatus) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -293,13 +300,18 @@ export default function VehiclesList() {
       }
       const updated = await res.json();
       setVehiclesData(prev => prev.map(v => v.vehicleId === vehicleId ? updated : v));
+      try {
+        window.dispatchEvent(new CustomEvent('vehicle:updated', { detail: { vehicleId } }));
+      } catch (e) {
+        console.warn('Failed to dispatch vehicle:updated event', e);
+      }
       toast.success('Vehicle status updated');
     }catch(err){ console.error(err); toast.error(err.message||'Failed to update status'); }
   };
 
   const handleChangeKyc = async (vehicleId, newKyc) => {
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
       const res = await fetch(`${API_BASE}/api/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: { 'Content-Type':'application/json', ...getAuthHeaders() },
@@ -311,6 +323,11 @@ export default function VehiclesList() {
       }
       const updated = await res.json();
       setVehiclesData(prev => prev.map(v => v.vehicleId === vehicleId ? updated : v));
+      try {
+        window.dispatchEvent(new CustomEvent('vehicle:updated', { detail: { vehicleId } }));
+      } catch (e) {
+        console.warn('Failed to dispatch vehicle:updated event', e);
+      }
       toast.success('Vehicle KYC status updated');
     }catch(err){ console.error(err); toast.error(err.message||'Failed to update KYC status'); }
   };
@@ -420,7 +437,20 @@ export default function VehiclesList() {
 
       {/* Top stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        
         <Card>
+          <CardContent className="p-2">
+            <div className="flex items-start">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Car className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Vehicles</p>
+                        <p className="text-2xl font-bold text-gray-900">{vehiclesData.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card><Card>
           <CardContent className="p-2">
             <div className="flex items-start">
               <div className="p-2 bg-green-100 rounded-lg">
@@ -567,12 +597,12 @@ export default function VehiclesList() {
                   <TableHead>Manufacture Year</TableHead>
                   <TableHead>Registration Date</TableHead>
                   {/* <TableHead>RC Expiry</TableHead> */}
-                  <TableHead>Road Tax Date</TableHead>
+                  {/* <TableHead>Road Tax Date</TableHead> */}
                   {/* <TableHead>Road Tax No.</TableHead> */}
-                  <TableHead>Insurance Date</TableHead>
-                  <TableHead>Permit Date</TableHead>
+                  {/* <TableHead>Insurance Date</TableHead> */}
+                  {/* <TableHead>Permit Date</TableHead> */}
                   <TableHead>Car Submit Date</TableHead>
-                  <TableHead>PUC No.</TableHead>
+                  {/* <TableHead>PUC No.</TableHead> */}
                   {/* <TableHead>Traffic Fine</TableHead>
                   <TableHead>Fine Date</TableHead> */}
                   <TableHead>Assigned Driver</TableHead>
@@ -610,11 +640,11 @@ export default function VehiclesList() {
                     <TableCell>{formatDate(v.registrationDate)}</TableCell>
                     {/* <TableCell>{formatDate(v.rcExpiryDate || v.rcExpiry)}</TableCell> */}
                     {/* <TableCell>{formatDate(v.roadTaxDate)}</TableCell> */}
-                    <TableCell>{v.roadTaxNumber || '-'}</TableCell>
+                    {/* <TableCell>{v.roadTaxNumber || '-'}</TableCell>
                     <TableCell>{formatDate(v.insuranceDate || v.insuranceExpiry)}</TableCell>
-                    <TableCell>{formatDate(v.permitDate)}</TableCell>
+                    <TableCell>{formatDate(v.permitDate)}</TableCell> */}
                     <TableCell>{formatDate(v.emissionDate)}</TableCell>
-                    <TableCell>{v.pucNumber || '-'}</TableCell>
+                    {/* <TableCell>{v.pucNumber || '-'}</TableCell> */}
                     {/* <TableCell>{v.trafficFine ?? '-'}</TableCell>
                     <TableCell>{formatDate(v.trafficFineDate)}</TableCell> */}
                     <TableCell>{
