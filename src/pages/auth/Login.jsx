@@ -28,9 +28,13 @@ export default function Login() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-primary-600 rounded-xl flex items-center justify-center">
-              <span className="text-2xl font-bold text-white">UD</span>
-            </div>
+           <div className="w-24 h-24 rounded-lg overflow-hidden">
+      <img
+        src="/24carlogo.png"
+        alt="24 Car Rental"
+        className="w-full h-full object-contain"
+      />
+    </div>
           </div>
           <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
           <p className="mt-2 text-gray-600">Sign in to your 24 Car Rental admin account</p>
