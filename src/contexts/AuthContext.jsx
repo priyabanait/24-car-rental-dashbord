@@ -16,7 +16,7 @@ export function useAuth() {
 const MOCK_USERS = [
   {
     id: 1,
-    email: 'admin@24carrental.com',
+    email: 'admin@urbankey.com',
     password: 'admin123',
     name: 'Admin',
    
@@ -30,7 +30,7 @@ const MOCK_USERS = [
   },
   {
     id: 2,
-    email: 'manager@24carrental.com',
+    email: 'manager@urbankey.com',
     password: 'manager123',
     name: 'Manager',
    
@@ -149,8 +149,8 @@ export function AuthProvider({ children }) {
         return { success: true };
       }
       // If not a mock user, try backend manager login
-      const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
-      const response = await fetch(`${API_BASE}/api/managers/login`, {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

@@ -8,6 +8,9 @@ export function Card({ className, children, ...props }) {
   );
 }
 
+// Allow both named and default imports
+export default Card;
+
 export function CardHeader({ className, children, ...props }) {
   return (
     <div className={cn('mb-4', className)} {...props}>

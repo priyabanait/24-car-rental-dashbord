@@ -13,7 +13,7 @@ export function NotificationsProvider({ children }) {
 
   useEffect(() => {
     // Try to fetch recent notifications from backend; fall back to localStorage
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/api/notifications?limit=100`);
@@ -42,8 +42,15 @@ export function NotificationsProvider({ children }) {
       const saved = localStorage.getItem('notifications');
       if (saved) {
         try {
-          setNotifications(JSON.parse(saved));
-        } catch (e) {}
+          // Guard against invalid HTML/string values
+          if (saved.trim().startsWith('<')) {
+            localStorage.removeItem('notifications');
+          } else {
+            setNotifications(JSON.parse(saved));
+          }
+        } catch (e) {
+          localStorage.removeItem('notifications');
+        }
       }
     })();
   }, []);

@@ -1,47 +1,24 @@
 import React from 'react';
-import DriverWalletMessages from './pages/drivers/DriverWalletMessages';
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import Dashboard from './pages/dashboard/Dashboard';
-import DriversList from './pages/drivers/DriversList';
-import DriverStatus from './pages/drivers/DriverStatus';
-import DriverPerformance from './pages/drivers/DriverPerformance';
-import DriverPayments from './pages/drivers/DriverPayments';
-import DriverLogin from './pages/drivers/DriverLogin';
-import DriverPlanSelection from './pages/drivers/DriverPlanSelection';
-import DriverMyPlans from './pages/drivers/DriverMyPlans';
-import VehicleDocuments from './pages/vehicles/VehicleDocuments';
-import InvestmentManagement from './pages/investments/InvestmentManagement';
-import Investors from './pages/investments/Investors';
-import InvesterLogin from './pages/investments/InvesterLogin';
-import InvestorPlanSelection from './pages/investments/InvestorPlanSelection';
-import PaymentManagement from './pages/payments/DriverPayments';
-import PaymentProcess from './pages/payments/PaymentProcess';
-import ExpenseManagement from './pages/expenses/ExpenseManagement';
-import ExpenseReports from './pages/expenses/ExpenseReports';
-import ExpenseCategories from './pages/expenses/ExpenseCategories';
-import FinancialReports from './pages/reports/FinancialReports';
-import PerformanceReports from './pages/reports/PerformanceReports';
-import CarPlans from './pages/plans/CarPlans';
-import DriverEnrollments from './pages/plans/DriverEnrollments';
-import DriverPlanSelections from './pages/plans/DriverPlanSelections';
-import AdminUsers from './pages/admin/AdminUsers';
-import RoleManagement from './pages/admin/RoleManagement';
-import SignupCredentials from './pages/admin/SignupCredentials';
-import AllVehicles from './pages/vehicles/AllVehicles';
-import DriverWallet from './pages/drivers/DriverWallet';
-import InvestorWallet from './pages/investors/InvestorWallet';
-import InvestmentWalletMessages from './pages/investors/InvestmentWalletMessages';
-import ManagerPage from './pages/manager/ManagerPage';
-import InvestorCar from './pages/investments/InvestmentCar'
-import InvesterDetails from './components/investors/InvesterDetails.jsx';
-import Profile from './pages/settings/Profile';
-import CityManagement from './pages/cities/CityManagement';
-import DashboardSocket from './components/notifications/DashboardSocket';
+import Towersflats from './components/societymanagment/Towersflats.jsx';
 import AdminNotification from './components/notifications/AdminNotification.jsx';
+// import Residents from './pages/society/Residents.jsx';
+import ResidentsManagement from './pages/society/ResidentsManagement.jsx';
+import ApprovalsUsers from './pages/society/ApprovalsUsers.jsx';
+import ApprovalsMembers from './pages/society/ApprovalsMembers.jsx';
+import Amenities from './pages/society/Amenities.jsx';
+import Helpdesk from './pages/society/Helpdesk.jsx';
+import Announcements from './pages/society/Announcements.jsx';
+import Polls from './pages/society/Polls.jsx';
+import Maintenance from './pages/society/Maintenance.jsx';
+import Directory from './pages/society/Directory.jsx';
+import Visitors from './pages/society/Visitors.jsx';
 // Protected Route Component
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -76,13 +53,11 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public standalone Driver Login (not redirected even if authenticated) */}
-      <Route path="/drivers/login" element={<DriverLogin />} />
-      <Route path="/drivers/select-plan" element={<DriverPlanSelection />} />
-      <Route path="/drivers/my-plans" element={<DriverMyPlans />} />
+  
+ 
 
     {/* Public Investor routes */}
-      <Route path="/investors/login" element={<InvesterLogin />} />
-      <Route path="/investors/select-plan" element={<InvestorPlanSelection />} />
+   
       
       <Route path="/login" element={
         <PublicRoute>
@@ -101,42 +76,21 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="towersflats" element={<Towersflats />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="drivers" element={<DriversList />} />
-        <Route path="drivers/status" element={<DriverStatus />} />
-        <Route path="drivers/performance" element={<DriverPerformance />} />
-        <Route path="drivers/payments" element={<DriverPayments />} />
-  {/* Removed DriverLogin from protected nested routes to avoid dashboard layout */}
-        <Route path="vehicles/documents" element={<VehicleDocuments />} />
-        <Route path="investments" element={<InvestmentManagement />} />
-        <Route path="investments/investors" element={<Investors />} />
-        <Route path="payments/drivers" element={<PaymentManagement />} />
-        <Route path="payments/driverpayments" element={<PaymentManagement />} />
-        <Route path="payments/process" element={<PaymentProcess />} />
-        <Route path="expenses" element={<ExpenseManagement />} />
-        <Route path="expenses/reports" element={<ExpenseReports />} />
-        <Route path="expenses/categories" element={<ExpenseCategories />} />
-        <Route path="reports/financial" element={<FinancialReports />} />
-        <Route path="reports/performance" element={<PerformanceReports />} />
-        <Route path="plans" element={<CarPlans />} />
-        <Route path="plans/enrollments" element={<DriverEnrollments />} />
-        <Route path="plans/selections" element={<DriverPlanSelections />} />
-        <Route path="admin/users" element={<AdminUsers />} />
-        <Route path="admin/roles" element={<RoleManagement />} />
-        <Route path="admin/signup-credentials" element={<SignupCredentials />} />
-        <Route path="vehicles/allvehicles" element={<AllVehicles />} />
-          <Route path="investments/InvesterLogin" element={<InvesterLogin />} />
-                <Route path="/drivers/wallet" element={<DriverWallet />}/>
-                <Route path="/drivers/wallet-messages" element={<DriverWalletMessages />} />
-                      <Route path="/investments/wallet" element={<InvestorWallet />} />
-                      <Route path="/investments/wallet-messages" element={<InvestmentWalletMessages />} />
-                       <Route path="/investments/car" element={<InvestorCar />} />
-            <Route path="manager" element={<ManagerPage />} />
-            <Route path="investerDetails" element={<InvesterDetails />} />
-            <Route path="settings" element={<Profile />} />
-            <Route path="cities" element={<CityManagement />} />
-            <Route path="notification" element={<AdminNotification />} />
-        {/* Add more routes as we create them */}
+        <Route path="notification" element={<AdminNotification />} />
+
+        {/* Society management routes */}
+        <Route path="society/manage/residents" element={<ResidentsManagement />} />
+        <Route path="society/approvals/users" element={<ApprovalsUsers />} />
+        <Route path="society/approvals/members" element={<ApprovalsMembers />} />
+        <Route path="society/amenities" element={<Amenities />} />
+        <Route path="society/helpdesk" element={<Helpdesk />} />
+        <Route path="society/announcements" element={<Announcements />} />
+        <Route path="society/polls" element={<Polls />} />
+        <Route path="society/maintenance" element={<Maintenance />} />
+        <Route path="society/directory" element={<Directory />} />
+        <Route path="society/visitors" element={<Visitors />} />
       </Route>
     </Routes>
   );

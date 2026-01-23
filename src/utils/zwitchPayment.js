@@ -3,7 +3,7 @@
  * Documentation: https://docs.zwitch.io/
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
 
 /**
  * Process a bank payout via ZWITCH

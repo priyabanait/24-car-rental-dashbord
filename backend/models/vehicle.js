@@ -1,169 +1,55 @@
 import mongoose from 'mongoose';
 
-// Counter schema for auto-incrementing vehicleId
-const CounterSchema = new mongoose.Schema({
-  _id: { type: String, required: true },
-  seq: { type: Number, default: 0 }
-});
-
-const Counter = mongoose.models.Counter || mongoose.model('Counter', CounterSchema);
-
-// Function to get the next sequence value
-async function getNextSequence(name) {
-  const counter = await Counter.findByIdAndUpdate(
-    name,
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
-  return counter.seq;
-}
-
-const VehicleSchema = new mongoose.Schema({
-  vehicleId: {
-    type: Number,
-    unique: true,
+const vehicleSchema = new mongoose.Schema({
+  resident: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Resident',
     required: true
   },
-  investorId: {
+  flat: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Investor',
-    required: false
+    ref: 'Flat',
+    required: true
   },
-  registrationNumber: {
+  vehicleNumber: {
     type: String,
+    required: [true, 'Vehicle number is required'],
     trim: true,
-    required: true,
+    uppercase: true,
     unique: true
   },
-  // Core details
-  model: String,
-  brand: String,
-  category: String,
-  carName: String,
-  ownerName: String,
-  ownerPhone: String,
-  year: Number,
-  registrationDate: String,
-  rcExpiryDate: String,
-  roadTaxDate: String,
-  roadTaxNumber: String,
-  insuranceDate: String,
-  permitDate: String,
-  emissionDate: String,
-  pucNumber: String,
-  trafficFine: Number,
-  trafficFineDate: String,
-  fuelType: String,
-  seatingCapacity: {
-    type: Number,
-    enum: [2, 4, 5, 7, 8],
-    default: 5
+  vehicleType: {
+    type: String,
+    enum: ['Two Wheeler', 'Four Wheeler', 'Other'],
+    required: true
   },
-  pricePerDay: {
-    type: Number,
-    default: 0
-  },
-  securityDeposit: {
-    type: Number,
-    default: 0
-  },
-  city: {
+  brand: {
     type: String,
     trim: true
   },
-  location: {
+  model: {
     type: String,
     trim: true
   },
-  assignedDriver: String,
-  assignedManager: {
+  color: {
     type: String,
-    default: ''
+    trim: true
   },
-  rentStartDate: Date,
-  rentPausedDate: Date,
-  kycStatus: {
+  parkingSlot: {
     type: String,
-    enum: ['active', 'inactive', 'pending'],
-    default: 'pending'
+    trim: true
   },
-  kycActivatedDate: {
-    type: Date
+  isApproved: {
+    type: Boolean,
+    default: false
   },
-  kycVerifiedDate: {
-    type: Date
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
-  status: {
-    type: String,
-    enum: ['active', 'inactive', 'pending', 'suspended'],
-    default: 'inactive'
-  },
-  remarks: String,
-  
-  // Documents
-  insuranceDoc: String,
-  rcDoc: String,
-  permitDoc: String,
-  pollutionDoc: String,
-  fitnessDoc: String,
-
-  // New photo URL fields (uploaded to Cloudinary)
-  registrationCardPhoto: String,
-  roadTaxPhoto: String,
-  pucPhoto: String,
-  permitPhoto: String,
-  carFrontPhoto: String,
-  carLeftPhoto: String,
-  carRightPhoto: String,
-  carBackPhoto: String,
-  carFullPhoto: String,
-  
-  // Features
-  features: {
-    type: [String],
-    default: []
-  },
-  
-  // Additional fields
-  make: String,
-  color: String,
-  purchaseDate: String,
-  purchasePrice: Number,
-  currentValue: Number,
-  mileage: Number,
-  lastService: String,
-  nextService: String,
-
-  // Dynamic rent slabs
-  weeklyRentSlabs: [
-    {
-      trips: Number,
-      rentDay: Number,
-      weeklyRent: Number,
-      accidentalCover: Number,
-      acceptanceRate: Number
-    }
-  ],
-  dailyRentSlabs: [
-    {
-      trips: Number,
-      rentDay: Number,
-      weeklyRent: Number,
-      accidentalCover: Number,
-      acceptanceRate: Number
-    }
-  ],
-    monthlyProfitMin: {
-      type: Number,
-      default: 0
-    }
-}, { 
-  timestamps: true,
-  strict: false // Allow additional fields
+  approvedAt: Date
+}, {
+  timestamps: true
 });
 
-// Add getNextSequence as a static method
-VehicleSchema.statics.getNextSequence = getNextSequence;
-
-const Vehicle = mongoose.models.Vehicle || mongoose.model('Vehicle', VehicleSchema);
-export default Vehicle;
+export default mongoose.model('Vehicle', vehicleSchema);

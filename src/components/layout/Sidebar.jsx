@@ -1,563 +1,231 @@
+'use client';
+
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PERMISSIONS } from '../../utils/permissions';
-import { useNavigate } from "react-router-dom";
+import { cn } from '../../utils';
+
 import {
   LayoutDashboard,
-  Users,
-  Car,
-  TrendingUp,
-  CreditCard,
-  Shield,
-  MessageSquare,
-  UserCheck,
-  Settings,
-  Bell,
-  FileText,
-  PlusCircle,
-  BarChart3,
-  Wallet,
-  MapPin,
-  ChevronDown,
-  ChevronRight,
-  Receipt,
   Building,
-  Target,
-  
+  UserCheck,
+  Home,
+  Users,
+  CalendarCheck,
+  MessageSquare,
+  Megaphone,
+  BarChart3,
+  FileText,
+  List,
+  LogIn,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
-import { cn } from '../../utils';
+
+/* =========================
+   SOCIETY ADMIN NAVIGATION
+========================= */
 
 const navigation = [
   {
     name: 'Dashboard',
-  href: '/dashboard',
+    href: '/dashboard',
     icon: LayoutDashboard,
-    permission: PERMISSIONS.DASHBOARD_VIEW
+    permission: PERMISSIONS.SOCIETY_ADMIN_VIEW
   },
-  // {
-  //   name: 'Manage Manager',
-  //   href: '/manager',
-  //   icon: LayoutDashboard,
-  //   permission: PERMISSIONS.DASHBOARD_VIEW
-  // },
   {
-    name: 'Driver Management',
-    icon: Users,
-    permission: PERMISSIONS.DRIVERS_VIEW,
+    name: 'Society Management',
+    icon: Building,
+    permission: PERMISSIONS.SOCIETY_MANAGE,
     children: [
-      { 
-        name: 'All Drivers', 
-        href: '/drivers',
-        permission: PERMISSIONS.DRIVERS_VIEW
-      },
-      // { 
-      //   name: 'Driver login', 
-      //   href: '/drivers/login',
-      //   permission: PERMISSIONS.DRIVERS_VIEW
-      // },
-      //  { 
-      //   name: 'Driver Wallet', 
-      //   href: '/drivers/wallet',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      //  { 
-      //   name: 'Driver Wallet Messages', 
-      //   href: '/drivers/wallet-messages',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      // { 
-      //   name: 'Driver Status', 
-      //   href: '/drivers/status',
-      //   permission: PERMISSIONS.DRIVERS_VIEW
-      // },
-      // { 
-      //   name: 'Performance', 
-      //   href: '/drivers/performance',
-      //   permission: PERMISSIONS.DRIVERS_PERFORMANCE
-      // },
-     
-    ]
-  },
-  {
-    name: 'Vehicle Management',
-    icon: Car,
-    permission: PERMISSIONS.VEHICLES_VIEW,
-    children: [
-      { 
-        name: 'All Vehicles', 
-        href: '/vehicles/allvehicles',
-        permission: PERMISSIONS.VEHICLES_VIEW
-      },
-      
-      // { 
-      //   name: 'Add Vehicle', 
-      //   href: '/vehicles/add',
-      //   permission: PERMISSIONS.VEHICLES_CREATE
-      // },
-      // { 
-      //   name: 'Assignments', 
-      //   href: '/vehicles/assignments',
-      //   permission: PERMISSIONS.VEHICLES_ASSIGN
-      // },
-      { 
-        name: 'Documents', 
-        href: '/vehicles/documents',
-        permission: PERMISSIONS.VEHICLES_VIEW
-      }
-    ]
-  },
-  {
-    name: 'Investment Management',
-    icon: Wallet,
-    permission: PERMISSIONS.INVESTMENTS_VIEW,
-    children: [
-      // { 
-      //   name: 'Invester Login', 
-      //   href: '/investments/InvesterLogin',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      { 
-        name: 'All Investments', 
-        href: '/investments',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-       { 
-        name: 'Investor Details', 
-        href: '/investerDetails',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-      // { 
-      //   name: 'Investment FD', 
-      //   href: '/investments/investors',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-       { 
-        name: 'Investment Car', 
-        href: '/investments/car',
-        permission: PERMISSIONS.INVESTMENTS_VIEW
-      },
-      //  { 
-      //   name: 'Investment Wallet', 
-      //   href: '/investments/wallet',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      // { 
-      //   name: 'Investment Wallet Messages', 
-      //   href: '/investments/wallet-messages',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      // { 
-      //   name: 'Investment Plans', 
-      //   href: '/investments/plans',
-      //   permission: PERMISSIONS.INVESTMENTS_VIEW
-      // },
-      // { 
-      //   name: 'Analytics', 
-      //   href: '/investments/analytics',
-      //   permission: PERMISSIONS.INVESTMENTS_ANALYTICS
-      // }
-    ]
-  },
-  // {
-  //   name: 'Car Plans',
-  //   icon: Target,
-  //   permission: PERMISSIONS.PLANS_VIEW,
-  //   children: [
-  //     { 
-  //       name: 'All Plans', 
-  //       href: '/plans',
-  //       permission: PERMISSIONS.PLANS_VIEW
-  //     },
-  //     // { 
-  //     //   name: 'Create Plan', 
-  //     //   href: '/plans/create',
-  //     //   permission: PERMISSIONS.PLANS_CREATE
-  //     // },
-  //     // { 
-  //     //   name: 'Driver Enrollments', 
-  //     //   href: '/plans/enrollments',
-  //     //   permission: PERMISSIONS.PLANS_VIEW
-  //     // },
-  //     // { 
-  //     //   name: 'Driver Plan Selections', 
-  //     //   href: '/plans/selections',
-  //     //   permission: PERMISSIONS.PLANS_VIEW
-  //     // }
-  //   ]
-  // },
-  // {
-  //   name: 'Investment Management',
-  //   icon: TrendingUp,
-  //   permission: PERMISSIONS.INVESTMENTS_VIEW,
-  //   children: [
-    
-  //     { 
-  //       name: 'All Investments', 
-  //       href: '/investments',
-  //       permission: PERMISSIONS.INVESTMENTS_VIEW
-  //     },
-  //      { 
-  //       name: 'Investor Details', 
-  //       href: '/investerDetails',
-  //       permission: PERMISSIONS.INVESTMENTS_VIEW
-  //     },
-  //     { 
-  //       name: 'Investment FD', 
-  //       href: '/investments/investors',
-  //       permission: PERMISSIONS.INVESTMENTS_VIEW
-  //     },
-  //      { 
-  //       name: 'Investment Car', 
-  //       href: '/investments/car',
-  //       permission: PERMISSIONS.INVESTMENTS_VIEW
-  //     },
-  //      { 
-  //       name: 'Investment Wallet', 
-  //       href: '/investments/wallet',
-  //       permission: PERMISSIONS.INVESTMENTS_VIEW
-  //     },
-  //     { 
-  //       name: 'Investment Wallet Messages', 
-  //       href: '/investments/wallet-messages',
-  //       permission: PERMISSIONS.INVESTMENTS_VIEW
-  //     },
-  //     // { 
-  //     //   name: 'Investment Plans', 
-  //     //   href: '/investments/plans',
-  //     //   permission: PERMISSIONS.INVESTMENTS_VIEW
-  //     // },
-  //     // { 
-  //     //   name: 'Analytics', 
-  //     //   href: '/investments/analytics',
-  //     //   permission: PERMISSIONS.INVESTMENTS_ANALYTICS
-  //     // }
-  //   ]
-  // },
-  {
-    name: 'Payment Management',
-    icon: CreditCard,
-    permission: PERMISSIONS.PAYMENTS_VIEW,
-    children: [
-      // { 
-      //   name: 'Payment Dashboard', 
-      //   href: '/payments',
-      //   permission: PERMISSIONS.PAYMENTS_VIEW
-      // },
-      // { 
-      //   name: 'Driver Payments', 
-      //   href: '/payments/drivers',
-      //   permission: PERMISSIONS.PAYMENTS_VIEW
-      // },
-      //  { 
-      //   name: 'Driver Payments', 
-      //   href: '/drivers/payments',
-      //   permission: PERMISSIONS.PAYMENTS_VIEW
-      // }
-      // { 
-      //   name: 'Invester FD Payments', 
-      //   href: '/payments/process',
-      //   permission: PERMISSIONS.PAYMENTS_PROCESS
-      // },
-        { 
-        name: 'Driver Payments', 
-        href: '/payments/driverpayments',
-        permission: PERMISSIONS.PAYMENTS_PROCESS
-      },
-      // { 
-      //   name: 'Analytics', 
-      //   href: '/payments/analytics',
-      //   permission: PERMISSIONS.PAYMENTS_ANALYTICS
-      // }
-    ]
-  },
-  {
-    name: 'Notification Management',
-    href: '/notification',
-    icon: Bell ,
-    permission: PERMISSIONS.DASHBOARD_VIEW
-  },
-  // {
-  //   name: 'Expense Management',
-  //   icon: Receipt,
-  //   permission: PERMISSIONS.EXPENSES_VIEW,
-  //   children: [
-  //     { 
-  //       name: 'All Expenses', 
-  //       href: '/expenses',
-  //       permission: PERMISSIONS.EXPENSES_VIEW
-  //     },
-  //     // { 
-  //     //   name: 'Add Expense', 
-  //     //   href: '/expenses/add',
-  //     //   permission: PERMISSIONS.EXPENSES_CREATE
-  //     // },
-  //     // { 
-  //     //   name: 'Expense Reports', 
-  //     //   href: '/expenses/reports',
-  //     //   permission: PERMISSIONS.EXPENSES_VIEW
-  //     // },
-  //     // { 
-  //     //   name: 'Categories', 
-  //     //   href: '/expenses/categories',
-  //     //   permission: PERMISSIONS.EXPENSES_VIEW
-  //     // }
-  //   ]
-  // },
-  {
-    name: 'City Management',
-    icon: MapPin,
-    permission: PERMISSIONS.ADMIN_VIEW,
-    children: [
-      { 
-        name: 'All Cities', 
-        href: '/cities',
-        permission: PERMISSIONS.ADMIN_VIEW
-      }
-    ]
-  },
-  // {
-  //   name: 'Analytics & Reports',
-  //   icon: BarChart3,
-  //   permission: PERMISSIONS.REPORTS_VIEW,
-  //   children: [
-  //     { 
-  //       name: 'Financial Reports', 
-  //       href: '/reports/financial',
-  //       permission: PERMISSIONS.REPORTS_FINANCIAL
-  //     },
-  //     { 
-  //       name: 'Performance Reports', 
-  //       href: '/reports/performance',
-  //       permission: PERMISSIONS.REPORTS_PERFORMANCE
-  //     },
-  //     // { 
-  //     //   name: 'Export Data', 
-  //     //   href: '/reports/export',
-  //     //   permission: PERMISSIONS.REPORTS_EXPORT
-  //     // }
-  //   ]
-  // },
-  {
-    name: 'Admin Management',
-    icon: Shield,
-    permission: PERMISSIONS.ADMIN_VIEW,
-    children: [
-      // { 
-      //   name: 'Admin Users', 
-      //   href: '/admin/users',
-      //   permission: PERMISSIONS.ADMIN_VIEW
-      // },
-      // { 
-      //   name: 'Roles & Permissions', 
-      //   href: '/admin/roles',
-      //   permission: PERMISSIONS.ADMIN_ROLES
-      // },
       {
-        name: 'Signup Credentials',
-        href: '/admin/signup-credentials',
-        permission: PERMISSIONS.ADMIN_VIEW
+        name: 'Towers & Flats',
+        href: '/towersflats',
+        permission: PERMISSIONS.SOCIETY_MANAGE
+      },
+      {
+        name: 'Residents',
+        href: '/society/manage/residents',
+        permission: PERMISSIONS.SOCIETY_MANAGE
       }
     ]
   },
-  // {
-  //   name: 'Ticket System',
-  //   icon: MessageSquare,
-  //   permission: PERMISSIONS.TICKETS_VIEW,
-  //   children: [
-  //     { 
-  //       name: 'All Tickets', 
-  //       href: '/tickets',
-  //       permission: PERMISSIONS.TICKETS_VIEW
-  //     },
-  //     { 
-  //       name: 'Create Ticket', 
-  //       href: '/tickets/create',
-  //       permission: PERMISSIONS.TICKETS_CREATE
-  //     }
-  //   ]
-  // },
-  // {
-  //   name: 'HR Management',
-  //   icon: UserCheck,
-  //   permission: PERMISSIONS.HR_VIEW,
-  //   children: [
-  //     { 
-  //       name: 'Employees', 
-  //       href: '/hr/employees',
-  //       permission: PERMISSIONS.HR_VIEW
-  //     },
-  //     { 
-  //       name: 'Attendance', 
-  //       href: '/hr/attendance',
-  //       permission: PERMISSIONS.HR_VIEW
-  //     },
-  //     { 
-  //       name: 'Payroll', 
-  //       href: '/hr/payroll',
-  //       permission: PERMISSIONS.HR_PAYROLL
-  //     }
-  //   ]
-  // },
-  // {
-  //   name: 'Settings',
-  //   icon: Settings,
-  //   permission: PERMISSIONS.SETTINGS_VIEW,
-  //   children: [
-  //     { 
-  //       name: 'General Settings', 
-  //       href: '/settings/general',
-  //       permission: PERMISSIONS.SETTINGS_VIEW
-  //     },
-  //     { 
-  //       name: 'System Settings', 
-  //       href: '/settings/system',
-  //       permission: PERMISSIONS.SETTINGS_SYSTEM
-  //     }
-  //   ]
-  // }
+  {
+    name: 'Approvals',
+    icon: UserCheck,
+    permission: PERMISSIONS.SOCIETY_APPROVALS,
+    children: [
+      {
+        name: 'Residents & Security',
+        href: '/society/approvals/users',
+        permission: PERMISSIONS.SOCIETY_APPROVALS
+      },
+      {
+        name: 'Family / Vehicles / Maids',
+        href: '/society/approvals/members',
+        permission: PERMISSIONS.SOCIETY_APPROVALS
+      }
+    ]
+  },
+  
+  {
+    name: 'Amenities',
+    href: '/society/amenities',
+    icon: CalendarCheck,
+    permission: PERMISSIONS.AMENITIES_VIEW
+  },
+  {
+    name: 'Helpdesk',
+    href: '/society/helpdesk',
+    icon: MessageSquare,
+    permission: PERMISSIONS.HELPDESK_VIEW
+  },
+  {
+    name: 'Announcements & Wall',
+    href: '/society/announcements',
+    icon: Megaphone,
+    permission: PERMISSIONS.ANNOUNCEMENTS_VIEW
+  },
+  {
+    name: 'Polls & Results',
+    href: '/society/polls',
+    icon: BarChart3,
+    permission: PERMISSIONS.POLLS_VIEW
+  },
+  {
+    name: 'Maintenance Reports',
+    href: '/society/maintenance',
+    icon: FileText,
+    permission: PERMISSIONS.MAINTENANCE_REPORTS
+  },
+  {
+    name: 'Directory Controls',
+    href: '/society/directory',
+    icon: List,
+    permission: PERMISSIONS.DIRECTORY_VIEW
+  },
+  {
+    name: 'Visitor & Event Logs',
+    href: '/society/visitors',
+    icon: LogIn,
+    permission: PERMISSIONS.VISITOR_LOGS
+  }
 ];
 
-export default function Sidebar({ collapsed, onToggle }) {
-  const { user, hasPermission } = useAuth();
+/* =========================
+   SIDEBAR COMPONENT
+========================= */
+
+export default function Sidebar({ collapsed }) {
+  const { user } = useAuth();
   const location = useLocation();
-  const [expandedItems, setExpandedItems] = useState(new Set());
   const navigate = useNavigate();
-  const toggleExpanded = (itemName) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(itemName)) {
-      newExpanded.delete(itemName);
-    } else {
-      newExpanded.add(itemName);
-    }
-    setExpandedItems(newExpanded);
+  const [expandedItems, setExpandedItems] = useState(new Set());
+
+  const toggleExpanded = (name) => {
+    const updated = new Set(expandedItems);
+    updated.has(name) ? updated.delete(name) : updated.add(name);
+    setExpandedItems(updated);
   };
 
-  const isActive = (href) => {
-    return location.pathname === href || location.pathname.startsWith(href + '/');
-  };
+  const isActive = (href) =>
+    location.pathname === href ||
+    location.pathname.startsWith(href + '/');
 
-  const hasAnyChildActive = (children) => {
-    return children?.some(child => isActive(child.href));
-  };
-
-  // If user is manager, restrict add/delete actions
-  const isManager = user?.role && user.role.toLowerCase().includes('manager');
-  const restrictedActions = [
-    'create',
-    'delete'
-  ];
-  const filteredNavigation = navigation.filter((item) => {
-    if (isManager && item.name === 'Manage Manager') return false;
-    return true;
-  });
+  const hasActiveChild = (children) =>
+    children?.some((c) => isActive(c.href));
 
   return (
-    <div className={cn(
-      'bg-white border-r border-gray-200 flex flex-col transition-all duration-300',
-      collapsed ? 'w-16' : 'w-64'
-    )}>
-      {/* Logo */}
-     <div className="h-16 flex items-center justify-center px-4 border-b border-gray-200">
-  {collapsed ? (
-    // COLLAPSED LOGO
-    <div className="w-9 h-9 rounded-lg overflow-hidden">
-      <img
-        src="/WhatsApp Image 2025-12-15 at 4.36.20 PM (1).jpeg"
-        alt="24 Car Rental"
-        className="w-full h-full object-contain"
-      />
-    </div>
-  ) : (
-    // EXPANDED LOGO + NAME
     <div
-      className="flex items-center cursor-pointer"
-      onClick={() => navigate("/")}
+      className={cn(
+        'bg-white border-r border-gray-200 flex flex-col transition-all duration-300',
+        collapsed ? 'w-16' : 'w-64'
+      )}
     >
-      <div className="w-16 h-16 rounded-lg overflow-hidden mr-3">
-        <img
-          src="/WhatsApp Image 2025-12-15 at 4.36.20 PM (1).jpeg"
-          alt="24 Car Rental"
-          className="w-full h-full object-contain"
-        />
+      {/* LOGO */}
+      <div className="h-16 flex items-center justify-center border-b border-gray-200">
+        <div
+          className="cursor-pointer"
+          onClick={() => navigate('/dashboard')}
+        >
+          <img
+            src="/Urbankey.jpeg"
+            alt="Urbankey Logo"
+            className={cn(
+              'object-contain',
+              collapsed ? 'w-8 h-8' : 'w-20 h-12'
+            )}
+          />
+        </div>
       </div>
 
-     
-    </div>
-  )}
-</div>
+      {/* NAVIGATION */}
+      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+        {navigation.map((item) => {
+          const expanded = expandedItems.has(item.name);
+          const activeChild = hasActiveChild(item.children);
 
+          if (item.children) {
+            return (
+              <div key={item.name}>
+                <button
+                  onClick={() => !collapsed && toggleExpanded(item.name)}
+                  className={cn(
+                    'sidebar-link w-full justify-between',
+                    (expanded || activeChild) && 'active'
+                  )}
+                >
+                  <div className="flex items-center">
+                    <item.icon className="h-5 w-5 mr-3" />
+                    {!collapsed && <span>{item.name}</span>}
+                  </div>
+                  {!collapsed &&
+                    (expanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    ))}
+                </button>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-hide">
-        {filteredNavigation.map((item) => {
-          const hasChildren = item.children && item.children.length > 0;
-          const isExpanded = expandedItems.has(item.name);
-          const hasActiveChild = hasAnyChildActive(item.children);
+                {!collapsed && expanded && (
+                  <div className="ml-8 mt-1 space-y-1">
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.href}
+                        to={child.href}
+                        className={({ isActive }) =>
+                          cn(
+                            'block px-3 py-2 text-sm rounded-md text-gray-600 hover:bg-gray-50',
+                            isActive && 'bg-primary-50 text-primary-700'
+                          )
+                        }
+                      >
+                        {child.name}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
 
           return (
-            <div key={item.name}>
-              {hasChildren ? (
-                <>
-                  <button
-                    onClick={() => !collapsed && toggleExpanded(item.name)}
-                    className={cn(
-                      'sidebar-link w-full justify-between',
-                      (hasActiveChild || isExpanded) && 'active'
-                    )}
-                    title={collapsed ? item.name : ''}
-                  >
-                    <div className="flex items-center">
-                      <item.icon className="h-5 w-5 mr-3" />
-                      {!collapsed && <span>{item.name}</span>}
-                    </div>
-                    {!collapsed && (
-                      <div className="ml-auto">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                    )}
-                  </button>
-                  
-                  {!collapsed && isExpanded && (
-                    <div className="ml-8 mt-1 space-y-1">
-                      {item.children.map((child) => (
-                        <NavLink
-                          key={child.href}
-                          to={child.href}
-                          className={({ isActive }) => cn(
-                            'block px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md',
-                            isActive && 'text-primary-700 bg-primary-50'
-                          )}
-                        >
-                          {child.name}
-                        </NavLink>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <NavLink
-                  to={item.href}
-                  className={({ isActive }) => cn(
-                    'sidebar-link',
-                    isActive && 'active'
-                  )}
-                  title={collapsed ? item.name : ''}
-                >
-                  <item.icon className="h-5 w-5 mr-3" />
-                  {!collapsed && <span>{item.name}</span>}
-                </NavLink>
-              )}
-            </div>
+            <NavLink
+              key={item.name}
+              to={item.href}
+              className={({ isActive }) =>
+                cn('sidebar-link', isActive && 'active')
+              }
+            >
+              <item.icon className="h-5 w-5 mr-3" />
+              {!collapsed && <span>{item.name}</span>}
+            </NavLink>
           );
         })}
       </nav>
 
-      {/* User Info */}
+      {/* USER INFO */}
       {!collapsed && (
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
@@ -567,8 +235,10 @@ export default function Sidebar({ collapsed, onToggle }) {
               </span>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">{user?.name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user?.role === 'fleet_manager' ? 'Manager' : user?.role?.replace('_', ' ')}</p>
+              <p className="text-sm font-medium">{user?.name}</p>
+              <p className="text-xs text-gray-500 capitalize">
+                {user?.role?.replace('_', ' ')}
+              </p>
             </div>
           </div>
         </div>

@@ -9,7 +9,7 @@ export default function DashboardSocket() {
   const { addNotification } = useNotifications();
 
   useEffect(() => {
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
     const token = user?.token;
 
     // Connect with optional auth token (server can choose to validate or ignore)

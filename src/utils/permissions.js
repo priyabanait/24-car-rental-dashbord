@@ -3,6 +3,51 @@ export const PERMISSIONS = {
   // Dashboard permissions
   DASHBOARD_VIEW: 'dashboard.view',
   DASHBOARD_ANALYTICS: 'dashboard.analytics',
+
+  // =========================
+  // Society Management (NEW)
+  // =========================
+  // High-level society admin
+  SOCIETY_ADMIN_VIEW: 'society.admin.view',
+
+  // Core society data
+  SOCIETY_MANAGE: 'society.manage',
+  SOCIETY_TOWERS_FLATS_VIEW: 'society.towersflats.view',
+  SOCIETY_TOWERS_FLATS_EDIT: 'society.towersflats.edit',
+  SOCIETY_RESIDENTS_VIEW: 'society.residents.view',
+  SOCIETY_RESIDENTS_EDIT: 'society.residents.edit',
+
+  // Approvals
+  SOCIETY_APPROVALS: 'society.approvals',
+  SOCIETY_APPROVALS_USERS: 'society.approvals.users',
+  SOCIETY_APPROVALS_MEMBERS: 'society.approvals.members',
+
+  // Amenities & bookings
+  AMENITIES_VIEW: 'amenities.view',
+  AMENITIES_MANAGE: 'amenities.manage',
+
+  // Helpdesk & tickets (society-facing)
+  HELPDESK_VIEW: 'helpdesk.view',
+  HELPDESK_MANAGE: 'helpdesk.manage',
+
+  // Announcements & community wall
+  ANNOUNCEMENTS_VIEW: 'announcements.view',
+  ANNOUNCEMENTS_MANAGE: 'announcements.manage',
+
+  // Polls
+  POLLS_VIEW: 'polls.view',
+  POLLS_MANAGE: 'polls.manage',
+
+  // Maintenance & billing reports
+  MAINTENANCE_REPORTS: 'maintenance.reports',
+
+  // Directory visibility & controls
+  DIRECTORY_VIEW: 'directory.view',
+  DIRECTORY_MANAGE: 'directory.manage',
+
+  // Visitors & event logs
+  VISITOR_LOGS: 'visitors.logs',
+  VISITOR_MANAGE: 'visitors.manage',
   
   // Driver management permissions
   DRIVERS_VIEW: 'drivers.view',
@@ -91,6 +136,56 @@ export const ROLES = {
     description: 'Full access to all features and settings',
     permissions: Object.values(PERMISSIONS), // All permissions
     color: 'red'
+  },
+
+  // =========================
+  // Society Management Roles
+  // =========================
+  SOCIETY_ADMIN: {
+    id: 'society_admin',
+    name: 'Society Admin',
+    description: 'Manage society configuration, residents, amenities, and community features',
+    permissions: [
+      PERMISSIONS.DASHBOARD_VIEW,
+      PERMISSIONS.DASHBOARD_ANALYTICS,
+
+      PERMISSIONS.SOCIETY_ADMIN_VIEW,
+      PERMISSIONS.SOCIETY_MANAGE,
+      PERMISSIONS.SOCIETY_TOWERS_FLATS_VIEW,
+      PERMISSIONS.SOCIETY_TOWERS_FLATS_EDIT,
+      PERMISSIONS.SOCIETY_RESIDENTS_VIEW,
+      PERMISSIONS.SOCIETY_RESIDENTS_EDIT,
+      PERMISSIONS.SOCIETY_APPROVALS,
+      PERMISSIONS.SOCIETY_APPROVALS_USERS,
+      PERMISSIONS.SOCIETY_APPROVALS_MEMBERS,
+
+      PERMISSIONS.AMENITIES_VIEW,
+      PERMISSIONS.AMENITIES_MANAGE,
+
+      PERMISSIONS.HELPDESK_VIEW,
+      PERMISSIONS.HELPDESK_MANAGE,
+
+      PERMISSIONS.ANNOUNCEMENTS_VIEW,
+      PERMISSIONS.ANNOUNCEMENTS_MANAGE,
+
+      PERMISSIONS.POLLS_VIEW,
+      PERMISSIONS.POLLS_MANAGE,
+
+      PERMISSIONS.MAINTENANCE_REPORTS,
+
+      PERMISSIONS.DIRECTORY_VIEW,
+      PERMISSIONS.DIRECTORY_MANAGE,
+
+      PERMISSIONS.VISITOR_LOGS,
+      PERMISSIONS.VISITOR_MANAGE,
+
+      // Can see standard reports
+      PERMISSIONS.REPORTS_VIEW,
+      PERMISSIONS.REPORTS_EXPORT,
+      PERMISSIONS.REPORTS_PERFORMANCE,
+      PERMISSIONS.REPORTS_FINANCIAL,
+    ],
+    color: 'teal'
   },
   
   FLEET_MANAGER: {

@@ -59,7 +59,7 @@ export default function SuperAdminDashboard() {
     (async () => {
       setLoading(true);
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
         
         // Fetch all data in parallel
         const [

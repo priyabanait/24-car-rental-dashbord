@@ -29,7 +29,7 @@ export default function Header({ onToggleSidebar, sidebarCollapsed }) {
     if (path.startsWith('/tickets')) return 'Ticket System';
     if (path.startsWith('/hr')) return 'HR Management';
     if (path.startsWith('/settings')) return null;
-    return '24 Car Rental Admin';
+    return 'Urbankey Admin';
   };
 
   const pageTitle = getPageTitle();

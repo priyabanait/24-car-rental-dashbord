@@ -52,7 +52,7 @@ export default function PerformanceReports() {
     (async () => {
       setLoading(true);
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'https://24-car-rental-backend.vercel.app';
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
         
         // Fetch all performance-related data in parallel
         const [driversRes, vehiclesRes, expensesRes, transactionsRes, ticketsRes] = await Promise.all([

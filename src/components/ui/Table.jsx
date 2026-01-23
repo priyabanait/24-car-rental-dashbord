@@ -50,3 +50,6 @@ export function TableCell({ children, className, ...props }) {
     </td>
   );
 }
+
+// Allow both named and default imports
+export default Table;

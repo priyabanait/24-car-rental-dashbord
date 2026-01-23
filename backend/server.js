@@ -1,68 +1,165 @@
-import 'dotenv/config';
 import express from 'express';
+import mongoose from 'mongoose';
 import cors from 'cors';
-import apiRoutes from './routes/api.js';
-import { connectDB, seedDB } from './db.js';
+import dotenv from 'dotenv';
+import morgan from 'morgan';
 import { createServer } from 'http';
-import { Server as IOServer } from 'socket.io';
+import { Server } from 'socket.io';
+
+// Routes
+import amenityBookingRoutes from './routes/amenityBookingRoutes.js';
+import amenityRoutes from './routes/amenityRoutes.js';
+import announcementRoutes from './routes/announcementRoutes.js';
+import approvalRoutes from './routes/approvalRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import authenticationRoutes from './routes/authentication.js';
+import familyMemberRoutes from './routes/familyMemberRoutes.js';
+import flatRoutes from './routes/flatRoutes.js';
+import helpdeskRoutes from './routes/helpdeskRoutes.js';
+import maintenanceRoutes from './routes/maintenanceRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import pollRoutes from './routes/pollRoutes.js';
+import residentRoutes from './routes/residentRoutes.js';
+import towerRoutes from './routes/towerRoutes.js';
+import visitorRoutes from './routes/visitorRoutes.js';
+
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const httpServer = createServer(app);
 
-// ✅ Allow frontend devices (update origin if needed)
-app.use(cors({
-  origin: "*", // or "http://192.168.1.57:3000" for your frontend
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-}));
+// ---------------- SOCKET.IO ----------------
+// Socket.IO only works in non-serverless environments
+let io;
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_WEBSOCKETS === 'true') {
+  io = new Server(httpServer, {
+    cors: {
+      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+      credentials: true
+    }
+  });
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+  app.locals.io = io;
 
-app.use('/api', apiRoutes);
-
-app.get('/', (req, res) => {
-  res.send({ status: '24 Car Rental backend', version: '0.1.0' });
-});
-
-async function start() {
-  try {
-    await connectDB();
-    await seedDB();
-
-    // Create HTTP server and attach socket.io
-    const httpServer = createServer(app);
-    const io = new IOServer(httpServer, {
-      cors: { origin: '*' }
+  io.on('connection', (socket) => {
+    console.log('🔌 Socket connected:', socket.id);
+    socket.on('disconnect', () => {
+      console.log('❌ Socket disconnected:', socket.id);
     });
-
-    // Attach io to app so route handlers can emit events
-    app.locals.io = io;
-
-    io.on('connection', (socket) => {
-      console.log('Socket connected:', socket.id);
-
-      socket.on('joinDashboard', () => {
-        socket.join('dashboard');
-        console.log('Socket joined dashboard:', socket.id);
-      });
-
-      socket.on('leaveDashboard', () => {
-        socket.leave('dashboard');
-      });
-
-      socket.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', socket.id, reason);
-      });
-    });
-
-    // ✅ Important: listen on all interfaces
-    httpServer.listen(PORT, "0.0.0.0", () => {
-      console.log(`✅ 24 Car Rental backend listening on http://localhost:${PORT}`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  }
+  });
+} else {
+  // Mock io for serverless environments
+  app.locals.io = {
+    emit: () => {},
+    to: () => ({ emit: () => {} })
+  };
+  console.log('⚠️  Socket.IO disabled in serverless mode');
 }
 
-start();
+// ---------------- MIDDLEWARE ----------------
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.path}`);
+  console.log('Content-Type:', req.headers['content-type']);
+  console.log('Body:', req.body);
+  next();
+});
+
+app.use(morgan('dev'));
+
+// ---------------- DATABASE ----------------
+// Import the connection helper
+import connectDB from './config/db.js';
+
+// Connect to MongoDB (serverless-friendly)
+if (process.env.NODE_ENV !== 'production') {
+  // Development: connect once at startup
+  connectDB().catch(err => console.error('❌ MongoDB Error:', err));
+} else {
+  // Production (Vercel): connection happens per request via middleware
+  app.use(async (req, res, next) => {
+    try {
+      await connectDB();
+      next();
+    } catch (err) {
+      console.error('Database connection error:', err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Database connection failed' 
+      });
+    }
+  });
+}
+
+// ---------------- ROUTES ----------------
+app.use('/api/auth', authRoutes);
+app.use('/api/users', authenticationRoutes);
+app.use('/api/managers', authRoutes);
+app.use('/api/towers', towerRoutes);
+app.use('/api/flats', flatRoutes);
+app.use('/api/amenities', amenityRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/polls', pollRoutes);
+app.use('/api/helpdesk', helpdeskRoutes);
+app.use('/api/visitors', visitorRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/approvals', approvalRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/members', residentRoutes);
+app.use('/api/residents', residentRoutes);
+app.use('/api/family-members', familyMemberRoutes);
+app.use('/api/amenity-bookings', amenityBookingRoutes);
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Society Gate Management API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      users: '/api/users',
+      residents: '/api/residents',
+      towers: '/api/towers',
+      flats: '/api/flats',
+      amenities: '/api/amenities',
+      bookings: '/api/amenity-bookings'
+    }
+  });
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ success: true, message: 'Server running' });
+});
+
+// ---------------- ERROR HANDLER ----------------
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal Server Error'
+  });
+});
+
+// ---------------- START SERVER ----------------
+const PORT = process.env.PORT || 5000;
+
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+}
+
+// Export for Vercel serverless
+export default app;
